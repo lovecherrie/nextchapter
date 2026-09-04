@@ -1,38 +1,56 @@
 async function getBookCover(title: string, author: string) {
   try {
-    const searches = [
-      `"${title}" "${author}"`,
-      `${title} ${author}`,
-      `${title}`,
-    ];
+    // 1. TRY GOOGLE BOOKS
+    const googleQuery = encodeURIComponent(`${title} ${author}`);
 
-    for (const search of searches) {
-      const query = encodeURIComponent(search);
+    const googleResponse = await fetch(
+      `https://www.googleapis.com/books/v1/volumes?q=${googleQuery}&maxResults=5`
+    );
 
-      const response = await fetch(
-        `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=5`
+    if (googleResponse.ok) {
+      const googleData = await googleResponse.json();
+
+      if (googleData?.items?.length) {
+        for (const item of googleData.items) {
+          const imageLinks = item?.volumeInfo?.imageLinks;
+
+          const cover =
+            imageLinks?.extraLarge ||
+            imageLinks?.large ||
+            imageLinks?.medium ||
+            imageLinks?.small ||
+            imageLinks?.thumbnail ||
+            imageLinks?.smallThumbnail;
+
+          if (cover) {
+            return cover
+              .replace("http://", "https://")
+              .replace("&edge=curl", "");
+          }
+        }
+      }
+    }
+
+    // 2. FALLBACK: OPEN LIBRARY SEARCH
+    const openLibraryQuery = new URLSearchParams({
+      title: title,
+      author: author,
+      limit: "5",
+    });
+
+    const openLibraryResponse = await fetch(
+      `https://openlibrary.org/search.json?${openLibraryQuery.toString()}`
+    );
+
+    if (openLibraryResponse.ok) {
+      const openLibraryData = await openLibraryResponse.json();
+
+      const bookWithCover = openLibraryData?.docs?.find(
+        (book: any) => book.cover_i
       );
 
-      if (!response.ok) continue;
-
-      const data = await response.json();
-
-      if (!data?.items?.length) continue;
-
-      for (const item of data.items) {
-        const volumeInfo = item?.volumeInfo;
-
-        const cover =
-          volumeInfo?.imageLinks?.extraLarge ||
-          volumeInfo?.imageLinks?.large ||
-          volumeInfo?.imageLinks?.medium ||
-          volumeInfo?.imageLinks?.small ||
-          volumeInfo?.imageLinks?.thumbnail ||
-          volumeInfo?.imageLinks?.smallThumbnail;
-
-        if (cover) {
-          return cover.replace("http://", "https://");
-        }
+      if (bookWithCover?.cover_i) {
+        return `https://covers.openlibrary.org/b/id/${bookWithCover.cover_i}-L.jpg`;
       }
     }
 
