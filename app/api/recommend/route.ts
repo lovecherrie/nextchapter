@@ -10,8 +10,8 @@ export async function POST(req: Request) {
       avoid,
     } = body;
 
-    const prompt = `
-Recommend ONE real book for this reader.
+const prompt = `
+Recommend exactly 5 real published books for this reader.
 
 Books they liked:
 ${likedBooks || "Not provided"}
@@ -29,11 +29,22 @@ Avoid:
 ${avoid?.join(", ") || "Nothing specified"}
 
 Return ONLY valid JSON in exactly this format:
+
 {
-  "title": "Book title",
-  "author": "Author name",
-  "reason": "Short explanation of why this fits the reader"
+  "recommendations": [
+    {
+      "title": "Book title",
+      "author": "Author name",
+      "reason": "Short explanation of why this book matches the reader"
+    }
+  ]
 }
+
+Rules:
+- Return exactly 5 recommendations.
+- Only recommend real published books.
+- Do not recommend books the user listed as already liked or disliked.
+- Keep each reason short.
 `;
 
     const response = await fetch(
