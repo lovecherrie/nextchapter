@@ -1,6 +1,6 @@
 async function getBookCover(title: string, author: string) {
   try {
-    // 1. TRY GOOGLE BOOKS
+    // GOOGLE BOOKS
     const googleQuery = encodeURIComponent(`${title} ${author}`);
 
     const googleResponse = await fetch(
@@ -31,7 +31,7 @@ async function getBookCover(title: string, author: string) {
       }
     }
 
-    // 2. FALLBACK: OPEN LIBRARY
+    // OPEN LIBRARY FALLBACK
     const openLibraryQuery = new URLSearchParams({
       title,
       author,
@@ -84,7 +84,45 @@ function cleanAIText(value: string) {
   return cleaned;
 }
 
-async function callGroq(prompt: string, temperature = 0.6) {
+function normalizeText(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isBookExcluded(
+  title: string,
+  exclusionStrings: string[]
+) {
+  const normalizedTitle = normalizeText(title);
+
+  if (!normalizedTitle) {
+    return true;
+  }
+
+  return exclusionStrings.some((item) => {
+    const normalizedItem = normalizeText(item);
+
+    if (!normalizedItem) {
+      return false;
+    }
+
+    return (
+      normalizedItem === normalizedTitle ||
+      normalizedItem.includes(normalizedTitle) ||
+      normalizedTitle.includes(normalizedItem)
+    );
+  });
+}
+
+async function callGroq(
+  prompt: string,
+  temperature = 0.7
+) {
   const response = await fetch(
     "https://api.groq.com/openai/v1/chat/completions",
     {
@@ -94,18 +132,18 @@ async function callGroq(prompt: string, temperature = 0.6) {
         Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
       },
       body: JSON.stringify({
-  model: "openai/gpt-oss-20b",
-  messages: [
-    {
-      role: "user",
-      content: prompt,
-    },
-  ],
-  temperature,
-  max_completion_tokens: 1800,
-  reasoning_effort: "low",
-  include_reasoning: false,
-}),
+        model: "openai/gpt-oss-20b",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature,
+        max_completion_tokens: 2200,
+        reasoning_effort: "low",
+        include_reasoning: false,
+      }),
     }
   );
 
@@ -128,6 +166,28 @@ async function callGroq(prompt: string, temperature = 0.6) {
   return text;
 }
 
+function parseRecommendations(text: string) {
+  const cleaned = cleanAIText(text);
+
+  const parsed = JSON.parse(cleaned);
+
+  if (
+    !parsed?.recommendations ||
+    !Array.isArray(parsed.recommendations)
+  ) {
+    throw new Error(
+      "AI returned recommendations in the wrong format."
+    );
+  }
+
+  return parsed.recommendations.filter(
+    (book: any) =>
+      typeof book?.title === "string" &&
+      typeof book?.author === "string" &&
+      typeof book?.reason === "string"
+  );
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -143,14 +203,33 @@ export async function POST(req: Request) {
       previousRecommendations,
     } = body;
 
-    const prompt = `
-You are a highly selective personalized book recommendation engine.
+    const previous = Array.isArray(previousRecommendations)
+      ? previousRecommendations
+      : [];
 
-Recommend exactly 5 real published books for this reader.
+    /*
+      These are HARD exclusions.
+
+      Even if the AI ignores our instructions,
+      the backend removes these books before
+      returning anything to the website.
+    */
+    const hardExclusions: string[] = [
+      likedBooks || "",
+      dislikedBooks || "",
+      ...previous,
+    ].filter(Boolean);
+
+    const prompt = `
+You are NextChapter's personalized book recommendation engine.
+
+Your job is to find books that genuinely fit the reader's COMPLETE taste profile.
+
+Generate 10 candidate books so the system can choose the best 5.
 
 USER PROFILE
 
-Books they liked:
+Books they loved:
 ${likedBooks || "Not provided"}
 
 Books they disliked:
@@ -168,171 +247,216 @@ ${readingStyle?.join(", ") || "No preference"}
 Things to avoid:
 ${avoid?.join(", ") || "Nothing specified"}
 
-Anything else the reader wants:
+Additional request:
 ${extraNotes || "Nothing specified"}
 
-Books already recommended in this session:
-${previousRecommendations?.join(", ") || "None"}
+BOOKS THAT ARE ABSOLUTELY FORBIDDEN
 
-HOW TO CHOOSE THE BOOKS
+The following books have either already been read by the user,
+were disliked by the user,
+or have already been recommended during this session:
 
-Before choosing the final recommendations, consider multiple candidate books and compare them against ALL of the user's inputs.
+${hardExclusions.length > 0
+  ? hardExclusions.join("\n")
+  : "None"}
+
+NEVER recommend any book from the forbidden list.
+
+RECOMMENDATION LOGIC
+
+Evaluate the reader's COMPLETE combination of preferences.
 
 Prioritize:
 
-1. Strongly avoid qualities likely related to books the reader disliked.
-2. Understand what the reader may have enjoyed about the books they liked.
-3. Match the reader's current mood.
-4. Match the qualities they say matter most.
-5. Match their preferred reading experience.
-6. Respect everything in the avoid list.
-7. Respect any specific requests in the extra notes.
-8. Do not recommend a book simply because it is popular or belongs to the same broad genre.
+1. Learn what qualities connect the books they loved.
+2. Learn what qualities may explain the books they disliked.
+3. Match their current mood.
+4. Strongly match their selected priorities.
+5. Match their preferred reading style.
+6. Respect the avoid list.
+7. Respect their additional written request.
+8. Accuracy is more important than popularity.
+9. Do not recommend a book merely because it belongs to the same genre.
+10. Do not default to the same famous books for every reader.
 
-ACCURACY VS VARIETY
+VARIETY
 
-Accuracy is more important than novelty.
+The recommendations should all strongly fit the reader,
+but they should not feel like five copies of the same book.
 
-A popular or commonly recommended book is allowed if it is genuinely one of the strongest matches.
+It is okay to include popular books when they are genuinely excellent matches.
 
-However:
-- Do not lazily default to the same famous books for every reader.
-- If the user's preferences change significantly, the recommendations should also change.
-- The 5 recommendations should not all be nearly identical.
-- Provide variety when possible while keeping every recommendation strongly relevant.
-- Do not force diversity if it reduces recommendation accuracy.
+Do NOT force random or unrelated diversity.
 
-IMPORTANT RULES
+The goal is:
+HIGH ACCURACY + USEFUL VARIETY.
 
-- Only recommend REAL published books.
-- Return exactly 5 books.
-- Do not recommend books the reader listed as liked.
-- Do not recommend books the reader listed as disliked.
-- Do not recommend books listed under "Books already recommended in this session."
-- Consider the full combination of preferences, not just one keyword.
-- If preferences conflict, choose books that best balance them.
-- Each reason must be specific to this reader.
-- Keep every reason under 30 words.
-- Do not use markdown.
-- Do not include commentary before or after the JSON.
+REASONS
 
-Return ONLY valid JSON using exactly this structure:
+Each reason should explain specifically WHY the book fits this reader.
 
-{
-  "recommendations": [
-    {
-      "title": "Book title",
-      "author": "Author name",
-      "reason": "Short specific reason"
-    }
-  ]
-}
-`;
+Reference relevant preferences such as:
+- books they loved
+- mood
+- pacing
+- plot twists
+- atmosphere
+- reading style
+- things they want to avoid
 
-    // FIRST ATTEMPT
-    const firstText = await callGroq(prompt, 0.6);
+Keep each reason under 30 words.
 
-    let parsed: any;
-
-    try {
-      parsed = JSON.parse(cleanAIText(firstText));
-    } catch (firstParseError) {
-      console.error(
-        "First JSON parse failed:",
-        firstParseError
-      );
-
-      // RETRY ONCE WITH STRICTER INSTRUCTIONS
-      const retryPrompt = `
-The previous response was not valid JSON.
-
-Generate the recommendation again.
-
-${prompt}
-
-STRICT OUTPUT REQUIREMENTS:
+OUTPUT
 
 Return ONLY valid JSON.
 
 Do not use markdown.
 Do not use code fences.
-Do not write anything before the opening { character.
-Do not write anything after the closing } character.
-Every string must have properly closed quotation marks.
-Every object and array must be properly closed.
-Keep every reason under 25 words.
+Do not write anything before or after the JSON.
 
-Return exactly:
+Use exactly this structure:
 
 {
   "recommendations": [
     {
       "title": "Book title",
       "author": "Author name",
-      "reason": "Short specific reason"
+      "reason": "Specific reason"
     }
   ]
 }
+
+Return 10 candidate books.
 `;
 
-      const retryText = await callGroq(
-        retryPrompt,
-        0.3
-      );
+    let collectedBooks: any[] = [];
+    let dynamicExclusions = [...hardExclusions];
+
+    /*
+      We allow up to 3 attempts.
+
+      This gives the backend room to remove:
+      - books already read
+      - books already recommended
+      - duplicates
+      - malformed results
+    */
+    for (
+      let attempt = 0;
+      attempt < 3 && collectedBooks.length < 5;
+      attempt++
+    ) {
+      const attemptPrompt =
+        attempt === 0
+          ? prompt
+          : `
+${prompt}
+
+ADDITIONAL FORBIDDEN BOOKS:
+
+${dynamicExclusions.join("\n")}
+
+The previous attempt contained books that had to be removed.
+
+Generate DIFFERENT valid candidates.
+
+Do not include anything from ANY forbidden list.
+`;
+
+      let candidates: any[] = [];
 
       try {
-        parsed = JSON.parse(
-          cleanAIText(retryText)
-        );
-      } catch (retryParseError) {
-        console.error(
-          "Retry JSON parse failed:",
-          retryParseError
+        const text = await callGroq(
+          attemptPrompt,
+          attempt === 0 ? 0.7 : 0.8
         );
 
-        throw new Error(
-          "AI returned invalid recommendation data. Please try again."
+        candidates = parseRecommendations(text);
+      } catch (error) {
+        console.error(
+          `Recommendation attempt ${attempt + 1} failed:`,
+          error
+        );
+
+        continue;
+      }
+
+      for (const book of candidates) {
+        if (collectedBooks.length >= 5) {
+          break;
+        }
+
+        const title = book.title.trim();
+        const author = book.author.trim();
+        const reason = book.reason.trim();
+
+        // HARD FILTER
+        if (
+          isBookExcluded(
+            title,
+            dynamicExclusions
+          )
+        ) {
+          console.log(
+            "Blocked excluded recommendation:",
+            title
+          );
+
+          continue;
+        }
+
+        // BLOCK DUPLICATES IN THIS RESPONSE
+        const alreadyCollected =
+          collectedBooks.some(
+            (existingBook) =>
+              normalizeText(existingBook.title) ===
+              normalizeText(title)
+          );
+
+        if (alreadyCollected) {
+          console.log(
+            "Blocked duplicate recommendation:",
+            title
+          );
+
+          continue;
+        }
+
+        collectedBooks.push({
+          title,
+          author,
+          reason,
+        });
+
+        dynamicExclusions.push(
+          `${title} by ${author}`
         );
       }
     }
 
-    if (
-      !parsed?.recommendations ||
-      !Array.isArray(parsed.recommendations)
-    ) {
+    if (collectedBooks.length < 5) {
       throw new Error(
-        "AI returned recommendations in the wrong format."
+        "Could not find 5 new matching books. Please try again."
       );
     }
 
-    const validRecommendations =
-      parsed.recommendations
-        .filter(
-          (book: any) =>
-            typeof book?.title === "string" &&
-            typeof book?.author === "string" &&
-            typeof book?.reason === "string"
-        )
-        .slice(0, 5);
+    const finalFive =
+      collectedBooks.slice(0, 5);
 
-    if (validRecommendations.length !== 5) {
-      throw new Error(
-        "AI did not return exactly 5 valid recommendations."
-      );
-    }
-
+    // ADD COVERS
     const recommendationsWithCovers =
       await Promise.all(
-        validRecommendations.map(
+        finalFive.map(
           async (book: {
             title: string;
             author: string;
             reason: string;
           }) => {
-            const cover = await getBookCover(
-              book.title,
-              book.author
-            );
+            const cover =
+              await getBookCover(
+                book.title,
+                book.author
+              );
 
             return {
               ...book,
