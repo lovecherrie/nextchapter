@@ -257,6 +257,9 @@ export default function NextRead() {
           readingStyle,
           avoid,
           extraNotes,
+          previousRecommendations: recommendations.map(
+  (book) => `${book.title} by ${book.author}`
+),
         }),
       });
 

@@ -66,14 +66,15 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     const {
-      likedBooks,
-      dislikedBooks,
-      mood,
-      matters,
-      readingStyle,
-      avoid,
-      extraNotes,
-    } = body;
+  likedBooks,
+  dislikedBooks,
+  mood,
+  matters,
+  readingStyle,
+  avoid,
+  extraNotes,
+  previousRecommendations,
+} = body;
 
     const prompt = `
 You are a highly selective personalized book recommendation engine.
@@ -102,6 +103,9 @@ ${avoid?.join(", ") || "Nothing specified"}
 
 Anything else the reader wants:
 ${extraNotes || "Nothing specified"}
+
+Books already recommended in this session:
+${previousRecommendations?.join(", ") || "None"}
 
 HOW TO CHOOSE THE BOOKS
 
@@ -135,6 +139,7 @@ IMPORTANT
 
 - Only recommend REAL published books.
 - Do not recommend any book the reader already listed as liked or disliked.
+- Do not recommend any book listed under "Books already recommended in this session."
 - Think about the full combination of preferences, not just one keyword.
 - If the user gives conflicting preferences, choose books that best balance those preferences.
 - Keep each explanation specific and short.
