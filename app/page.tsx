@@ -48,8 +48,8 @@ export default function NextRead() {
     setNewTitle(""); setNewComment("");
   };
 
-  // --- THE FINAL AI FIX (Hardcoded Key for Testing) ---
- const getRec = async () => {
+  // --- AI LOGIC (MODEL UPDATED TO 8B) ---
+  const getRec = async () => {
     setLoading(true);
     setResult(null); 
     try {
@@ -59,9 +59,8 @@ export default function NextRead() {
       - Mood: ${mood}
       - Priorities: ${matters.join(", ")}
       - Avoid: ${avoid.join(", ")}
-      Respond ONLY with a JSON object: { "title": "Book Title", "author": "Author Name", "reason": "Short explanation." }`;
+      Respond only with JSON: { "title": "Book Title", "author": "Author Name", "reason": "Explanation." }`;
 
-      // กลับมาใช้ process.env เพื่อความปลอดภัย
       const response = await fetch(`https://api.groq.com/openai/v1/chat/completions`, {
         method: "POST",
         headers: { 
@@ -69,14 +68,14 @@ export default function NextRead() {
           "Authorization": `Bearer ${process.env.NEXT_PUBLIC_AI_KEY}` 
         },
         body: JSON.stringify({
-          model: "llama-3.1-8b-instant", // เปลี่ยนเป็นชื่อนี้ครับ มั่นใจว่าใช้ได้แน่นอน
+          model: "llama-3.1-8b-instant", 
           messages: [{ role: "user", content: prompt }],
           response_format: { type: "json_object" }
         })
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error?.message || "Check Vercel Config");
+      if (!response.ok) throw new Error(data.error?.message || "Check Key");
       
       const text = data.choices[0].message.content;
       setResult(JSON.parse(text));
@@ -86,46 +85,31 @@ export default function NextRead() {
       setLoading(false);
     }
   };
+
   return (
     <main className="min-h-screen bg-white text-black font-sans relative">
-      <nav className="sticky top-0 z-30 bg-white border-b-2 border-black px-6 py-4 flex justify-between items-center">
-        <h1 className="text-2xl font-black tracking-tighter cursor-pointer" onClick={() => setView("find")}>NEXTREAD</h1>
-        <div className="flex gap-8 text-[10px] font-black uppercase">
+      <nav className="sticky top-0 z-30 bg-white border-b-2 border-black px-6 py-4 flex justify-between items-center text-black">
+        <h1 className="text-2xl font-black tracking-tighter cursor-pointer" onClick={() => setView("find")}>NEXTREAD v2</h1>
+        <div className="flex gap-8 text-[10px] font-black uppercase text-black">
           <button onClick={() => setView("find")} className={view === "find" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-400"}>Find Books</button>
           <button onClick={() => setView("community")} className={view === "community" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-400"}>Community Feed</button>
         </div>
       </nav>
 
-      <div className="max-w-2xl mx-auto p-6">
+      <div className="max-w-2xl mx-auto p-6 text-black">
         {view === "find" && (
-          <div className="space-y-12 py-6">
-            <header><h2 className="text-4xl font-black uppercase italic italic leading-none">Find Your Match</h2></header>
+          <div className="space-y-12 py-6 pb-20">
+            <header><h2 className="text-4xl font-black uppercase italic leading-none">Find Your Match</h2></header>
             <section className="space-y-4">
-              <h3 className="font-black uppercase text-[10px] text-gray-400">Step 1: History</h3>
+              <h3 className="font-black uppercase text-[10px] text-gray-400 underline tracking-widest">Step 1: History</h3>
               <input className="w-full p-4 border-2 border-gray-100 rounded-2xl outline-none focus:border-black text-black" placeholder="Books you liked..." value={likedBooks} onChange={e=>setLikedBooks(e.target.value)} />
               <input className="w-full p-4 border-2 border-gray-100 rounded-2xl outline-none focus:border-black text-black" placeholder="Books you hated..." value={dislikedBooks} onChange={e=>setDislikedBooks(e.target.value)} />
             </section>
             <section className="space-y-4">
-              <h3 className="font-black uppercase text-[10px] text-gray-400">Step 2: Mood</h3>
-              <div className="flex flex-wrap gap-2">
+              <h3 className="font-black uppercase text-[10px] text-gray-400 underline tracking-widest">Step 2: Mood</h3>
+              <div className="flex flex-wrap gap-2 text-black">
                 {moods.map(m => (
                   <button key={m.n} onClick={() => setMood(m.n)} className={`px-4 py-3 rounded-xl border-2 font-bold text-sm ${mood === m.n ? "bg-black text-white border-black" : "border-gray-100 bg-white text-black"}`}>{m.e} {m.n}</button>
-                ))}
-              </div>
-            </section>
-            <section className="space-y-4">
-              <h3 className="font-black uppercase text-[10px] text-gray-400">Step 3: Priorities</h3>
-              <div className="flex flex-wrap gap-2">
-                {priorities.map(p => (
-                  <button key={p} onClick={() => toggleMatter(p)} className={`px-4 py-2 rounded-lg border-2 font-bold text-xs ${matters.includes(p) ? "border-blue-600 bg-blue-50 text-blue-600" : "border-gray-100 text-gray-400"}`}>{p}</button>
-                ))}
-              </div>
-            </section>
-            <section className="space-y-4">
-              <h3 className="font-black uppercase text-[10px] text-gray-400">Step 4: Avoid</h3>
-              <div className="flex flex-wrap gap-2">
-                {avoids.map(a => (
-                  <button key={a} onClick={() => toggleAvoid(a)} className={`px-4 py-2 rounded-lg border-2 font-bold text-xs ${avoid.includes(a) ? "border-red-500 bg-red-50 text-red-500" : "border-gray-100 text-gray-400"}`}>{a}</button>
                 ))}
               </div>
             </section>
@@ -133,49 +117,15 @@ export default function NextRead() {
               {loading ? "Analyzing..." : "Get Recommendation"}
             </button>
             {result && (
-              <div className="mt-8 p-8 border-4 border-black rounded-[40px] bg-white animate-in zoom-in-95 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] text-black text-center">
+              <div className="mt-8 p-8 border-4 border-black rounded-[40px] bg-white text-black animate-in zoom-in-95 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]">
                 <h4 className="text-2xl font-black italic uppercase leading-none">{result.title}</h4>
-                <p className="text-blue-600 font-bold mb-4 uppercase text-xs tracking-widest">By {result.author}</p>
+                <p className="text-blue-600 font-bold mb-4 uppercase text-xs">By {result.author}</p>
                 <p className="text-sm text-gray-600 italic">"{result.reason}"</p>
               </div>
             )}
           </div>
         )}
-
-        {view === "community" && (
-          <div className="space-y-10 py-6 pb-24 text-black">
-            <header><h2 className="text-4xl font-black uppercase italic leading-none tracking-tighter">Reader's Feed</h2></header>
-            {posts.map(post => (
-              <div key={post.id} className="border-4 border-black rounded-[32px] p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white space-y-4">
-                <span className="bg-yellow-300 px-2 py-1 text-[10px] font-black uppercase inline-block">@{post.user}</span>
-                <h3 className="text-2xl font-black uppercase italic leading-tight">{post.title}</h3>
-                <div className="flex flex-wrap gap-2">
-                  <span className="text-[10px] font-black border-2 border-black px-2 py-1 rounded-full uppercase">Pacing: {post.pacing}/10</span>
-                </div>
-                {post.comment && <p className="text-sm bg-gray-50 p-4 rounded-2xl border-2 border-dashed border-gray-200 italic">"{post.comment}"</p>}
-              </div>
-            ))}
-          </div>
-        )}
       </div>
-
-      {view === "community" && (
-        <button onClick={() => setIsModalOpen(true)} className="fixed bottom-8 right-8 w-16 h-16 bg-black text-white rounded-2xl shadow-2xl flex items-center justify-center text-3xl border-4 border-white transition-all z-40">+</button>
-      )}
-
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-6">
-          <div className="bg-white w-full max-w-lg rounded-[40px] p-8 relative border-4 border-black">
-            <button onClick={() => setIsModalOpen(false)} className="absolute top-6 right-6 font-black uppercase text-[10px] underline">Close [X]</button>
-            <h2 className="text-2xl font-black uppercase italic mb-8">Post Review</h2>
-            <div className="space-y-6">
-              <input className="w-full p-4 border-2 border-gray-200 rounded-2xl font-bold text-black outline-none" placeholder="Book Title" value={newTitle} onChange={e=>setNewTitle(e.target.value)} />
-              <textarea className="w-full p-4 border-2 border-gray-200 rounded-2xl h-32 text-black outline-none" placeholder="Thoughts..." value={newComment} onChange={e=>setNewComment(e.target.value)} />
-              <button onClick={handlePost} className="w-full bg-black text-white py-5 rounded-2xl font-black uppercase">Post to Community</button>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   );
 }
