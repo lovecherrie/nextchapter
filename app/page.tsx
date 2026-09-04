@@ -27,35 +27,37 @@ export default function NextRead() {
 
   // --- THE STABLE AI LOGIC ---
   const getRec = async () => {
-    setLoading(true);
-    setResult(null); 
-    try {
-      const prompt = `Suggest ONE real book for: Likes ${likedBooks}, Hates ${dislikedBooks}, Mood ${mood}. Respond ONLY JSON: {"title":"...","author":"...","reason":"..."}`;
+  setLoading(true);
+  setResult(null);
 
-      const response = await fetch(`https://api.groq.com/openai/v1/chat/completions`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.NEXT_PUBLIC_AI_KEY}` 
-        },
-        body: JSON.stringify({
-          model: "llama3-8b-8192", // ตัวนี้คือตัวที่เสถียรที่สุดในโลกของ Groq ครับ
-          messages: [{ role: "user", content: prompt }],
-          response_format: { type: "json_object" }
-        })
-      });
+  try {
+    const response = await fetch("/api/recommend", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        likedBooks,
+        dislikedBooks,
+        mood,
+        matters,
+        avoid,
+      }),
+    });
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error?.message || "Connection Error");
-      
-      const text = data.choices[0].message.content;
-      setResult(JSON.parse(text));
-    } catch (error: any) {
-      alert("AI is sleepy: " + error.message);
-    } finally {
-      setLoading(false);
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Connection Error");
     }
-  };
+
+    setResult(data);
+  } catch (error: any) {
+    alert("AI is sleepy: " + error.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <main className="min-h-screen bg-white text-black p-6 font-sans">
