@@ -1,29 +1,42 @@
 async function getBookCover(title: string, author: string) {
   try {
-    const query = encodeURIComponent(
-      `intitle:${title} inauthor:${author}`
-    );
+    const searches = [
+      `"${title}" "${author}"`,
+      `${title} ${author}`,
+      `${title}`,
+    ];
 
-    const response = await fetch(
-      `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=1`
-    );
+    for (const search of searches) {
+      const query = encodeURIComponent(search);
 
-    if (!response.ok) {
-      return null;
+      const response = await fetch(
+        `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=5`
+      );
+
+      if (!response.ok) continue;
+
+      const data = await response.json();
+
+      if (!data?.items?.length) continue;
+
+      for (const item of data.items) {
+        const volumeInfo = item?.volumeInfo;
+
+        const cover =
+          volumeInfo?.imageLinks?.extraLarge ||
+          volumeInfo?.imageLinks?.large ||
+          volumeInfo?.imageLinks?.medium ||
+          volumeInfo?.imageLinks?.small ||
+          volumeInfo?.imageLinks?.thumbnail ||
+          volumeInfo?.imageLinks?.smallThumbnail;
+
+        if (cover) {
+          return cover.replace("http://", "https://");
+        }
+      }
     }
 
-    const data = await response.json();
-
-    const cover =
-      data?.items?.[0]?.volumeInfo?.imageLinks?.thumbnail ||
-      data?.items?.[0]?.volumeInfo?.imageLinks?.smallThumbnail ||
-      null;
-
-    if (!cover) {
-      return null;
-    }
-
-    return cover.replace("http://", "https://");
+    return null;
   } catch (error) {
     console.error("Book cover lookup failed:", error);
     return null;
