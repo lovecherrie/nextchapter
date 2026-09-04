@@ -175,7 +175,7 @@ Return exactly 5 recommendations.
           response_format: {
             type: "json_object",
           },
-          temperature: 0.8,
+          temperature: 0.7,
         }),
       }
     );
@@ -210,7 +210,23 @@ Return exactly 5 recommendations.
       );
     }
 
-    const parsed = JSON.parse(text);
+    let cleanedText = text.trim();
+
+if (cleanedText.startsWith("```json")) {
+  cleanedText = cleanedText
+    .replace(/^```json/, "")
+    .replace(/```$/, "")
+    .trim();
+}
+
+if (cleanedText.startsWith("```")) {
+  cleanedText = cleanedText
+    .replace(/^```/, "")
+    .replace(/```$/, "")
+    .trim();
+}
+
+const parsed = JSON.parse(cleanedText);
 
     if (
       !parsed.recommendations ||
