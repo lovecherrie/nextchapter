@@ -6,6 +6,7 @@ type Recommendation = {
   title: string;
   author: string;
   reason: string;
+  cover?: string | null;
 };
 
 export default function NextRead() {
@@ -237,11 +238,12 @@ export default function NextRead() {
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-[32px] border-4 border-black shadow-[10px_10px_0px_0px_rgba(0,0,0,1)]">
             
-            <div className="sticky top-0 bg-white border-b-2 border-black p-5 flex justify-between items-center">
+            <div className="sticky top-0 z-10 bg-white border-b-2 border-black p-5 flex justify-between items-center">
               <div>
                 <h3 className="text-2xl font-black uppercase italic">
                   Your Matches
                 </h3>
+
                 <p className="text-sm text-gray-500">
                   Here are 5 books picked for you.
                 </p>
@@ -259,23 +261,46 @@ export default function NextRead() {
               {recommendations.map((book, index) => (
                 <div
                   key={`${book.title}-${index}`}
-                  className="border-2 border-black rounded-2xl p-5"
+                  className="border-2 border-black rounded-2xl p-4"
                 >
-                  <p className="text-xs font-black text-gray-400 uppercase mb-1">
-                    Match #{index + 1}
-                  </p>
+                  <div className="flex gap-4">
+                    {/* BOOK COVER */}
+                    <div className="w-24 min-w-24 h-36 rounded-xl overflow-hidden bg-gray-100 border-2 border-black flex items-center justify-center">
+                      {book.cover ? (
+                        <img
+                          src={book.cover}
+                          alt={`${book.title} cover`}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="text-center px-2">
+                          <span className="text-2xl">📚</span>
+                          <p className="text-[10px] font-bold text-gray-400 mt-1">
+                            NO COVER
+                          </p>
+                        </div>
+                      )}
+                    </div>
 
-                  <h4 className="text-xl font-black uppercase italic leading-tight">
-                    {book.title}
-                  </h4>
+                    {/* BOOK INFO */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-black text-gray-400 uppercase mb-1">
+                        Match #{index + 1}
+                      </p>
 
-                  <p className="text-blue-600 font-bold text-sm uppercase tracking-wide mt-1">
-                    By {book.author}
-                  </p>
+                      <h4 className="text-xl font-black uppercase italic leading-tight">
+                        {book.title}
+                      </h4>
 
-                  <p className="text-gray-600 mt-4 leading-relaxed">
-                    {book.reason}
-                  </p>
+                      <p className="text-blue-600 font-bold text-sm uppercase tracking-wide mt-1">
+                        By {book.author}
+                      </p>
+
+                      <p className="text-gray-600 mt-3 leading-relaxed text-sm">
+                        {book.reason}
+                      </p>
+                    </div>
+                  </div>
 
                   <div className="flex gap-2 mt-4">
                     <button className="border-2 border-black rounded-xl px-4 py-2 font-bold text-sm">
@@ -294,7 +319,7 @@ export default function NextRead() {
               <button
                 onClick={getRec}
                 disabled={loading}
-                className="w-full bg-black text-white py-4 rounded-2xl font-black uppercase"
+                className="w-full bg-black text-white py-4 rounded-2xl font-black uppercase disabled:opacity-60"
               >
                 {loading ? "Finding more..." : "Give me another 5"}
               </button>

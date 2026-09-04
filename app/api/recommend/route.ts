@@ -1,3 +1,35 @@
+async function getBookCover(title: string, author: string) {
+  try {
+    const query = encodeURIComponent(
+      `intitle:${title} inauthor:${author}`
+    );
+
+    const response = await fetch(
+      `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=1`
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+
+    const cover =
+      data?.items?.[0]?.volumeInfo?.imageLinks?.thumbnail ||
+      data?.items?.[0]?.volumeInfo?.imageLinks?.smallThumbnail ||
+      null;
+
+    if (!cover) {
+      return null;
+    }
+
+    return cover.replace("http://", "https://");
+  } catch (error) {
+    console.error("Book cover lookup failed:", error);
+    return null;
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -10,7 +42,7 @@ export async function POST(req: Request) {
       avoid,
     } = body;
 
-const prompt = `
+    const prompt = `
 Recommend exactly 5 real published books for this reader.
 
 Books they liked:
@@ -92,14 +124,61 @@ Rules:
 
     if (!text) {
       return Response.json(
-        { error: "AI returned no response" },
-        { status: 500 }
+        {
+          error: "AI returned no response",
+        },
+        {
+          status: 500,
+        }
       );
     }
 
-    return Response.json(JSON.parse(text));
+    const parsed = JSON.parse(text);
+
+    if (
+      !parsed.recommendations ||
+      !Array.isArray(parsed.recommendations)
+    ) {
+      return Response.json(
+        {
+          error:
+            "AI returned recommendations in the wrong format",
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    const recommendationsWithCovers =
+      await Promise.all(
+        parsed.recommendations.map(
+          async (book: {
+            title: string;
+            author: string;
+            reason: string;
+          }) => {
+            const cover = await getBookCover(
+              book.title,
+              book.author
+            );
+
+            return {
+              ...book,
+              cover,
+            };
+          }
+        )
+      );
+
+    return Response.json({
+      recommendations: recommendationsWithCovers,
+    });
   } catch (error: any) {
-    console.error("Recommendation error:", error);
+    console.error(
+      "Recommendation error:",
+      error
+    );
 
     return Response.json(
       {
@@ -107,7 +186,9 @@ Rules:
           error?.message ||
           "Something went wrong",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }
