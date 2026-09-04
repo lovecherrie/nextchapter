@@ -3,10 +3,6 @@ import { useState } from "react";
 
 export default function NextRead() {
   const [view, setView] = useState("find"); 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false); 
-  const [reviewType, setReviewType] = useState("full"); 
-  
   const [likedBooks, setLikedBooks] = useState("");
   const [dislikedBooks, setDislikedBooks] = useState("");
   const [mood, setMood] = useState("");
@@ -14,17 +10,6 @@ export default function NextRead() {
   const [avoid, setAvoid] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
-
-  const [posts, setPosts] = useState([
-    { id: 1, user: "Reader_01", title: "The Silent Patient", pacing: 9, twist: 10, boring: 1, comment: "Insane twist!", replies: 12 },
-    { id: 2, user: "BookLover", title: "Atomic Habits", pacing: 6, twist: 1, boring: 3, comment: "", replies: 4 }
-  ]);
-
-  const [newTitle, setNewTitle] = useState("");
-  const [newComment, setNewComment] = useState("");
-  const [revPacing, setRevPacing] = useState(5);
-  const [revTwist, setRevTwist] = useState(5);
-  const [revBoring, setRevBoring] = useState(5);
 
   const moods = [{n:"Mind-bending",e:"🧠"}, {n:"Emotional",e:"😢"}, {n:"Dark",e:"😱"}, {n:"Romantic",e:"💕"}, {n:"Fun",e:"😂"}, {n:"Mystery",e:"🕵️"}, {n:"Cozy",e:"🫶"}, {n:"Fast-paced",e:"⚡"}];
   const priorities = ["Plot twists", "Characters", "Fast pacing", "Atmosphere", "Mystery", "Writing style", "Emotional impact"];
@@ -40,26 +25,12 @@ export default function NextRead() {
     else setAvoid(avoid.filter(i => i !== "Nothing").includes(a) ? avoid.filter(i => i !== a) : [...avoid.filter(i => i !== "Nothing"), a]);
   };
 
-  const handlePost = () => {
-    if (!newTitle) return;
-    const newEntry = { id: Date.now(), user: "Guest", title: newTitle, pacing: revPacing, twist: revTwist, boring: revBoring, comment: reviewType === "full" ? newComment : "", replies: 0 };
-    setPosts([newEntry, ...posts]);
-    setIsModalOpen(false);
-    setNewTitle(""); setNewComment("");
-  };
-
-  // --- AI LOGIC (MODEL UPDATED TO 8B) ---
+  // --- THE STABLE AI LOGIC ---
   const getRec = async () => {
     setLoading(true);
     setResult(null); 
     try {
-      const prompt = `Suggest ONE real book for a reader who:
-      - Likes: ${likedBooks}
-      - Hates: ${dislikedBooks}
-      - Mood: ${mood}
-      - Priorities: ${matters.join(", ")}
-      - Avoid: ${avoid.join(", ")}
-      Respond only with JSON: { "title": "Book Title", "author": "Author Name", "reason": "Explanation." }`;
+      const prompt = `Suggest ONE real book for: Likes ${likedBooks}, Hates ${dislikedBooks}, Mood ${mood}. Respond ONLY JSON: {"title":"...","author":"...","reason":"..."}`;
 
       const response = await fetch(`https://api.groq.com/openai/v1/chat/completions`, {
         method: "POST",
@@ -68,61 +39,76 @@ export default function NextRead() {
           "Authorization": `Bearer ${process.env.NEXT_PUBLIC_AI_KEY}` 
         },
         body: JSON.stringify({
-          model: "llama-3.1-8b-instant", 
+          model: "llama3-8b-8192", // ตัวนี้คือตัวที่เสถียรที่สุดในโลกของ Groq ครับ
           messages: [{ role: "user", content: prompt }],
           response_format: { type: "json_object" }
         })
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error?.message || "Check Key");
+      if (!response.ok) throw new Error(data.error?.message || "Connection Error");
       
       const text = data.choices[0].message.content;
       setResult(JSON.parse(text));
     } catch (error: any) {
-      alert("Error: " + error.message);
+      alert("AI is sleepy: " + error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main className="min-h-screen bg-white text-black font-sans relative">
-      <nav className="sticky top-0 z-30 bg-white border-b-2 border-black px-6 py-4 flex justify-between items-center text-black">
-        <h1 className="text-2xl font-black tracking-tighter cursor-pointer" onClick={() => setView("find")}>NEXTREAD v2</h1>
-        <div className="flex gap-8 text-[10px] font-black uppercase text-black">
-          <button onClick={() => setView("find")} className={view === "find" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-400"}>Find Books</button>
-          <button onClick={() => setView("community")} className={view === "community" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-400"}>Community Feed</button>
-        </div>
+    <main className="min-h-screen bg-white text-black p-6 font-sans">
+      <nav className="max-w-2xl mx-auto flex justify-between border-b-4 border-black pb-4 mb-10">
+        <h1 className="text-2xl font-black italic uppercase">NextChapter v4</h1>
+        <span className="text-[10px] font-bold">STABLE VERSION</span>
       </nav>
 
-      <div className="max-w-2xl mx-auto p-6 text-black">
-        {view === "find" && (
-          <div className="space-y-12 py-6 pb-20">
-            <header><h2 className="text-4xl font-black uppercase italic leading-none">Find Your Match</h2></header>
-            <section className="space-y-4">
-              <h3 className="font-black uppercase text-[10px] text-gray-400 underline tracking-widest">Step 1: History</h3>
-              <input className="w-full p-4 border-2 border-gray-100 rounded-2xl outline-none focus:border-black text-black" placeholder="Books you liked..." value={likedBooks} onChange={e=>setLikedBooks(e.target.value)} />
-              <input className="w-full p-4 border-2 border-gray-100 rounded-2xl outline-none focus:border-black text-black" placeholder="Books you hated..." value={dislikedBooks} onChange={e=>setDislikedBooks(e.target.value)} />
-            </section>
-            <section className="space-y-4">
-              <h3 className="font-black uppercase text-[10px] text-gray-400 underline tracking-widest">Step 2: Mood</h3>
-              <div className="flex flex-wrap gap-2 text-black">
-                {moods.map(m => (
-                  <button key={m.n} onClick={() => setMood(m.n)} className={`px-4 py-3 rounded-xl border-2 font-bold text-sm ${mood === m.n ? "bg-black text-white border-black" : "border-gray-100 bg-white text-black"}`}>{m.e} {m.n}</button>
-                ))}
-              </div>
-            </section>
-            <button onClick={getRec} className="w-full bg-black text-white py-6 rounded-[32px] font-black text-xl shadow-xl active:scale-95 transition uppercase">
-              {loading ? "Analyzing..." : "Get Recommendation"}
-            </button>
-            {result && (
-              <div className="mt-8 p-8 border-4 border-black rounded-[40px] bg-white text-black animate-in zoom-in-95 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]">
-                <h4 className="text-2xl font-black italic uppercase leading-none">{result.title}</h4>
-                <p className="text-blue-600 font-bold mb-4 uppercase text-xs">By {result.author}</p>
-                <p className="text-sm text-gray-600 italic">"{result.reason}"</p>
-              </div>
-            )}
+      <div className="max-w-xl mx-auto space-y-10">
+        <h2 className="text-4xl font-black uppercase italic leading-none">Find Your Match</h2>
+        
+        <section className="space-y-4">
+          <h3 className="font-bold text-gray-400 uppercase text-xs underline">Step 1: History</h3>
+          <input className="w-full p-4 border-4 border-black rounded-2xl outline-none text-black" placeholder="Books you liked..." onChange={e=>setLikedBooks(e.target.value)} />
+          <input className="w-full p-4 border-4 border-black rounded-2xl outline-none text-black" placeholder="Books you hated..." onChange={e=>setDislikedBooks(e.target.value)} />
+        </section>
+
+        <section className="space-y-4">
+          <h3 className="font-bold text-gray-400 uppercase text-xs underline">Step 2: Mood</h3>
+          <div className="flex flex-wrap gap-2">
+            {moods.map(m => (
+              <button key={m.n} onClick={() => setMood(m.n)} className={`px-4 py-3 rounded-xl border-2 font-bold text-sm ${mood === m.n ? "bg-black text-white border-black" : "bg-white text-black border-gray-200"}`}>{m.e} {m.n}</button>
+            ))}
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <h3 className="font-bold text-gray-400 uppercase text-xs underline">Step 3: Priorities</h3>
+          <div className="flex flex-wrap gap-2">
+            {priorities.map(p => (
+              <button key={p} onClick={() => toggleMatter(p)} className={`px-4 py-2 rounded-lg border-2 font-bold text-xs ${matters.includes(p) ? "border-blue-600 bg-blue-50 text-blue-600 shadow-sm" : "border-gray-100 text-gray-400"}`}>{p}</button>
+            ))}
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <h3 className="font-bold text-gray-400 uppercase text-xs underline">Step 4: Avoid</h3>
+          <div className="flex flex-wrap gap-2">
+            {avoids.map(a => (
+              <button key={a} onClick={() => toggleAvoid(a)} className={`px-4 py-2 rounded-lg border-2 font-bold text-xs ${avoid.includes(a) ? "border-red-500 bg-red-50 text-red-500 shadow-sm" : "border-gray-100 text-gray-400"}`}>{a}</button>
+            ))}
+          </div>
+        </section>
+
+        <button onClick={getRec} className="w-full bg-black text-white py-6 rounded-[32px] font-black text-2xl shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all uppercase">
+          {loading ? "Analyzing..." : "Get Recommendation"}
+        </button>
+
+        {result && (
+          <div className="mt-10 p-8 border-4 border-black rounded-[40px] bg-white text-black shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] animate-in zoom-in-95">
+            <h4 className="text-2xl font-black uppercase italic leading-none">{result.title}</h4>
+            <p className="text-blue-600 font-bold mb-2 uppercase tracking-widest text-sm">By {result.author}</p>
+            <p className="text-gray-600 border-l-4 border-gray-100 pl-4 italic">"{result.reason}"</p>
           </div>
         )}
       </div>
