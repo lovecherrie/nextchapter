@@ -94,16 +94,18 @@ async function callGroq(prompt: string, temperature = 0.6) {
         Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "openai/gpt-oss-20b",
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        temperature,
-        max_completion_tokens: 1800,
-      }),
+  model: "openai/gpt-oss-20b",
+  messages: [
+    {
+      role: "user",
+      content: prompt,
+    },
+  ],
+  temperature,
+  max_completion_tokens: 1800,
+  reasoning_effort: "low",
+  include_reasoning: false,
+}),
     }
   );
 
