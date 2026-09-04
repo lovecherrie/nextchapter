@@ -14,49 +14,71 @@ export default function NextRead() {
   const [dislikedBooks, setDislikedBooks] = useState("");
   const [mood, setMood] = useState("");
   const [matters, setMatters] = useState<string[]>([]);
+  const [readingStyle, setReadingStyle] = useState<string[]>([]);
   const [avoid, setAvoid] = useState<string[]>([]);
+  const [extraNotes, setExtraNotes] = useState("");
   const [loading, setLoading] = useState(false);
 
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [showResults, setShowResults] = useState(false);
 
   const moods = [
-    { n: "Mind-bending", e: "🧠" },
-    { n: "Emotional", e: "😢" },
-    { n: "Dark", e: "😱" },
+    { n: "Dark", e: "🌑" },
+    { n: "Cozy", e: "☕" },
+    { n: "Emotional", e: "😭" },
+    { n: "Funny", e: "😂" },
+    { n: "Creepy", e: "🕯️" },
     { n: "Romantic", e: "💕" },
-    { n: "Fun", e: "😂" },
-    { n: "Mystery", e: "🕵️" },
-    { n: "Cozy", e: "🫶" },
-    { n: "Fast-paced", e: "⚡" },
+    { n: "Mind-bending", e: "🧠" },
+    { n: "Comforting", e: "🫶" },
+    { n: "Surprise me", e: "🎲" },
   ];
 
   const priorities = [
     "Plot twists",
-    "Characters",
+    "Strong characters",
     "Fast pacing",
+    "Beautiful writing",
     "Atmosphere",
-    "Mystery",
-    "Writing style",
+    "Romance",
+    "Suspense",
     "Emotional impact",
+  ];
+
+  const readingStyles = [
+    "Easy read",
+    "Page-turner",
+    "Short chapters",
+    "Immersive",
+    "Complex",
+    "Literary",
   ];
 
   const avoids = [
     "Slow burn",
     "Romance",
     "Horror",
-    "Gore",
+    "Graphic violence",
     "Fantasy",
     "Sad ending",
-    "Too long",
+    "Long books",
+    "Complex writing",
     "Nothing",
   ];
 
   const toggleMatter = (p: string) => {
     if (matters.includes(p)) {
       setMatters(matters.filter((i) => i !== p));
-    } else if (matters.length < 2) {
+    } else if (matters.length < 3) {
       setMatters([...matters, p]);
+    }
+  };
+
+  const toggleReadingStyle = (style: string) => {
+    if (readingStyle.includes(style)) {
+      setReadingStyle(readingStyle.filter((i) => i !== style));
+    } else if (readingStyle.length < 2) {
+      setReadingStyle([...readingStyle, style]);
     }
   };
 
@@ -89,7 +111,9 @@ export default function NextRead() {
           dislikedBooks,
           mood,
           matters,
+          readingStyle,
           avoid,
+          extraNotes,
         }),
       });
 
@@ -137,14 +161,14 @@ export default function NextRead() {
 
           <input
             className="w-full p-4 border-4 border-black rounded-2xl outline-none text-black"
-            placeholder="Books you liked..."
+            placeholder="Books you loved..."
             value={likedBooks}
             onChange={(e) => setLikedBooks(e.target.value)}
           />
 
           <input
             className="w-full p-4 border-4 border-black rounded-2xl outline-none text-black"
-            placeholder="Books you hated..."
+            placeholder="Books you didn't like..."
             value={dislikedBooks}
             onChange={(e) => setDislikedBooks(e.target.value)}
           />
@@ -176,7 +200,7 @@ export default function NextRead() {
         {/* STEP 3 */}
         <section className="space-y-4">
           <h3 className="font-bold text-gray-400 uppercase text-xs underline">
-            Step 3: Priorities
+            Step 3: What Matters Most
           </h3>
 
           <div className="flex flex-wrap gap-2">
@@ -196,14 +220,41 @@ export default function NextRead() {
           </div>
 
           <p className="text-xs text-gray-400">
-            Choose up to 2.
+            Choose up to 3.
           </p>
         </section>
 
         {/* STEP 4 */}
         <section className="space-y-4">
           <h3 className="font-bold text-gray-400 uppercase text-xs underline">
-            Step 4: Avoid
+            Step 4: Reading Style
+          </h3>
+
+          <div className="flex flex-wrap gap-2">
+            {readingStyles.map((style) => (
+              <button
+                key={style}
+                onClick={() => toggleReadingStyle(style)}
+                className={`px-4 py-2 rounded-lg border-2 font-bold text-xs ${
+                  readingStyle.includes(style)
+                    ? "border-black bg-black text-white"
+                    : "border-gray-100 text-gray-400"
+                }`}
+              >
+                {style}
+              </button>
+            ))}
+          </div>
+
+          <p className="text-xs text-gray-400">
+            Choose up to 2.
+          </p>
+        </section>
+
+        {/* STEP 5 */}
+        <section className="space-y-4">
+          <h3 className="font-bold text-gray-400 uppercase text-xs underline">
+            Step 5: Avoid
           </h3>
 
           <div className="flex flex-wrap gap-2">
@@ -221,6 +272,20 @@ export default function NextRead() {
               </button>
             ))}
           </div>
+        </section>
+
+        {/* STEP 6 */}
+        <section className="space-y-4">
+          <h3 className="font-bold text-gray-400 uppercase text-xs underline">
+            Step 6: Anything Else?
+          </h3>
+
+          <textarea
+            className="w-full p-4 border-2 border-gray-200 rounded-2xl outline-none text-black min-h-[100px] resize-none focus:border-black"
+            placeholder="Optional — e.g. under 350 pages, nothing too depressing, something I can finish on a flight..."
+            value={extraNotes}
+            onChange={(e) => setExtraNotes(e.target.value)}
+          />
         </section>
 
         {/* BUTTON */}
@@ -264,7 +329,6 @@ export default function NextRead() {
                   className="border-2 border-black rounded-2xl p-4"
                 >
                   <div className="flex gap-4">
-                    {/* BOOK COVER */}
                     <div className="w-24 min-w-24 h-36 rounded-xl overflow-hidden bg-gray-100 border-2 border-black flex items-center justify-center">
                       {book.cover ? (
                         <img
@@ -282,7 +346,6 @@ export default function NextRead() {
                       )}
                     </div>
 
-                    {/* BOOK INFO */}
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-black text-gray-400 uppercase mb-1">
                         Match #{index + 1}
