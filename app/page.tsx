@@ -49,13 +49,9 @@ export default function NextRead() {
   };
 
   // --- THE FINAL AI FIX (Hardcoded Key for Testing) ---
-  const getRec = async () => {
+ const getRec = async () => {
     setLoading(true);
     setResult(null); 
-    
-    // *** PASTE YOUR GSK_ KEY HERE DIRECTLY FOR TESTING ***
-    const TEST_KEY = "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"; // อันนี้คือตัวอย่างนะครับ ใส่ของจริงของคุณลงไป
-
     try {
       const prompt = `Suggest ONE real book for a reader who:
       - Likes: ${likedBooks}
@@ -65,21 +61,22 @@ export default function NextRead() {
       - Avoid: ${avoid.join(", ")}
       Respond ONLY with a JSON object: { "title": "Book Title", "author": "Author Name", "reason": "Short explanation." }`;
 
+      // กลับมาใช้ process.env เพื่อความปลอดภัย
       const response = await fetch(`https://api.groq.com/openai/v1/chat/completions`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${TEST_KEY}` // ใช้คีย์ตรงๆ ไม่ผ่าน Vercel
+          "Authorization": `Bearer ${process.env.NEXT_PUBLIC_AI_KEY}` 
         },
         body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
+          model: "llama-3.1-8b-instant", // เปลี่ยนเป็นชื่อนี้ครับ มั่นใจว่าใช้ได้แน่นอน
           messages: [{ role: "user", content: prompt }],
           response_format: { type: "json_object" }
         })
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error?.message || "API Error");
+      if (!response.ok) throw new Error(data.error?.message || "Check Vercel Config");
       
       const text = data.choices[0].message.content;
       setResult(JSON.parse(text));
@@ -89,7 +86,6 @@ export default function NextRead() {
       setLoading(false);
     }
   };
-
   return (
     <main className="min-h-screen bg-white text-black font-sans relative">
       <nav className="sticky top-0 z-30 bg-white border-b-2 border-black px-6 py-4 flex justify-between items-center">
