@@ -69,7 +69,7 @@ export default function NextRead() {
           "Authorization": `Bearer ${process.env.NEXT_PUBLIC_AI_KEY}` 
         },
         body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
+          model: "llama-3.1-8b-instant", // เปลี่ยนเป็นชื่อนี้ครับ มั่นใจว่าใช้ได้แน่นอน
           messages: [{ role: "user", content: prompt }],
           response_format: { type: "json_object" }
         })
