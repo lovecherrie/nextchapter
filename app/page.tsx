@@ -45,6 +45,7 @@ export default function NextRead() {
 
   const [loading, setLoading] = useState(false);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [seenRecommendations, setSeenRecommendations] = useState<Recommendation[]>([]);
   const [showResults, setShowResults] = useState(false);
 
   const moods = [
@@ -257,7 +258,7 @@ export default function NextRead() {
           readingStyle,
           avoid,
           extraNotes,
-          previousRecommendations: recommendations.map(
+          previousRecommendations: seenRecommendations.map(
   (book) => `${book.title} by ${book.author}`
 ),
         }),
@@ -274,7 +275,13 @@ export default function NextRead() {
       }
 
       setRecommendations(data.recommendations);
-      setShowResults(true);
+
+setSeenRecommendations((previous) => [
+  ...previous,
+  ...data.recommendations,
+]);
+
+setShowResults(true);
     } catch (error: any) {
       alert("AI is sleepy: " + error.message);
     } finally {
