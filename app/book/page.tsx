@@ -754,15 +754,7 @@ function BookPageContent() {
         return;
       }
 
-      if (
-        !reviewText.trim()
-      ) {
-        alert(
-          "Write something about the book first."
-        );
-
-        return;
-      }
+      
 
       const {
         error,
