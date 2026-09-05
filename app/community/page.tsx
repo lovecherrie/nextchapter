@@ -25,6 +25,14 @@ type Like = {
 
 type Comment = {
   id: string;
+  post_id: string;
+  user_id: string;
+  username: string;
+  content: string;
+  contains_spoilers: boolean;
+  parent_comment_id: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 type DiscussionPost = {
@@ -97,6 +105,13 @@ function timeAgo(dateString: string) {
   });
 }
 
+function wasEdited(comment: Comment) {
+  const created = new Date(comment.created_at).getTime();
+  const updated = new Date(comment.updated_at).getTime();
+
+  return updated - created > 2000;
+}
+
 function makeBookUrl(book: Book) {
   const params = new URLSearchParams();
 
@@ -145,7 +160,9 @@ function normalizeSearchResults(data: any): SearchBook[] {
 
       const author =
         book?.author ||
-        (Array.isArray(authors) ? authors.join(", ") : authors) ||
+        (Array.isArray(authors)
+          ? authors.join(", ")
+          : authors) ||
         "Unknown author";
 
       const externalId =
@@ -170,7 +187,9 @@ function normalizeSearchResults(data: any): SearchBook[] {
         external_id: String(externalId),
         title: String(title),
         author: String(author),
-        cover_url: cover ? String(cover).replace("http://", "https://") : null,
+        cover_url: cover
+          ? String(cover).replace("http://", "https://")
+          : null,
       };
     })
     .filter((book: SearchBook) => book.title);
@@ -187,17 +206,47 @@ export default function CommunityPage() {
   const [guestUsername, setGuestUsername] = useState("");
 
   const [revealedSpoilers, setRevealedSpoilers] = useState<string[]>([]);
+  const [revealedCommentSpoilers, setRevealedCommentSpoilers] =
+    useState<string[]>([]);
+
   const [likingPost, setLikingPost] = useState<string | null>(null);
+
+  const [expandedPosts, setExpandedPosts] = useState<string[]>([]);
+
+  const [commentDrafts, setCommentDrafts] = useState<
+    Record<string, string>
+  >({});
+
+  const [commentSpoilers, setCommentSpoilers] = useState<
+    Record<string, boolean>
+  >({});
+
+  const [postingComment, setPostingComment] =
+    useState<string | null>(null);
+
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [replySpoiler, setReplySpoiler] = useState(false);
+
+  const [editingCommentId, setEditingCommentId] =
+    useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
+
+  const [commentMenu, setCommentMenu] =
+    useState<string | null>(null);
 
   const [createOpen, setCreateOpen] = useState(false);
 
   const [bookQuery, setBookQuery] = useState("");
   const [bookResults, setBookResults] = useState<SearchBook[]>([]);
-  const [selectedBook, setSelectedBook] = useState<SearchBook | null>(null);
+  const [selectedBook, setSelectedBook] =
+    useState<SearchBook | null>(null);
 
   const [searchingBooks, setSearchingBooks] = useState(false);
   const [discussionText, setDiscussionText] = useState("");
-  const [containsSpoilers, setContainsSpoilers] = useState(false);
+  const [containsSpoilers, setContainsSpoilers] =
+    useState(false);
+
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState("");
 
@@ -253,7 +302,15 @@ export default function CommunityPage() {
           user_id
         ),
         comments (
-          id
+          id,
+          post_id,
+          user_id,
+          username,
+          content,
+          contains_spoilers,
+          parent_comment_id,
+          created_at,
+          updated_at
         )
       `)
       .order("created_at", { ascending: false });
@@ -265,7 +322,16 @@ export default function CommunityPage() {
       return;
     }
 
-    setPosts((data || []) as unknown as DiscussionPost[]);
+    const cleaned = (data || []).map((post: any) => ({
+      ...post,
+      comments: [...(post.comments || [])].sort(
+        (a: Comment, b: Comment) =>
+          new Date(a.created_at).getTime() -
+          new Date(b.created_at).getTime()
+      ),
+    }));
+
+    setPosts(cleaned as DiscussionPost[]);
     setLoading(false);
   }
 
@@ -282,6 +348,7 @@ export default function CommunityPage() {
       }
 
       const data = await response.json();
+
       setBookResults(normalizeSearchResults(data));
     } catch (error) {
       console.error(error);
@@ -355,7 +422,7 @@ export default function CommunityPage() {
     }
 
     if (!guestUserId || !guestUsername) {
-      setPostError("Guest profile is still loading. Try again.");
+      setPostError("Guest profile is still loading.");
       return;
     }
 
@@ -407,7 +474,7 @@ export default function CommunityPage() {
       setFilter("newest");
     } catch (error) {
       console.error(error);
-      setPostError("Could not publish your post. Please try again.");
+      setPostError("Could not publish your post.");
     } finally {
       setPosting(false);
     }
@@ -485,6 +552,184 @@ export default function CommunityPage() {
     setLikingPost(null);
   }
 
+  function toggleComments(postId: string) {
+    setExpandedPosts((current) =>
+      current.includes(postId)
+        ? current.filter((id) => id !== postId)
+        : [...current, postId]
+    );
+  }
+
+  async function addComment(postId: string) {
+    const content = commentDrafts[postId]?.trim();
+
+    if (!content) return;
+
+    setPostingComment(postId);
+
+    const { data, error } = await supabase
+      .from("comments")
+      .insert({
+        post_id: postId,
+        user_id: guestUserId,
+        username: guestUsername,
+        content,
+        contains_spoilers: commentSpoilers[postId] || false,
+        parent_comment_id: null,
+      })
+      .select(`
+        id,
+        post_id,
+        user_id,
+        username,
+        content,
+        contains_spoilers,
+        parent_comment_id,
+        created_at,
+        updated_at
+      `)
+      .single();
+
+    if (!error && data) {
+      setPosts((current) =>
+        current.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                comments: [...post.comments, data as Comment],
+              }
+            : post
+        )
+      );
+
+      setCommentDrafts((current) => ({
+        ...current,
+        [postId]: "",
+      }));
+
+      setCommentSpoilers((current) => ({
+        ...current,
+        [postId]: false,
+      }));
+    }
+
+    setPostingComment(null);
+  }
+
+  async function addReply(postId: string, parentCommentId: string) {
+    const content = replyText.trim();
+
+    if (!content) return;
+
+    setPostingComment(parentCommentId);
+
+    const { data, error } = await supabase
+      .from("comments")
+      .insert({
+        post_id: postId,
+        user_id: guestUserId,
+        username: guestUsername,
+        content,
+        contains_spoilers: replySpoiler,
+        parent_comment_id: parentCommentId,
+      })
+      .select(`
+        id,
+        post_id,
+        user_id,
+        username,
+        content,
+        contains_spoilers,
+        parent_comment_id,
+        created_at,
+        updated_at
+      `)
+      .single();
+
+    if (!error && data) {
+      setPosts((current) =>
+        current.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                comments: [...post.comments, data as Comment],
+              }
+            : post
+        )
+      );
+
+      setReplyText("");
+      setReplySpoiler(false);
+      setReplyingTo(null);
+    }
+
+    setPostingComment(null);
+  }
+
+  async function saveEditedComment(comment: Comment) {
+    const content = editingText.trim();
+
+    if (!content) return;
+
+    const now = new Date().toISOString();
+
+    const { error } = await supabase
+      .from("comments")
+      .update({
+        content,
+        updated_at: now,
+      })
+      .eq("id", comment.id);
+
+    if (!error) {
+      setPosts((current) =>
+        current.map((post) => ({
+          ...post,
+          comments: post.comments.map((item) =>
+            item.id === comment.id
+              ? {
+                  ...item,
+                  content,
+                  updated_at: now,
+                }
+              : item
+          ),
+        }))
+      );
+
+      setEditingCommentId(null);
+      setEditingText("");
+    }
+  }
+
+  async function deleteComment(comment: Comment) {
+    const okay = window.confirm(
+      "Delete this comment?"
+    );
+
+    if (!okay) return;
+
+    const { error } = await supabase
+      .from("comments")
+      .delete()
+      .eq("id", comment.id);
+
+    if (!error) {
+      setPosts((current) =>
+        current.map((post) => ({
+          ...post,
+          comments: post.comments.filter(
+            (item) =>
+              item.id !== comment.id &&
+              item.parent_comment_id !== comment.id
+          ),
+        }))
+      );
+
+      setCommentMenu(null);
+    }
+  }
+
   function toggleSpoiler(postId: string) {
     setRevealedSpoilers((current) =>
       current.includes(postId)
@@ -493,20 +738,32 @@ export default function CommunityPage() {
     );
   }
 
+  function toggleCommentSpoiler(commentId: string) {
+    setRevealedCommentSpoilers((current) =>
+      current.includes(commentId)
+        ? current.filter((id) => id !== commentId)
+        : [...current, commentId]
+    );
+  }
+
   const filteredPosts = useMemo(() => {
     let result = [...posts];
 
     if (filter === "spoiler-free") {
-      result = result.filter((post) => !post.contains_spoilers);
+      result = result.filter(
+        (post) => !post.contains_spoilers
+      );
     }
 
     if (filter === "top") {
       result.sort((a, b) => {
         const scoreA =
-          a.discussion_likes.length + a.comments.length * 2;
+          a.discussion_likes.length +
+          a.comments.length * 2;
 
         const scoreB =
-          b.discussion_likes.length + b.comments.length * 2;
+          b.discussion_likes.length +
+          b.comments.length * 2;
 
         if (scoreB === scoreA) {
           return (
@@ -529,6 +786,220 @@ export default function CommunityPage() {
 
     return result;
   }, [posts, filter]);
+
+  function renderComment(
+    comment: Comment,
+    post: DiscussionPost,
+    isReply = false
+  ) {
+    const mine = comment.user_id === guestUserId;
+
+    const revealed =
+      revealedCommentSpoilers.includes(comment.id);
+
+    return (
+      <div
+        key={comment.id}
+        className={`relative rounded-2xl ${
+          isReply
+            ? "ml-8 bg-[#f5f1e8] p-4"
+            : "bg-[#f8f5ee] p-4 sm:p-5"
+        }`}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-bold text-[#46523f]">
+                {comment.username}
+              </span>
+
+              <span className="text-xs text-[#969b91]">
+                {timeAgo(comment.created_at)}
+              </span>
+
+              {wasEdited(comment) && (
+                <span className="text-xs text-[#a09b90]">
+                  edited
+                </span>
+              )}
+
+              {comment.contains_spoilers && (
+                <span className="rounded-full bg-[#eee3d2] px-2 py-1 text-[10px] font-bold text-[#8a6f47]">
+                  SPOILER
+                </span>
+              )}
+            </div>
+          </div>
+
+          {mine && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() =>
+                  setCommentMenu(
+                    commentMenu === comment.id
+                      ? null
+                      : comment.id
+                  )
+                }
+                className="rounded-full px-2 py-1 text-lg text-[#8b9087] hover:bg-[#ebe7de]"
+              >
+                •••
+              </button>
+
+              {commentMenu === comment.id && (
+                <div className="absolute right-0 top-8 z-20 w-28 overflow-hidden rounded-xl border border-[#ded7ca] bg-white shadow-lg">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingCommentId(comment.id);
+                      setEditingText(comment.content);
+                      setCommentMenu(null);
+                    }}
+                    className="block w-full px-4 py-2.5 text-left text-sm font-semibold text-[#56614f] hover:bg-[#f6f3ec]"
+                  >
+                    Edit
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => deleteComment(comment)}
+                    className="block w-full px-4 py-2.5 text-left text-sm font-semibold text-[#9a5548] hover:bg-[#fff3ef]"
+                  >
+                    Delete
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {editingCommentId === comment.id ? (
+          <div className="mt-3">
+            <textarea
+              value={editingText}
+              onChange={(event) =>
+                setEditingText(event.target.value)
+              }
+              rows={3}
+              className="w-full resize-none rounded-xl border border-[#d8d0c3] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#829078]"
+            />
+
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  saveEditedComment(comment)
+                }
+                className="rounded-full bg-[#4f5f45] px-4 py-2 text-xs font-bold text-white"
+              >
+                Save
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingCommentId(null);
+                  setEditingText("");
+                }}
+                className="rounded-full bg-[#ece8df] px-4 py-2 text-xs font-bold text-[#6b7365]"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : comment.contains_spoilers && !revealed ? (
+          <button
+            type="button"
+            onClick={() =>
+              toggleCommentSpoiler(comment.id)
+            }
+            className="mt-3 rounded-xl border border-dashed border-[#d2c6b3] bg-[#f3ede2] px-4 py-3 text-sm font-semibold text-[#776a56]"
+          >
+            🙈 Spoiler comment — tap to reveal
+          </button>
+        ) : (
+          <p className="mt-3 whitespace-pre-wrap text-[15px] leading-6 text-[#4c5349]">
+            {comment.content}
+          </p>
+        )}
+
+        {!isReply && (
+          <button
+            type="button"
+            onClick={() => {
+              setReplyingTo(
+                replyingTo === comment.id
+                  ? null
+                  : comment.id
+              );
+              setReplyText("");
+              setReplySpoiler(false);
+            }}
+            className="mt-3 text-xs font-bold text-[#70796a] hover:underline"
+          >
+            Reply
+          </button>
+        )}
+
+        {replyingTo === comment.id && !isReply && (
+          <div className="mt-4 rounded-xl border border-[#ded7ca] bg-white p-3">
+            <textarea
+              value={replyText}
+              onChange={(event) =>
+                setReplyText(event.target.value)
+              }
+              placeholder={`Reply to ${comment.username}...`}
+              rows={2}
+              className="w-full resize-none bg-transparent text-sm outline-none placeholder:text-[#a6aa9f]"
+            />
+
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <label className="flex items-center gap-2 text-xs text-[#7f857a]">
+                <input
+                  type="checkbox"
+                  checked={replySpoiler}
+                  onChange={(event) =>
+                    setReplySpoiler(event.target.checked)
+                  }
+                  className="accent-[#4f5f45]"
+                />
+                Spoiler
+              </label>
+
+              <button
+                type="button"
+                onClick={() =>
+                  addReply(post.id, comment.id)
+                }
+                disabled={
+                  !replyText.trim() ||
+                  postingComment === comment.id
+                }
+                className="rounded-full bg-[#4f5f45] px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+              >
+                {postingComment === comment.id
+                  ? "Replying..."
+                  : "Reply"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!isReply &&
+          post.comments
+            .filter(
+              (reply) =>
+                reply.parent_comment_id === comment.id
+            )
+            .map((reply) => (
+              <div key={reply.id} className="mt-3">
+                {renderComment(reply, post, true)}
+              </div>
+            ))}
+      </div>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#f7f2e8] text-[#283322]">
@@ -568,12 +1039,13 @@ export default function CommunityPage() {
             </div>
 
             <h1 className="max-w-2xl text-4xl font-bold leading-tight text-[#35412f] sm:text-5xl">
-              Talk about the books you can&apos;t stop thinking about.
+              Talk about the books you can&apos;t stop
+              thinking about.
             </h1>
 
             <p className="mt-4 max-w-2xl text-base leading-7 text-[#6c7465]">
-              Share theories, unpopular opinions, reactions, and bookish
-              thoughts with other readers.
+              Share theories, unpopular opinions, reactions,
+              and bookish thoughts with other readers.
             </p>
           </div>
 
@@ -585,13 +1057,13 @@ export default function CommunityPage() {
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-[#e5eadf]">
-              Choose a book and start a conversation with other readers.
+              Choose a book and start a conversation.
             </p>
 
             <button
               type="button"
               onClick={() => setCreateOpen(true)}
-              className="mt-5 inline-flex rounded-full bg-[#fffdf8] px-5 py-2.5 text-sm font-bold text-[#4f5f45] transition hover:scale-[1.02]"
+              className="mt-5 inline-flex rounded-full bg-[#fffdf8] px-5 py-2.5 text-sm font-bold text-[#4f5f45]"
             >
               + Create post
             </button>
@@ -613,43 +1085,42 @@ export default function CommunityPage() {
             <button
               type="button"
               onClick={() => setCreateOpen(true)}
-              className="rounded-full bg-[#4f5f45] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#43513b]"
+              className="rounded-full bg-[#4f5f45] px-5 py-2.5 text-sm font-bold text-white"
             >
               + Create post
             </button>
 
             <div className="flex rounded-full border border-[#d8d0c0] bg-[#fffdf8] p-1 shadow-sm">
               <button
-                type="button"
                 onClick={() => setFilter("top")}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                className={`rounded-full px-4 py-2 text-sm font-semibold ${
                   filter === "top"
                     ? "bg-[#4f5f45] text-white"
-                    : "text-[#677060] hover:bg-[#f0ece2]"
+                    : "text-[#677060]"
                 }`}
               >
                 🔥 Top
               </button>
 
               <button
-                type="button"
                 onClick={() => setFilter("newest")}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                className={`rounded-full px-4 py-2 text-sm font-semibold ${
                   filter === "newest"
                     ? "bg-[#4f5f45] text-white"
-                    : "text-[#677060] hover:bg-[#f0ece2]"
+                    : "text-[#677060]"
                 }`}
               >
                 ✨ Newest
               </button>
 
               <button
-                type="button"
-                onClick={() => setFilter("spoiler-free")}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                onClick={() =>
+                  setFilter("spoiler-free")
+                }
+                className={`rounded-full px-4 py-2 text-sm font-semibold ${
                   filter === "spoiler-free"
                     ? "bg-[#4f5f45] text-white"
-                    : "text-[#677060] hover:bg-[#f0ece2]"
+                    : "text-[#677060]"
                 }`}
               >
                 🌿 Spoiler-free
@@ -659,215 +1130,252 @@ export default function CommunityPage() {
         </div>
 
         {loading && (
-          <div className="rounded-[28px] border border-[#ded5c4] bg-[#fffdf8] px-6 py-16 text-center shadow-sm">
-            <div className="text-4xl">📖</div>
-
-            <p className="mt-4 font-semibold text-[#53614c]">
-              Opening the reading room...
-            </p>
+          <div className="rounded-[28px] border border-[#ded5c4] bg-[#fffdf8] px-6 py-16 text-center">
+            📖 Opening the reading room...
           </div>
         )}
 
         {!loading && error && (
-          <div className="rounded-[28px] border border-[#e1c7bd] bg-[#fff8f5] px-6 py-12 text-center">
-            <p className="font-semibold text-[#8b5548]">{error}</p>
-
-            <button
-              type="button"
-              onClick={loadPosts}
-              className="mt-4 rounded-full bg-[#4f5f45] px-5 py-2.5 text-sm font-bold text-white"
-            >
-              Try again
-            </button>
+          <div className="rounded-[28px] bg-[#fff8f5] p-10 text-center">
+            {error}
           </div>
         )}
 
-        {!loading && !error && filteredPosts.length === 0 && (
-          <div className="rounded-[28px] border border-dashed border-[#d3cab9] bg-[#fffdf8] px-6 py-16 text-center">
-            <div className="text-5xl">🪱</div>
+        {!loading &&
+          !error &&
+          filteredPosts.length === 0 && (
+            <div className="rounded-[28px] border border-dashed border-[#d3cab9] bg-[#fffdf8] px-6 py-16 text-center">
+              <div className="text-5xl">🪱</div>
+              <h3 className="mt-5 text-xl font-bold">
+                It&apos;s a little quiet in here.
+              </h3>
+            </div>
+          )}
 
-            <h3 className="mt-5 text-xl font-bold text-[#44503d]">
-              It&apos;s a little quiet in here.
-            </h3>
+        <div className="space-y-5">
+          {filteredPosts.map((post) => {
+            const book = post.books;
 
-            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#767d70]">
-              Be the first reader to start a conversation.
-            </p>
-
-            <button
-              type="button"
-              onClick={() => setCreateOpen(true)}
-              className="mt-5 inline-flex rounded-full bg-[#4f5f45] px-5 py-2.5 text-sm font-bold text-white"
-            >
-              + Create the first post
-            </button>
-          </div>
-        )}
-
-        {!loading && !error && filteredPosts.length > 0 && (
-          <div className="space-y-4">
-            {filteredPosts.map((post) => {
-              const book = post.books;
-
-              const likedByMe = post.discussion_likes.some(
-                (like) => like.user_id === guestUserId
+            const likedByMe =
+              post.discussion_likes.some(
+                (like) =>
+                  like.user_id === guestUserId
               );
 
-              const spoilerRevealed =
-                revealedSpoilers.includes(post.id);
+            const expanded =
+              expandedPosts.includes(post.id);
 
-              return (
-                <article
-                  key={post.id}
-                  className="overflow-hidden rounded-[28px] border border-[#ded5c4] bg-[#fffdf8] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                >
-                  {book && (
-                    <div className="border-b border-[#eee8dc] bg-[#fbf8f1] px-5 py-4 sm:px-6">
-                      <a
-                        href={makeBookUrl(book)}
-                        className="group flex items-center gap-3"
-                      >
-                        {book.cover_url ? (
-                          <img
-                            src={book.cover_url}
-                            alt={book.title}
-                            className="h-16 w-11 rounded-md object-cover shadow-sm"
-                          />
-                        ) : (
-                          <div className="flex h-16 w-11 items-center justify-center rounded-md bg-[#e5dfd1] text-xl">
-                            📕
-                          </div>
-                        )}
+            const topComments =
+              post.comments.filter(
+                (comment) =>
+                  !comment.parent_comment_id
+              );
 
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold uppercase tracking-[0.12em] text-[#9b8b6c]">
-                            Discussing
-                          </div>
-
-                          <h3 className="truncate font-bold text-[#3f4b38] group-hover:underline">
-                            {book.title}
-                          </h3>
-
-                          {book.author && (
-                            <p className="truncate text-sm text-[#7c8275]">
-                              {book.author}
-                            </p>
-                          )}
-                        </div>
-                      </a>
-                    </div>
-                  )}
-
-                  <div className="p-5 sm:p-6">
-                    <div className="mb-4 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#e4e9df] text-lg">
-                          🐛
-                        </div>
-
-                        <div>
-                          <div className="font-bold text-[#495541]">
-                            {post.username}
-                          </div>
-
-                          <div className="text-xs text-[#92978c]">
-                            {timeAgo(post.created_at)}
-                          </div>
-                        </div>
-                      </div>
-
-                      {post.contains_spoilers && (
-                        <span className="rounded-full bg-[#f1e7d8] px-3 py-1.5 text-xs font-bold text-[#8a6f47]">
-                          ⚠️ Spoilers
-                        </span>
-                      )}
-                    </div>
-
-                    {post.contains_spoilers && !spoilerRevealed ? (
-                      <button
-                        type="button"
-                        onClick={() => toggleSpoiler(post.id)}
-                        className="w-full rounded-2xl border border-dashed border-[#cfc3ae] bg-[#f7f1e6] px-5 py-8 text-center"
-                      >
-                        <div className="text-2xl">🙈</div>
-
-                        <div className="mt-2 font-bold text-[#665b48]">
-                          This post contains spoilers
-                        </div>
-
-                        <div className="mt-1 text-sm text-[#8b806d]">
-                          Click to reveal
-                        </div>
-                      </button>
-                    ) : (
-                      <div>
-                        <p className="whitespace-pre-wrap text-[15px] leading-7 text-[#495046]">
-                          {post.content}
-                        </p>
-
-                        {post.contains_spoilers && (
-                          <button
-                            type="button"
-                            onClick={() => toggleSpoiler(post.id)}
-                            className="mt-3 text-xs font-bold text-[#8a6f47] hover:underline"
-                          >
-                            Hide spoiler
-                          </button>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-[#eee8dc] pt-4">
-                      <button
-                        type="button"
-                        disabled={likingPost === post.id}
-                        onClick={() => toggleLike(post)}
-                        className={`rounded-full px-4 py-2 text-sm font-bold transition ${
-                          likedByMe
-                            ? "bg-[#e5eadf] text-[#43503b]"
-                            : "bg-[#f4f0e7] text-[#72786d] hover:bg-[#ebe5d9]"
-                        }`}
-                      >
-                        {likedByMe ? "♥" : "♡"}{" "}
-                        {post.discussion_likes.length}
-                      </button>
-
-                      {book ? (
-                        <a
-                          href={makeBookUrl(book)}
-                          className="rounded-full bg-[#f4f0e7] px-4 py-2 text-sm font-bold text-[#72786d] transition hover:bg-[#ebe5d9]"
-                        >
-                          💬 {post.comments.length}{" "}
-                          {post.comments.length === 1
-                            ? "comment"
-                            : "comments"}
-                        </a>
+            return (
+              <article
+                key={post.id}
+                className="overflow-hidden rounded-[28px] border border-[#ded5c4] bg-[#fffdf8] shadow-sm"
+              >
+                {book && (
+                  <div className="border-b border-[#eee8dc] bg-[#fbf8f1] px-6 py-4">
+                    <a
+                      href={makeBookUrl(book)}
+                      className="flex items-center gap-3"
+                    >
+                      {book.cover_url ? (
+                        <img
+                          src={book.cover_url}
+                          alt={book.title}
+                          className="h-16 w-11 rounded-md object-cover"
+                        />
                       ) : (
-                        <span className="rounded-full bg-[#f4f0e7] px-4 py-2 text-sm font-bold text-[#72786d]">
-                          💬 {post.comments.length}
-                        </span>
+                        <div className="flex h-16 w-11 items-center justify-center rounded-md bg-[#e5dfd1]">
+                          📕
+                        </div>
                       )}
 
-                      {book && (
-                        <a
-                          href={makeBookUrl(book)}
-                          className="ml-auto text-sm font-bold text-[#56634f] hover:underline"
-                        >
-                          Join discussion →
-                        </a>
-                      )}
+                      <div>
+                        <div className="text-xs font-bold uppercase tracking-[0.12em] text-[#9b8b6c]">
+                          Discussing
+                        </div>
+
+                        <div className="font-bold text-[#3f4b38]">
+                          {book.title}
+                        </div>
+
+                        <div className="text-sm text-[#7c8275]">
+                          {book.author}
+                        </div>
+                      </div>
+                    </a>
+                  </div>
+                )}
+
+                <div className="p-6">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#e4e9df]">
+                      🐛
+                    </div>
+
+                    <div>
+                      <div className="font-bold text-[#495541]">
+                        {post.username}
+                      </div>
+
+                      <div className="text-xs text-[#92978c]">
+                        {timeAgo(post.created_at)}
+                      </div>
                     </div>
                   </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
+
+                  {post.contains_spoilers &&
+                  !revealedSpoilers.includes(post.id) ? (
+                    <button
+                      onClick={() =>
+                        toggleSpoiler(post.id)
+                      }
+                      className="mt-5 w-full rounded-2xl border border-dashed border-[#cfc3ae] bg-[#f7f1e6] px-5 py-7"
+                    >
+                      🙈 This post contains spoilers — tap to
+                      reveal
+                    </button>
+                  ) : (
+                    <p className="mt-5 whitespace-pre-wrap leading-7 text-[#495046]">
+                      {post.content}
+                    </p>
+                  )}
+
+                  <div className="mt-6 flex items-center gap-3 border-t border-[#eee8dc] pt-4">
+                    <button
+                      onClick={() => toggleLike(post)}
+                      disabled={
+                        likingPost === post.id
+                      }
+                      className={`rounded-full px-4 py-2 text-sm font-bold ${
+                        likedByMe
+                          ? "bg-[#e5eadf] text-[#43503b]"
+                          : "bg-[#f4f0e7] text-[#72786d]"
+                      }`}
+                    >
+                      {likedByMe ? "♥" : "♡"}{" "}
+                      {post.discussion_likes.length}
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        toggleComments(post.id)
+                      }
+                      className="rounded-full bg-[#f4f0e7] px-4 py-2 text-sm font-bold text-[#72786d]"
+                    >
+                      💬 {post.comments.length}{" "}
+                      {post.comments.length === 1
+                        ? "comment"
+                        : "comments"}
+                    </button>
+
+                    {book && (
+                      <a
+                        href={makeBookUrl(book)}
+                        className="ml-auto text-sm font-bold text-[#56634f]"
+                      >
+                        View book →
+                      </a>
+                    )}
+                  </div>
+
+                  {expanded && (
+                    <div className="mt-5 border-t border-[#eee8dc] pt-5">
+                      <div className="mb-5">
+                        <textarea
+                          value={
+                            commentDrafts[post.id] || ""
+                          }
+                          onChange={(event) =>
+                            setCommentDrafts(
+                              (current) => ({
+                                ...current,
+                                [post.id]:
+                                  event.target.value,
+                              })
+                            )
+                          }
+                          rows={3}
+                          placeholder="Add a comment..."
+                          className="w-full resize-none rounded-2xl border border-[#d8d0c3] bg-white px-4 py-3 outline-none focus:border-[#829078]"
+                        />
+
+                        <div className="mt-3 flex items-center justify-between gap-3">
+                          <label className="flex items-center gap-2 text-xs text-[#7d8477]">
+                            <input
+                              type="checkbox"
+                              checked={
+                                commentSpoilers[
+                                  post.id
+                                ] || false
+                              }
+                              onChange={(event) =>
+                                setCommentSpoilers(
+                                  (current) => ({
+                                    ...current,
+                                    [post.id]:
+                                      event.target
+                                        .checked,
+                                  })
+                                )
+                              }
+                              className="accent-[#4f5f45]"
+                            />
+                            Contains spoilers
+                          </label>
+
+                          <button
+                            onClick={() =>
+                              addComment(post.id)
+                            }
+                            disabled={
+                              !commentDrafts[
+                                post.id
+                              ]?.trim() ||
+                              postingComment ===
+                                post.id
+                            }
+                            className="rounded-full bg-[#4f5f45] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                          >
+                            {postingComment === post.id
+                              ? "Posting..."
+                              : "Comment"}
+                          </button>
+                        </div>
+                      </div>
+
+                      {topComments.length === 0 ? (
+                        <p className="py-4 text-center text-sm text-[#969b91]">
+                          No comments yet. Be the first 💬
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          {topComments.map(
+                            (comment) =>
+                              renderComment(
+                                comment,
+                                post
+                              )
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </div>
 
         <div className="mt-8 rounded-[28px] border border-[#ded5c4] bg-[#fffdf8] px-6 py-5 text-center text-sm text-[#7a8174]">
-          You&apos;re currently posting as{" "}
-          <span className="font-bold text-[#55614e]">
-            {guestUsername || "a temporary guest bookworm"}
+          Posting as{" "}
+          <span className="font-bold">
+            {guestUsername ||
+              "temporary Bookworm"}
           </span>
           . Profiles are coming later. 🐛
         </div>
@@ -877,13 +1385,16 @@ export default function CommunityPage() {
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-[#2c3328]/45 p-4 backdrop-blur-sm"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
+            if (
+              event.target ===
+              event.currentTarget
+            ) {
               closeCreateModal();
             }
           }}
         >
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[30px] border border-[#d9d0bf] bg-[#fffdf8] shadow-2xl">
-            <div className="flex items-start justify-between border-b border-[#eee7da] px-6 py-5 sm:px-7">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[30px] bg-[#fffdf8] shadow-2xl">
+            <div className="flex items-start justify-between border-b border-[#eee7da] px-7 py-5">
               <div>
                 <div className="text-xs font-bold uppercase tracking-[0.14em] text-[#8a7b60]">
                   New discussion
@@ -895,17 +1406,16 @@ export default function CommunityPage() {
               </div>
 
               <button
-                type="button"
                 onClick={closeCreateModal}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f1ede4] text-xl text-[#687061] transition hover:bg-[#e8e2d7]"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f1ede4] text-xl"
               >
                 ×
               </button>
             </div>
 
-            <div className="space-y-6 p-6 sm:p-7">
+            <div className="space-y-6 p-7">
               <div>
-                <label className="mb-2 block text-sm font-bold text-[#4b5744]">
+                <label className="mb-2 block text-sm font-bold">
                   Which book are you talking about?
                 </label>
 
@@ -915,169 +1425,140 @@ export default function CommunityPage() {
                       <img
                         src={selectedBook.cover_url}
                         alt={selectedBook.title}
-                        className="h-20 w-14 rounded-lg object-cover shadow-sm"
+                        className="h-20 w-14 rounded-lg object-cover"
                       />
                     ) : (
-                      <div className="flex h-20 w-14 items-center justify-center rounded-lg bg-[#ddd8cb] text-2xl">
+                      <div className="flex h-20 w-14 items-center justify-center rounded-lg bg-[#ddd8cb]">
                         📕
                       </div>
                     )}
 
-                    <div className="min-w-0 flex-1">
-                      <div className="font-bold text-[#3e4b38]">
+                    <div className="flex-1">
+                      <div className="font-bold">
                         {selectedBook.title}
                       </div>
-
-                      <div className="mt-1 text-sm text-[#778071]">
+                      <div className="text-sm text-[#778071]">
                         {selectedBook.author}
                       </div>
                     </div>
 
                     <button
-                      type="button"
                       onClick={() => {
                         setSelectedBook(null);
                         setBookQuery("");
-                        setBookResults([]);
                       }}
-                      className="rounded-full bg-white px-3 py-2 text-xs font-bold text-[#626c5c] shadow-sm"
+                      className="rounded-full bg-white px-3 py-2 text-xs font-bold"
                     >
                       Change
                     </button>
                   </div>
                 ) : (
-                  <div className="relative">
+                  <div>
                     <input
                       value={bookQuery}
                       onChange={(event) =>
-                        setBookQuery(event.target.value)
+                        setBookQuery(
+                          event.target.value
+                        )
                       }
                       placeholder="Search for a book..."
-                      className="w-full rounded-2xl border border-[#d5cdbd] bg-white px-4 py-3.5 text-[#35412f] outline-none transition placeholder:text-[#a5aa9e] focus:border-[#829078]"
+                      className="w-full rounded-2xl border border-[#d5cdbd] bg-white px-4 py-3.5 outline-none"
                     />
 
                     {bookQuery.trim().length >= 2 && (
-                      <div className="mt-2 overflow-hidden rounded-2xl border border-[#ddd5c6] bg-white shadow-lg">
+                      <div className="mt-2 overflow-hidden rounded-2xl border bg-white shadow-lg">
                         {searchingBooks && (
-                          <div className="px-4 py-4 text-sm text-[#7b8275]">
+                          <div className="p-4 text-sm">
                             Searching books...
                           </div>
                         )}
 
                         {!searchingBooks &&
-                          bookResults.length === 0 && (
-                            <div className="px-4 py-4 text-sm text-[#7b8275]">
-                              No books found yet.
-                            </div>
-                          )}
+                          bookResults
+                            .slice(0, 6)
+                            .map((book) => (
+                              <button
+                                key={`${book.external_id}-${book.title}`}
+                                onClick={() => {
+                                  setSelectedBook(
+                                    book
+                                  );
+                                  setBookResults([]);
+                                }}
+                                className="flex w-full items-center gap-3 border-b p-3 text-left hover:bg-[#f7f4ed]"
+                              >
+                                {book.cover_url && (
+                                  <img
+                                    src={
+                                      book.cover_url
+                                    }
+                                    alt={
+                                      book.title
+                                    }
+                                    className="h-14 w-10 rounded object-cover"
+                                  />
+                                )}
 
-                        {!searchingBooks &&
-                          bookResults.slice(0, 6).map((book) => (
-                            <button
-                              type="button"
-                              key={`${book.external_id}-${book.title}`}
-                              onClick={() => {
-                                setSelectedBook(book);
-                                setBookResults([]);
-                                setBookQuery(book.title);
-                              }}
-                              className="flex w-full items-center gap-3 border-b border-[#f0ece4] px-4 py-3 text-left transition last:border-b-0 hover:bg-[#f7f4ed]"
-                            >
-                              {book.cover_url ? (
-                                <img
-                                  src={book.cover_url}
-                                  alt={book.title}
-                                  className="h-14 w-10 rounded object-cover"
-                                />
-                              ) : (
-                                <div className="flex h-14 w-10 items-center justify-center rounded bg-[#ece7dc]">
-                                  📘
+                                <div>
+                                  <div className="font-bold">
+                                    {book.title}
+                                  </div>
+                                  <div className="text-sm text-[#7c8275]">
+                                    {book.author}
+                                  </div>
                                 </div>
-                              )}
-
-                              <div className="min-w-0">
-                                <div className="truncate font-bold text-[#45513f]">
-                                  {book.title}
-                                </div>
-
-                                <div className="truncate text-sm text-[#7c8275]">
-                                  {book.author}
-                                </div>
-                              </div>
-                            </button>
-                          ))}
+                              </button>
+                            ))}
                       </div>
                     )}
                   </div>
                 )}
               </div>
 
-              <div>
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <label className="text-sm font-bold text-[#4b5744]">
-                    Start the discussion
-                  </label>
-
-                  <span className="text-xs text-[#999f93]">
-                    {discussionText.length}/1000
-                  </span>
-                </div>
-
-                <textarea
-                  value={discussionText}
-                  onChange={(event) =>
-                    setDiscussionText(
-                      event.target.value.slice(0, 1000)
+              <textarea
+                value={discussionText}
+                onChange={(event) =>
+                  setDiscussionText(
+                    event.target.value.slice(
+                      0,
+                      1000
                     )
-                  }
-                  rows={7}
-                  placeholder="Share a theory, reaction, question, unpopular opinion..."
-                  className="w-full resize-none rounded-2xl border border-[#d5cdbd] bg-white px-4 py-3.5 leading-7 text-[#35412f] outline-none transition placeholder:text-[#a5aa9e] focus:border-[#829078]"
-                />
-              </div>
+                  )
+                }
+                rows={7}
+                placeholder="Share a theory, reaction, question, unpopular opinion..."
+                className="w-full resize-none rounded-2xl border border-[#d5cdbd] bg-white px-4 py-3.5 outline-none"
+              />
 
-              <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-[#e0d8c9] bg-[#faf7f0] p-4">
+              <label className="flex items-center gap-3 rounded-2xl border bg-[#faf7f0] p-4">
                 <input
                   type="checkbox"
                   checked={containsSpoilers}
                   onChange={(event) =>
-                    setContainsSpoilers(event.target.checked)
+                    setContainsSpoilers(
+                      event.target.checked
+                    )
                   }
-                  className="h-4 w-4 accent-[#4f5f45]"
+                  className="accent-[#4f5f45]"
                 />
-
-                <div>
-                  <div className="text-sm font-bold text-[#515d4a]">
-                    ⚠️ This post contains spoilers
-                  </div>
-
-                  <div className="mt-0.5 text-xs text-[#858b80]">
-                    Readers will have to reveal the post before seeing it.
-                  </div>
-                </div>
+                ⚠️ This post contains spoilers
               </label>
 
               {postError && (
-                <div className="rounded-2xl bg-[#fff0eb] px-4 py-3 text-sm font-semibold text-[#955b4c]">
+                <div className="rounded-xl bg-[#fff0eb] p-3 text-sm text-[#955b4c]">
                   {postError}
                 </div>
               )}
 
-              <div className="flex items-center justify-between gap-4 border-t border-[#eee7da] pt-5">
-                <div className="text-xs text-[#969c90]">
-                  Posting as{" "}
-                  <span className="font-bold text-[#697362]">
-                    {guestUsername || "Bookworm"}
-                  </span>
-                </div>
-
+              <div className="flex justify-end">
                 <button
-                  type="button"
-                  disabled={posting}
                   onClick={createPost}
-                  className="rounded-full bg-[#4f5f45] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#43513b] disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={posting}
+                  className="rounded-full bg-[#4f5f45] px-6 py-3 font-bold text-white disabled:opacity-50"
                 >
-                  {posting ? "Posting..." : "Post discussion"}
+                  {posting
+                    ? "Posting..."
+                    : "Post discussion"}
                 </button>
               </div>
             </div>
