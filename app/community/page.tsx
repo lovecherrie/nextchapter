@@ -235,6 +235,16 @@ export default function CommunityPage() {
   const [commentMenu, setCommentMenu] =
     useState<string | null>(null);
 
+  const [postMenu, setPostMenu] =
+    useState<string | null>(null);
+
+  const [editingPostId, setEditingPostId] =
+    useState<string | null>(null);
+  const [editingPostText, setEditingPostText] = useState("");
+  const [editingPostSpoiler, setEditingPostSpoiler] = useState(false);
+  const [savingPostId, setSavingPostId] =
+    useState<string | null>(null);
+
   const [createOpen, setCreateOpen] = useState(false);
 
   const [bookQuery, setBookQuery] = useState("");
@@ -730,6 +740,72 @@ export default function CommunityPage() {
     }
   }
 
+  async function saveEditedPost(post: DiscussionPost) {
+    const content = editingPostText.trim();
+
+    if (!content) return;
+
+    setSavingPostId(post.id);
+
+    const { error } = await supabase
+      .from("discussion_posts")
+      .update({
+        content,
+        contains_spoilers: editingPostSpoiler,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", post.id);
+
+    if (!error) {
+      setPosts((current) =>
+        current.map((item) =>
+          item.id === post.id
+            ? {
+                ...item,
+                content,
+                contains_spoilers: editingPostSpoiler,
+              }
+            : item
+        )
+      );
+
+      setEditingPostId(null);
+      setEditingPostText("");
+      setEditingPostSpoiler(false);
+      setPostMenu(null);
+    } else {
+      console.error(error);
+      window.alert("Could not edit this post.");
+    }
+
+    setSavingPostId(null);
+  }
+
+  async function deletePost(post: DiscussionPost) {
+    const okay = window.confirm(
+      "Delete this discussion post? Its comments and likes will also be deleted."
+    );
+
+    if (!okay) return;
+
+    const { error } = await supabase
+      .from("discussion_posts")
+      .delete()
+      .eq("id", post.id);
+
+    if (!error) {
+      setPosts((current) =>
+        current.filter((item) => item.id !== post.id)
+      );
+
+      setPostMenu(null);
+      setEditingPostId(null);
+    } else {
+      console.error(error);
+      window.alert("Could not delete this post.");
+    }
+  }
+
   function toggleSpoiler(postId: string) {
     setRevealedSpoilers((current) =>
       current.includes(postId)
@@ -1212,24 +1288,130 @@ export default function CommunityPage() {
                 )}
 
                 <div className="p-6">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#e4e9df]">
-                      🐛
-                    </div>
-
-                    <div>
-                      <div className="font-bold text-[#495541]">
-                        {post.username}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#e4e9df]">
+                        🐛
                       </div>
 
-                      <div className="text-xs text-[#92978c]">
-                        {timeAgo(post.created_at)}
+                      <div>
+                        <div className="font-bold text-[#495541]">
+                          {post.username}
+                        </div>
+
+                        <div className="text-xs text-[#92978c]">
+                          {timeAgo(post.created_at)}
+                        </div>
                       </div>
                     </div>
+
+                    {post.user_id === guestUserId && (
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPostMenu(
+                              postMenu === post.id
+                                ? null
+                                : post.id
+                            )
+                          }
+                          className="rounded-full px-2 py-1 text-lg text-[#8b9087] hover:bg-[#ebe7de]"
+                        >
+                          •••
+                        </button>
+
+                        {postMenu === post.id && (
+                          <div className="absolute right-0 top-8 z-20 w-28 overflow-hidden rounded-xl border border-[#ded7ca] bg-white shadow-lg">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingPostId(post.id);
+                                setEditingPostText(post.content);
+                                setEditingPostSpoiler(
+                                  post.contains_spoilers
+                                );
+                                setPostMenu(null);
+                              }}
+                              className="block w-full px-4 py-2.5 text-left text-sm font-semibold text-[#56614f] hover:bg-[#f6f3ec]"
+                            >
+                              Edit
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => deletePost(post)}
+                              className="block w-full px-4 py-2.5 text-left text-sm font-semibold text-[#9a5548] hover:bg-[#fff3ef]"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
-                  {post.contains_spoilers &&
-                  !revealedSpoilers.includes(post.id) ? (
+                  {editingPostId === post.id ? (
+                    <div className="mt-5 rounded-2xl border border-[#d8d0c3] bg-[#faf7f0] p-4">
+                      <textarea
+                        value={editingPostText}
+                        onChange={(event) =>
+                          setEditingPostText(
+                            event.target.value.slice(0, 1000)
+                          )
+                        }
+                        rows={5}
+                        className="w-full resize-none rounded-xl border border-[#d8d0c3] bg-white px-4 py-3 outline-none focus:border-[#829078]"
+                      />
+
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                        <label className="flex items-center gap-2 text-xs text-[#7d8477]">
+                          <input
+                            type="checkbox"
+                            checked={editingPostSpoiler}
+                            onChange={(event) =>
+                              setEditingPostSpoiler(
+                                event.target.checked
+                              )
+                            }
+                            className="accent-[#4f5f45]"
+                          />
+                          Contains spoilers
+                        </label>
+
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingPostId(null);
+                              setEditingPostText("");
+                              setEditingPostSpoiler(false);
+                            }}
+                            className="rounded-full bg-[#ece8df] px-4 py-2 text-xs font-bold text-[#6b7365]"
+                          >
+                            Cancel
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              saveEditedPost(post)
+                            }
+                            disabled={
+                              !editingPostText.trim() ||
+                              savingPostId === post.id
+                            }
+                            className="rounded-full bg-[#4f5f45] px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+                          >
+                            {savingPostId === post.id
+                              ? "Saving..."
+                              : "Save"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : post.contains_spoilers &&
+                    !revealedSpoilers.includes(post.id) ? (
                     <button
                       onClick={() =>
                         toggleSpoiler(post.id)
