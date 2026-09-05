@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -51,7 +47,7 @@ type RatingValue =
   | number
   | null;
 
-export default function BookPage() {
+function BookPageContent() {
   const searchParams =
     useSearchParams();
 
@@ -2682,5 +2678,19 @@ export default function BookPage() {
 
       </div>
     </main>
+  );
+}export default function BookPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#f7f2e8] flex items-center justify-center">
+          <p className="text-[#4f5f45] font-semibold">
+            Opening book...
+          </p>
+        </main>
+      }
+    >
+      <BookPageContent />
+    </Suspense>
   );
 }
