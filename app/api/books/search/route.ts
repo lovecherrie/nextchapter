@@ -7,14 +7,21 @@ export async function GET(req: Request) {
       return Response.json({ books: [] });
     }
 
-    const cleanQuery = query.trim();
+    const cleanQuery = query.trim().toLowerCase();
+
+    function startsWithQuery(title: string) {
+      return title
+        .toLowerCase()
+        .trim()
+        .startsWith(cleanQuery);
+    }
 
     // 1. TRY GOOGLE BOOKS FIRST
     try {
-      const googleQuery = encodeURIComponent(cleanQuery);
+      const googleQuery = encodeURIComponent(query.trim());
 
       const googleResponse = await fetch(
-        `https://www.googleapis.com/books/v1/volumes?q=${googleQuery}&maxResults=10&printType=books`
+        `https://www.googleapis.com/books/v1/volumes?q=intitle:${googleQuery}&maxResults=40&printType=books`
       );
 
       if (googleResponse.ok) {
@@ -44,7 +51,11 @@ export async function GET(req: Request) {
                   info.publishedDate || null,
               };
             })
-            .filter((book: any) => book.title) || [];
+            .filter(
+              (book: any) =>
+                book.title &&
+                startsWithQuery(book.title)
+            ) || [];
 
         if (googleBooks.length > 0) {
           return Response.json({
@@ -59,8 +70,8 @@ export async function GET(req: Request) {
     // 2. FALLBACK TO OPEN LIBRARY
     try {
       const openLibraryParams = new URLSearchParams({
-        q: cleanQuery,
-        limit: "10",
+        title: query.trim(),
+        limit: "40",
       });
 
       const openLibraryResponse = await fetch(
@@ -95,7 +106,11 @@ export async function GET(req: Request) {
                   null,
               };
             })
-            .filter((book: any) => book.title) || [];
+            .filter(
+              (book: any) =>
+                book.title &&
+                startsWithQuery(book.title)
+            ) || [];
 
         return Response.json({
           books: openLibraryBooks.slice(0, 8),
