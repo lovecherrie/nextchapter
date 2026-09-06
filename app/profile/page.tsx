@@ -70,7 +70,14 @@ export default function ProfilePage() {
   const [profileError, setProfileError] = useState("");
 
   useEffect(() => {
-    const savedUserId =
+    initializeProfile();
+  }, []);
+
+  async function initializeProfile() {
+    setLoading(true);
+    setError("");
+
+    const savedGuestId =
       localStorage.getItem("nextchapter_guest_id") || "";
     const savedUsername =
       localStorage.getItem("nextchapter_guest_username") ||
@@ -78,19 +85,100 @@ export default function ProfilePage() {
     const savedBio =
       localStorage.getItem("nextchapter_profile_bio") || "";
 
-    setUserId(savedUserId);
-    setUsername(savedUsername);
-    setBio(savedBio);
-    setDraftUsername(savedUsername);
-    setDraftBio(savedBio);
+    try {
+      const { data, error: authError } =
+        await supabase.auth.getUser();
 
-    if (!savedUserId) {
+      if (authError) {
+        throw authError;
+      }
+
+      const authUser = data.user;
+
+      if (!authUser) {
+        window.location.href = "/auth";
+        return;
+      }
+
+      const accountUsername =
+        typeof authUser.user_metadata?.username === "string" &&
+        authUser.user_metadata.username.trim()
+          ? authUser.user_metadata.username.trim()
+          : savedUsername;
+
+      // Move activity created before signup from the temporary guest id
+      // to the real Supabase account id.
+      if (savedGuestId && savedGuestId !== authUser.id) {
+        const migrationResults = await Promise.all([
+          supabase
+            .from("ratings")
+            .update({
+              user_id: authUser.id,
+              username: accountUsername,
+            })
+            .eq("user_id", savedGuestId),
+          supabase
+            .from("discussion_posts")
+            .update({
+              user_id: authUser.id,
+              username: accountUsername,
+            })
+            .eq("user_id", savedGuestId),
+          supabase
+            .from("comments")
+            .update({
+              user_id: authUser.id,
+              username: accountUsername,
+            })
+            .eq("user_id", savedGuestId),
+          supabase
+            .from("discussion_likes")
+            .update({ user_id: authUser.id })
+            .eq("user_id", savedGuestId),
+        ]);
+
+        const migrationError = migrationResults.find(
+          (result) => result.error
+        )?.error;
+
+        if (migrationError) {
+          console.error(
+            "Guest activity migration error:",
+            migrationError
+          );
+        }
+      }
+
+      // The rest of NextChapter already reads these localStorage keys.
+      // Reusing them means new ratings/posts/comments/likes automatically
+      // use the logged-in account id without changing those pages yet.
+      localStorage.setItem(
+        "nextchapter_guest_id",
+        authUser.id
+      );
+      localStorage.setItem(
+        "nextchapter_guest_username",
+        accountUsername
+      );
+
+      setUserId(authUser.id);
+      setUsername(accountUsername);
+      setBio(savedBio);
+      setDraftUsername(accountUsername);
+      setDraftBio(savedBio);
+
+      await loadProfile(authUser.id);
+    } catch (initializeError) {
+      console.error(
+        "Profile initialization error:",
+        initializeError
+      );
+      setError(
+        "Could not connect your account to your profile right now."
+      );
       setLoading(false);
-      return;
     }
-
-    loadProfile(savedUserId);
-  }, []);
+  }
 
   async function loadProfile(currentUserId: string) {
     setLoading(true);
@@ -206,26 +294,34 @@ export default function ProfilePage() {
 
     try {
       if (userId && cleanUsername !== username) {
-        const [ratingsUpdate, postsUpdate, commentsUpdate] =
-          await Promise.all([
-            supabase
-              .from("ratings")
-              .update({ username: cleanUsername })
-              .eq("user_id", userId),
-            supabase
-              .from("discussion_posts")
-              .update({ username: cleanUsername })
-              .eq("user_id", userId),
-            supabase
-              .from("comments")
-              .update({ username: cleanUsername })
-              .eq("user_id", userId),
-          ]);
+        const [
+          ratingsUpdate,
+          postsUpdate,
+          commentsUpdate,
+          authUpdate,
+        ] = await Promise.all([
+          supabase
+            .from("ratings")
+            .update({ username: cleanUsername })
+            .eq("user_id", userId),
+          supabase
+            .from("discussion_posts")
+            .update({ username: cleanUsername })
+            .eq("user_id", userId),
+          supabase
+            .from("comments")
+            .update({ username: cleanUsername })
+            .eq("user_id", userId),
+          supabase.auth.updateUser({
+            data: { username: cleanUsername },
+          }),
+        ]);
 
         const updateError =
           ratingsUpdate.error ||
           postsUpdate.error ||
-          commentsUpdate.error;
+          commentsUpdate.error ||
+          authUpdate.error;
 
         if (updateError) {
           throw updateError;
@@ -269,6 +365,21 @@ export default function ProfilePage() {
     }
   }
 
+
+  async function logOut() {
+    const { error: signOutError } =
+      await supabase.auth.signOut();
+
+    if (signOutError) {
+      setError(
+        "Could not log out right now. Please try again."
+      );
+      return;
+    }
+
+    window.location.href = "/auth";
+  }
+
   return (
     <main className="min-h-screen bg-[#f7f2e8] text-stone-900">
       <SiteHeader active="profile" />
@@ -296,13 +407,23 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={openEditProfile}
-              className="self-start rounded-xl border border-[#cfd8ca] bg-[#eef2ea] px-4 py-2 text-sm font-semibold text-[#4f5f45] transition hover:bg-[#e3eadf]"
-            >
-              Edit profile
-            </button>
+            <div className="flex flex-wrap gap-2 self-start">
+              <button
+                type="button"
+                onClick={openEditProfile}
+                className="rounded-xl border border-[#cfd8ca] bg-[#eef2ea] px-4 py-2 text-sm font-semibold text-[#4f5f45] transition hover:bg-[#e3eadf]"
+              >
+                Edit profile
+              </button>
+
+              <button
+                type="button"
+                onClick={logOut}
+                className="rounded-xl border border-stone-200 bg-white px-4 py-2 text-sm font-semibold text-stone-500 transition hover:bg-stone-50 hover:text-stone-700"
+              >
+                Log out
+              </button>
+            </div>
           </div>
         </section>
 
@@ -473,11 +594,6 @@ export default function ProfilePage() {
           )}
         </section>
 
-        {!userId && !loading && (
-          <p className="mt-6 text-center text-xs text-stone-400">
-            Your reader profile will start filling in after you rate or discuss a book.
-          </p>
-        )}
       </div>
 
       {editOpen && (
