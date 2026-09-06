@@ -12,6 +12,28 @@ type Book = {
   cover_url: string | null;
 };
 
+type BookSearchResult = {
+  id: string;
+  title: string;
+  author: string;
+  cover?: string | null;
+};
+
+type TopBook = {
+  id: string;
+  user_id: string;
+  book_id: string;
+  position: number;
+  books: Book | null;
+};
+
+type DraftTopBook = {
+  external_id: string;
+  title: string;
+  author: string;
+  cover_url: string | null;
+};
+
 type Rating = {
   id: string;
   book_id: string;
@@ -62,6 +84,21 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [topBooks, setTopBooks] = useState<TopBook[]>([]);
+  const [topBooksOpen, setTopBooksOpen] = useState(false);
+  const [draftTopBooks, setDraftTopBooks] = useState<(DraftTopBook | null)[]>([
+    null,
+    null,
+    null,
+    null,
+  ]);
+  const [activeTopBookSlot, setActiveTopBookSlot] = useState(0);
+  const [topBookQuery, setTopBookQuery] = useState("");
+  const [topBookResults, setTopBookResults] = useState<BookSearchResult[]>([]);
+  const [searchingTopBooks, setSearchingTopBooks] = useState(false);
+  const [savingTopBooks, setSavingTopBooks] = useState(false);
+  const [topBooksError, setTopBooksError] = useState("");
+
   const [bio, setBio] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [draftUsername, setDraftUsername] = useState("");
@@ -72,6 +109,38 @@ export default function ProfilePage() {
   useEffect(() => {
     initializeProfile();
   }, []);
+
+  useEffect(() => {
+    if (!topBooksOpen || topBookQuery.trim().length < 2) {
+      setTopBookResults([]);
+      setSearchingTopBooks(false);
+      return;
+    }
+
+    const timer = window.setTimeout(async () => {
+      setSearchingTopBooks(true);
+
+      try {
+        const response = await fetch(
+          `/api/books/search?q=${encodeURIComponent(topBookQuery.trim())}`
+        );
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Book search failed");
+        }
+
+        setTopBookResults(data.books || []);
+      } catch (searchError) {
+        console.error("Top 4 book search error:", searchError);
+        setTopBookResults([]);
+      } finally {
+        setSearchingTopBooks(false);
+      }
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+  }, [topBookQuery, topBooksOpen]);
 
   async function initializeProfile() {
     setLoading(true);
@@ -185,7 +254,7 @@ export default function ProfilePage() {
     setError("");
 
     try {
-      const [ratingsResult, postsResult] = await Promise.all([
+      const [ratingsResult, postsResult, topBooksResult] = await Promise.all([
         supabase
           .from("ratings")
           .select(`
@@ -228,6 +297,24 @@ export default function ProfilePage() {
           `)
           .eq("user_id", currentUserId)
           .order("created_at", { ascending: false }),
+
+        supabase
+          .from("profile_top_books")
+          .select(`
+            id,
+            user_id,
+            book_id,
+            position,
+            books (
+              id,
+              external_id,
+              title,
+              author,
+              cover_url
+            )
+          `)
+          .eq("user_id", currentUserId)
+          .order("position", { ascending: true }),
       ]);
 
       if (ratingsResult.error) {
@@ -238,13 +325,196 @@ export default function ProfilePage() {
         throw postsResult.error;
       }
 
+      if (topBooksResult.error) {
+        throw topBooksResult.error;
+      }
+
       setRatings((ratingsResult.data || []) as unknown as Rating[]);
       setPosts((postsResult.data || []) as unknown as DiscussionPost[]);
+      setTopBooks((topBooksResult.data || []) as unknown as TopBook[]);
     } catch (profileError) {
       console.error("Profile load error:", profileError);
       setError("Could not load your profile activity right now.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  function openTopBooksEditor() {
+    const nextDraft: (DraftTopBook | null)[] = [null, null, null, null];
+
+    topBooks.forEach((item) => {
+      if (item.books && item.position >= 1 && item.position <= 4) {
+        nextDraft[item.position - 1] = {
+          external_id: item.books.external_id,
+          title: item.books.title,
+          author: item.books.author || "",
+          cover_url: item.books.cover_url,
+        };
+      }
+    });
+
+    setDraftTopBooks(nextDraft);
+    setActiveTopBookSlot(0);
+    setTopBookQuery("");
+    setTopBookResults([]);
+    setTopBooksError("");
+    setTopBooksOpen(true);
+  }
+
+  function closeTopBooksEditor() {
+    if (savingTopBooks) return;
+
+    setTopBooksOpen(false);
+    setTopBookQuery("");
+    setTopBookResults([]);
+    setTopBooksError("");
+  }
+
+  function chooseTopBook(book: BookSearchResult) {
+    const isAlreadyChosen = draftTopBooks.some(
+      (item, index) => item?.external_id === book.id && index !== activeTopBookSlot
+    );
+
+    if (isAlreadyChosen) {
+      setTopBooksError("That book is already in your Top 4.");
+      return;
+    }
+
+    setDraftTopBooks((current) => {
+      const next = [...current];
+      next[activeTopBookSlot] = {
+        external_id: book.id,
+        title: book.title,
+        author: book.author || "",
+        cover_url: book.cover || null,
+      };
+      return next;
+    });
+
+    setTopBookQuery("");
+    setTopBookResults([]);
+    setTopBooksError("");
+
+    if (activeTopBookSlot < 3) {
+      setActiveTopBookSlot(activeTopBookSlot + 1);
+    }
+  }
+
+  function removeDraftTopBook(index: number) {
+    setDraftTopBooks((current) => {
+      const next = [...current];
+      next[index] = null;
+      return next;
+    });
+    setActiveTopBookSlot(index);
+    setTopBooksError("");
+  }
+
+  async function ensureDatabaseBook(book: DraftTopBook) {
+    const { data: existingBook, error: lookupError } = await supabase
+      .from("books")
+      .select("id, external_id, title, author, cover_url")
+      .eq("external_id", book.external_id)
+      .maybeSingle();
+
+    if (lookupError) throw lookupError;
+    if (existingBook) return existingBook as Book;
+
+    const { data: createdBook, error: createError } = await supabase
+      .from("books")
+      .insert({
+        external_id: book.external_id,
+        title: book.title,
+        author: book.author || null,
+        cover_url: book.cover_url || null,
+      })
+      .select("id, external_id, title, author, cover_url")
+      .single();
+
+    if (createError) {
+      // If another request created the same book first, fetch it instead.
+      const { data: retryBook, error: retryError } = await supabase
+        .from("books")
+        .select("id, external_id, title, author, cover_url")
+        .eq("external_id", book.external_id)
+        .maybeSingle();
+
+      if (retryError || !retryBook) throw createError;
+      return retryBook as Book;
+    }
+
+    return createdBook as Book;
+  }
+
+  async function saveTopBooks() {
+    if (!userId) return;
+
+    const chosenBooks = draftTopBooks
+      .map((book, index) => ({ book, position: index + 1 }))
+      .filter(
+        (item): item is { book: DraftTopBook; position: number } =>
+          item.book !== null
+      );
+
+    setSavingTopBooks(true);
+    setTopBooksError("");
+
+    try {
+      const databaseBooks = await Promise.all(
+        chosenBooks.map((item) => ensureDatabaseBook(item.book))
+      );
+
+      const { error: deleteError } = await supabase
+        .from("profile_top_books")
+        .delete()
+        .eq("user_id", userId);
+
+      if (deleteError) throw deleteError;
+
+      if (chosenBooks.length > 0) {
+        const rows = chosenBooks.map((item, index) => ({
+          user_id: userId,
+          book_id: databaseBooks[index].id,
+          position: item.position,
+        }));
+
+        const { error: insertError } = await supabase
+          .from("profile_top_books")
+          .insert(rows);
+
+        if (insertError) throw insertError;
+      }
+
+      const { data: refreshedTopBooks, error: refreshError } = await supabase
+        .from("profile_top_books")
+        .select(`
+          id,
+          user_id,
+          book_id,
+          position,
+          books (
+            id,
+            external_id,
+            title,
+            author,
+            cover_url
+          )
+        `)
+        .eq("user_id", userId)
+        .order("position", { ascending: true });
+
+      if (refreshError) throw refreshError;
+
+      setTopBooks((refreshedTopBooks || []) as unknown as TopBook[]);
+      setTopBooksOpen(false);
+      setTopBookQuery("");
+      setTopBookResults([]);
+    } catch (saveError) {
+      console.error("Top 4 save error:", saveError);
+      setTopBooksError("Could not save your Top 4 right now. Please try again.");
+    } finally {
+      setSavingTopBooks(false);
     }
   }
 
@@ -427,6 +697,89 @@ export default function ProfilePage() {
           </div>
         </section>
 
+        <section className="mt-6 rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 md:p-7">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#8a6f47]">
+                Your taste
+              </div>
+              <h2 className="mt-1 text-xl font-semibold">Top 4</h2>
+              <p className="mt-1 text-sm text-stone-500">
+                The four books that say the most about you.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={openTopBooksEditor}
+              className="shrink-0 rounded-xl border border-[#cfd8ca] bg-[#eef2ea] px-4 py-2 text-sm font-semibold text-[#4f5f45] transition hover:bg-[#e3eadf]"
+            >
+              {topBooks.length > 0 ? "Edit Top 4" : "Choose Top 4"}
+            </button>
+          </div>
+
+          {loading ? (
+            <p className="mt-5 text-sm text-stone-500">Loading your Top 4...</p>
+          ) : (
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[1, 2, 3, 4].map((position) => {
+                const item = topBooks.find((book) => book.position === position);
+
+                if (!item?.books) {
+                  return (
+                    <button
+                      key={position}
+                      type="button"
+                      onClick={openTopBooksEditor}
+                      className="group aspect-[2/3] rounded-2xl border border-dashed border-[#cfd8ca] bg-[#eef2ea]/45 p-4 text-center transition hover:bg-[#eef2ea]"
+                    >
+                      <div className="flex h-full flex-col items-center justify-center">
+                        <div className="text-xs font-bold uppercase tracking-[0.14em] text-[#8a6f47]">
+                          #{position}
+                        </div>
+                        <div className="mt-2 text-sm font-semibold text-[#5c6755]">
+                          Add a favorite
+                        </div>
+                      </div>
+                    </button>
+                  );
+                }
+
+                return (
+                  <a
+                    key={item.id}
+                    href={bookHref(item.books)}
+                    className="group min-w-0"
+                  >
+                    <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[#eee8dc] shadow-sm transition duration-200 group-hover:-translate-y-1 group-hover:shadow-md">
+                      {item.books.cover_url ? (
+                        <img
+                          src={item.books.cover_url}
+                          alt={item.books.title}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center px-3 text-center text-xs font-medium text-stone-400">
+                          No cover
+                        </div>
+                      )}
+                      <div className="absolute left-2 top-2 rounded-full bg-[#fffdf8]/90 px-2 py-1 text-[10px] font-bold text-[#4f5f45] shadow-sm backdrop-blur">
+                        #{position}
+                      </div>
+                    </div>
+                    <div className="mt-2 truncate text-sm font-semibold text-stone-800">
+                      {item.books.title}
+                    </div>
+                    <div className="mt-0.5 truncate text-xs text-stone-500">
+                      {item.books.author || "Unknown author"}
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
         <section className="mt-6 grid gap-4 sm:grid-cols-3">
           <div className="rounded-2xl border border-stone-200 bg-white p-5">
             <div className="text-2xl font-semibold text-[#4f5f45]">
@@ -442,7 +795,7 @@ export default function ProfilePage() {
               {loading ? "—" : posts.length}
             </div>
             <div className="mt-1 text-sm text-stone-500">
-              Discussions
+              Posts
             </div>
           </div>
 
@@ -542,18 +895,18 @@ export default function ProfilePage() {
             </div>
 
             <h2 className="mt-1 text-xl font-semibold">
-              Discussions
+              Posts
             </h2>
           </div>
 
           {loading ? (
             <p className="mt-5 text-sm text-stone-500">
-              Loading your discussions...
+              Loading your posts...
             </p>
           ) : posts.length === 0 ? (
             <div className="mt-5 rounded-2xl border border-dashed border-[#cfd8ca] bg-[#eef2ea]/60 px-5 py-8 text-center">
               <p className="text-sm font-medium text-[#5c6755]">
-                Your discussion posts will show up here.
+                Your posts will show up here.
               </p>
             </div>
           ) : (
@@ -585,7 +938,7 @@ export default function ProfilePage() {
 
                   <p className="mt-3 line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-stone-600">
                     {post.contains_spoilers
-                      ? "This discussion contains spoilers."
+                      ? "This post contains spoilers."
                       : post.content}
                   </p>
                 </a>
@@ -595,6 +948,192 @@ export default function ProfilePage() {
         </section>
 
       </div>
+
+      {topBooksOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-stone-900/30 px-4 py-6 backdrop-blur-[2px]"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeTopBooksEditor();
+            }
+          }}
+        >
+          <div className="w-full max-w-2xl rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 shadow-xl sm:p-7">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#8a6f47]">
+                  Your taste
+                </div>
+                <h2 className="mt-1 text-2xl font-semibold">Choose your Top 4</h2>
+                <p className="mt-1 text-sm leading-6 text-stone-500">
+                  Pick the four books that feel the most like you. You can change them anytime.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeTopBooksEditor}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xl leading-none text-stone-400 transition hover:bg-stone-100 hover:text-stone-700"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {draftTopBooks.map((book, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => {
+                    setActiveTopBookSlot(index);
+                    setTopBooksError("");
+                  }}
+                  className={`relative overflow-hidden rounded-2xl border text-left transition ${
+                    activeTopBookSlot === index
+                      ? "border-[#708066] ring-2 ring-[#dfe7da]"
+                      : "border-stone-200 hover:border-[#bfcab8]"
+                  }`}
+                >
+                  <div className="aspect-[2/3] bg-[#eee8dc]">
+                    {book?.cover_url ? (
+                      <img
+                        src={book.cover_url}
+                        alt={book.title}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full flex-col items-center justify-center px-3 text-center">
+                        <div className="text-xs font-bold text-[#8a6f47]">#{index + 1}</div>
+                        <div className="mt-2 text-xs font-semibold text-stone-500">
+                          {book ? book.title : "Choose a book"}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {book && (
+                    <div className="p-2.5">
+                      <div className="truncate text-xs font-semibold">{book.title}</div>
+                      <div className="mt-0.5 truncate text-[11px] text-stone-500">
+                        {book.author || "Unknown author"}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="absolute left-2 top-2 rounded-full bg-[#fffdf8]/90 px-2 py-1 text-[10px] font-bold text-[#4f5f45] shadow-sm">
+                    #{index + 1}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {draftTopBooks[activeTopBookSlot] && (
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => removeDraftTopBook(activeTopBookSlot)}
+                  className="text-xs font-semibold text-[#9a5d50] transition hover:text-[#7f493f]"
+                >
+                  Remove book from #{activeTopBookSlot + 1}
+                </button>
+              </div>
+            )}
+
+            <div className="mt-5 rounded-2xl border border-stone-200 bg-white p-4">
+              <label htmlFor="top-book-search" className="text-sm font-semibold text-stone-700">
+                Search for book #{activeTopBookSlot + 1}
+              </label>
+              <input
+                id="top-book-search"
+                value={topBookQuery}
+                onChange={(event) => {
+                  setTopBookQuery(event.target.value);
+                  setTopBooksError("");
+                }}
+                placeholder="Search by title or author..."
+                className="mt-2 w-full rounded-xl border border-stone-200 bg-[#fffdf8] px-4 py-3 text-sm outline-none transition focus:border-[#aebaa5] focus:ring-2 focus:ring-[#dfe7da]"
+              />
+
+              {topBookQuery.trim().length >= 2 && (
+                <div className="mt-3 max-h-64 overflow-y-auto rounded-xl border border-stone-200 bg-[#fffdf8]">
+                  {searchingTopBooks ? (
+                    <div className="p-4 text-sm text-stone-500">Searching books...</div>
+                  ) : topBookResults.length === 0 ? (
+                    <div className="p-4 text-sm text-stone-500">
+                      No books found yet. Try another title or author.
+                    </div>
+                  ) : (
+                    topBookResults.slice(0, 8).map((book) => (
+                      <button
+                        key={book.id}
+                        type="button"
+                        onClick={() => chooseTopBook(book)}
+                        className="flex w-full items-center gap-3 border-b border-stone-100 p-3 text-left transition last:border-b-0 hover:bg-[#f7f4ed]"
+                      >
+                        <div className="h-16 w-11 shrink-0 overflow-hidden rounded-md bg-[#eee8dc]">
+                          {book.cover ? (
+                            <img
+                              src={book.cover}
+                              alt={book.title}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center px-1 text-center text-[9px] text-stone-400">
+                              No cover
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-semibold text-stone-800">
+                            {book.title}
+                          </div>
+                          <div className="mt-0.5 truncate text-xs text-stone-500">
+                            {book.author || "Unknown author"}
+                          </div>
+                        </div>
+                        <span className="shrink-0 text-xs font-semibold text-[#4f5f45]">
+                          Choose
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+
+            {topBooksError && (
+              <div className="mt-4 rounded-xl border border-[#d6b5ad] bg-[#f8ebe7] px-4 py-3 text-sm text-[#8a4f43]">
+                {topBooksError}
+              </div>
+            )}
+
+            <div className="mt-6 flex items-center justify-between gap-3">
+              <div className="text-xs text-stone-400">
+                {draftTopBooks.filter(Boolean).length}/4 selected
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={closeTopBooksEditor}
+                  disabled={savingTopBooks}
+                  className="rounded-xl px-4 py-2.5 text-sm font-semibold text-stone-500 transition hover:bg-stone-100 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveTopBooks}
+                  disabled={savingTopBooks}
+                  className="rounded-xl bg-[#4f5f45] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#43513b] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {savingTopBooks ? "Saving..." : "Save Top 4"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {editOpen && (
         <div
