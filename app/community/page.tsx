@@ -280,12 +280,46 @@ export default function CommunityPage() {
   const [postError, setPostError] = useState("");
 
   useEffect(() => {
-    const guest = getGuestUser();
+    let cancelled = false;
 
-    setGuestUserId(guest.id);
-    setGuestUsername(guest.username);
+    const setupIdentity = async () => {
+      const { data } = await supabase.auth.getUser();
+      const authUser = data.user;
 
-    loadPosts();
+      if (authUser) {
+        const username =
+          typeof authUser.user_metadata?.username === "string" &&
+          authUser.user_metadata.username.trim()
+            ? authUser.user_metadata.username.trim()
+            : localStorage.getItem("nextchapter_guest_username") ||
+              "Bookworm";
+
+        localStorage.setItem("nextchapter_guest_id", authUser.id);
+        localStorage.setItem("nextchapter_guest_username", username);
+
+        if (!cancelled) {
+          setGuestUserId(authUser.id);
+          setGuestUsername(username);
+        }
+      } else {
+        const guest = getGuestUser();
+
+        if (!cancelled) {
+          setGuestUserId(guest.id);
+          setGuestUsername(guest.username);
+        }
+      }
+
+      if (!cancelled) {
+        await loadPosts();
+      }
+    };
+
+    setupIdentity();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {

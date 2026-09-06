@@ -323,48 +323,58 @@ function BookPageContent() {
   ]);
 
   // -------------------------
-  // TEMP GUEST IDENTITY
+  // ACCOUNT / GUEST IDENTITY
   // -------------------------
 
   useEffect(() => {
-    let userId =
-      localStorage.getItem(
-        "nextchapter_guest_id"
-      );
+    let cancelled = false;
 
-    let username =
-      localStorage.getItem(
-        "nextchapter_guest_username"
-      );
+    const setupIdentity = async () => {
+      const { data } = await supabase.auth.getUser();
+      const authUser = data.user;
 
-    if (!userId) {
-      userId = `guest_${crypto.randomUUID()}`;
+      if (authUser) {
+        const username =
+          typeof authUser.user_metadata?.username === "string" &&
+          authUser.user_metadata.username.trim()
+            ? authUser.user_metadata.username.trim()
+            : localStorage.getItem("nextchapter_guest_username") ||
+              "Bookworm";
 
-      localStorage.setItem(
-        "nextchapter_guest_id",
-        userId
-      );
-    }
+        localStorage.setItem("nextchapter_guest_id", authUser.id);
+        localStorage.setItem("nextchapter_guest_username", username);
 
-    if (!username) {
-      username = `Bookworm${Math.floor(
-        1000 +
-          Math.random() * 9000
-      )}`;
+        if (!cancelled) {
+          setGuestUserId(authUser.id);
+          setGuestUsername(username);
+        }
+        return;
+      }
 
-      localStorage.setItem(
-        "nextchapter_guest_username",
-        username
-      );
-    }
+      let userId = localStorage.getItem("nextchapter_guest_id");
+      let username = localStorage.getItem("nextchapter_guest_username");
 
-    setGuestUserId(
-      userId
-    );
+      if (!userId) {
+        userId = `guest_${crypto.randomUUID()}`;
+        localStorage.setItem("nextchapter_guest_id", userId);
+      }
 
-    setGuestUsername(
-      username
-    );
+      if (!username) {
+        username = `Bookworm${Math.floor(1000 + Math.random() * 9000)}`;
+        localStorage.setItem("nextchapter_guest_username", username);
+      }
+
+      if (!cancelled) {
+        setGuestUserId(userId);
+        setGuestUsername(username);
+      }
+    };
+
+    setupIdentity();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // -------------------------
