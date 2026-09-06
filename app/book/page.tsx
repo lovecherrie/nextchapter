@@ -4,7 +4,8 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-type Review = {
+type Rating = {
+  user_id: string;
   id: string;
   username: string;
 
@@ -88,13 +89,13 @@ function BookPageContent() {
     activeTab,
     setActiveTab,
   ] = useState<
-    "reviews" | "discussion"
-  >("reviews");
+    "ratings" | "discussion"
+  >("ratings");
 
   const [
-    reviews,
-    setReviews,
-  ] = useState<Review[]>([]);
+    ratings,
+    setRatings,
+  ] = useState<Rating[]>([]);
 
   const [posts, setPosts] =
     useState<
@@ -109,7 +110,7 @@ function BookPageContent() {
   >({});
 
   // -------------------------
-  // REVIEW RATINGS
+  // BOOK RATING
   // -------------------------
 
   const [
@@ -174,13 +175,13 @@ function BookPageContent() {
   ] = useState(false);
 
   const [
-    reviewText,
-    setReviewText,
+    ratingThought,
+    setRatingThought,
   ] = useState("");
 
   const [
-    reviewSpoiler,
-    setReviewSpoiler,
+    ratingSpoiler,
+    setRatingSpoiler,
   ] = useState(false);
 
   // -------------------------
@@ -538,10 +539,10 @@ function BookPageContent() {
   ]);
 
   // -------------------------
-  // LOAD REVIEWS
+  // LOAD RATINGS
   // -------------------------
 
-  const loadReviews =
+  const loadRatings =
     async () => {
       if (
         !databaseBookId
@@ -553,7 +554,7 @@ function BookPageContent() {
         data,
         error,
       } = await supabase
-        .from("reviews")
+        .from("ratings")
         .select("*")
         .eq(
           "book_id",
@@ -568,16 +569,68 @@ function BookPageContent() {
 
       if (error) {
         console.error(
-          "Load reviews error:",
+          "Load ratings error:",
           error
         );
 
         return;
       }
 
-      setReviews(
-        (data || []) as Review[]
-      );
+      const loadedRatings =
+        (data || []) as Rating[];
+
+      setRatings(loadedRatings);
+
+      const myRating =
+        loadedRatings.find(
+          (rating) =>
+            rating.user_id ===
+            guestUserId
+        );
+
+      if (myRating) {
+        setPlotRating(
+          myRating.plot_rating
+        );
+        setCharactersRating(
+          myRating.characters_rating
+        );
+        setPacingRating(
+          myRating.pacing_rating
+        );
+        setWritingRating(
+          myRating.writing_rating
+        );
+        setAtmosphereRating(
+          myRating.atmosphere_rating
+        );
+        setEndingRating(
+          myRating.ending_rating
+        );
+        setOverallRating(
+          Number(
+            myRating.overall_rating
+          )
+        );
+        setOverallWasEdited(
+          myRating.calculated_overall_rating !==
+            null &&
+            Number(
+              myRating.overall_rating
+            ) !==
+              Number(
+                myRating.calculated_overall_rating
+              )
+        );
+        setRatingThought(
+          myRating.content || ""
+        );
+        setRatingSpoiler(
+          Boolean(
+            myRating.contains_spoilers
+          )
+        );
+      }
     };
 
   // -------------------------
@@ -723,7 +776,7 @@ function BookPageContent() {
       return;
     }
 
-    loadReviews();
+    loadRatings();
     loadPosts();
   }, [
     databaseBookId,
@@ -731,10 +784,10 @@ function BookPageContent() {
   ]);
 
   // -------------------------
-  // SUBMIT REVIEW
+  // SAVE RATING
   // -------------------------
 
-  const submitReview =
+  const submitRating =
     async () => {
       if (
         !databaseBookId ||
@@ -754,97 +807,62 @@ function BookPageContent() {
         return;
       }
 
-      
-
-      const {
-        error,
-      } = await supabase
-        .from("reviews")
-        .insert({
-          book_id:
-            databaseBookId,
-
-          user_id:
-            guestUserId,
-
-          username:
-            guestUsername,
-
-          overall_rating:
-            overallRating,
-
-          calculated_overall_rating:
-            calculatedOverall,
-
-          plot_rating:
-            plotRating,
-
-          characters_rating:
-            charactersRating,
-
-          pacing_rating:
-            pacingRating,
-
-          writing_rating:
-            writingRating,
-
-          atmosphere_rating:
-            atmosphereRating,
-
-          ending_rating:
-            endingRating,
-
-          content:
-            reviewText.trim(),
-
-          contains_spoilers:
-            reviewSpoiler,
-        });
+      const { error } =
+        await supabase
+          .from("ratings")
+          .upsert(
+            {
+              book_id:
+                databaseBookId,
+              user_id:
+                guestUserId,
+              username:
+                guestUsername,
+              overall_rating:
+                overallRating,
+              calculated_overall_rating:
+                calculatedOverall,
+              plot_rating:
+                plotRating,
+              characters_rating:
+                charactersRating,
+              pacing_rating:
+                pacingRating,
+              writing_rating:
+                writingRating,
+              atmosphere_rating:
+                atmosphereRating,
+              ending_rating:
+                endingRating,
+              content:
+                ratingThought.trim(),
+              contains_spoilers:
+                ratingSpoiler,
+              updated_at:
+                new Date().toISOString(),
+            },
+            {
+              onConflict:
+                "book_id,user_id",
+            }
+          );
 
       if (error) {
         console.error(
-          "Post review error:",
+          "Save rating error:",
           error
         );
 
         alert(
-          "Could not post review."
+          "Could not save rating."
         );
 
         return;
       }
 
-      setReviewText("");
-      setReviewSpoiler(
-        false
-      );
+      await loadRatings();
 
-      setPlotRating(null);
-      setCharactersRating(
-        null
-      );
-      setPacingRating(
-        null
-      );
-      setWritingRating(
-        null
-      );
-      setAtmosphereRating(
-        null
-      );
-      setEndingRating(
-        null
-      );
-
-      setOverallRating(
-        null
-      );
-
-      setOverallWasEdited(
-        false
-      );
-
-      await loadReviews();
+      alert("Rating saved ✓");
     };
 
   // -------------------------
@@ -1238,20 +1256,20 @@ function BookPageContent() {
   };
 
   const averageRating =
-    reviews.length > 0
+    ratings.length > 0
       ? (
-          reviews.reduce(
+          ratings.reduce(
             (
               total,
-              review
+              rating
             ) =>
               total +
               Number(
-                review.overall_rating
+                rating.overall_rating
               ),
             0
           ) /
-          reviews.length
+          ratings.length
         ).toFixed(1)
       : null;
 
@@ -1401,8 +1419,8 @@ function BookPageContent() {
               )}
 
               <p className="mt-4 max-w-xl text-sm leading-6 text-stone-600">
-                See what readers
-                think, rate the
+                See how readers
+                rated it, rate the
                 book in detail,
                 or join the
                 discussion.
@@ -1420,17 +1438,17 @@ function BookPageContent() {
             type="button"
             onClick={() =>
               setActiveTab(
-                "reviews"
+                "ratings"
               )
             }
             className={`rounded-xl px-5 py-3 font-medium transition ${
               activeTab ===
-              "reviews"
+              "ratings"
                 ? "bg-[#4f5f45] text-white shadow-sm"
                 : "text-stone-600 hover:bg-stone-100"
             }`}
           >
-            Reviews
+            ⭐ Ratings
           </button>
 
           <button
@@ -1459,11 +1477,11 @@ function BookPageContent() {
           </div>
         )}
 
-        {/* REVIEWS */}
+        {/* RATINGS */}
 
         {!loading &&
           activeTab ===
-            "reviews" && (
+            "ratings" && (
             <section className="mt-7">
 
               <div className="grid gap-6 md:grid-cols-[260px_1fr]">
@@ -1485,18 +1503,18 @@ function BookPageContent() {
 
                     {averageRating && (
                       <div className="pb-1 text-sm text-stone-400">
-                        / 10
+                        / 5
                       </div>
                     )}
 
                   </div>
 
                   <p className="mt-3 text-sm text-stone-500">
-                    {reviews.length}{" "}
-                    {reviews.length ===
+                    {ratings.length}{" "}
+                    {ratings.length ===
                     1
-                      ? "review"
-                      : "reviews"}
+                      ? "rating"
+                      : "ratings"}
                   </p>
 
                   <p className="mt-5 text-xs leading-5 text-stone-400">
@@ -1508,7 +1526,7 @@ function BookPageContent() {
 
                 </div>
 
-                {/* WRITE REVIEW */}
+                {/* RATE BOOK */}
 
                 <div className="rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 shadow-sm md:p-7">
 
@@ -1528,9 +1546,9 @@ function BookPageContent() {
                     calculate an
                     overall score,
                     then you can
-                    adjust it to
-                    match how you
-                    actually feel.
+                    adjust it. Add
+                    your thoughts
+                    too if you want.
                   </p>
 
                   {/* CATEGORY RATINGS */}
@@ -1585,11 +1603,11 @@ function BookPageContent() {
                           <input
                             type="range"
                             min="1"
-                            max="10"
+                            max="5"
                             step="0.5"
                             value={
                               category.value ??
-                              5.5
+                              3
                             }
                             onChange={(
                               event
@@ -1611,11 +1629,11 @@ function BookPageContent() {
                             </span>
 
                             <span>
-                              5
+                              3
                             </span>
 
                             <span>
-                              10
+                              5
                             </span>
                           </div>
 
@@ -1665,7 +1683,7 @@ function BookPageContent() {
                       {calculatedOverall !==
                         null && (
                         <div className="pb-1 text-sm text-[#718069]">
-                          / 10
+                          / 5
                         </div>
                       )}
 
@@ -1718,7 +1736,7 @@ function BookPageContent() {
                         {overallRating !==
                           null && (
                           <div className="text-xs text-stone-400">
-                            / 10
+                            / 5
                           </div>
                         )}
 
@@ -1729,7 +1747,7 @@ function BookPageContent() {
                     <input
                       type="range"
                       min="1"
-                      max="10"
+                      max="5"
                       step="0.5"
                       disabled={
                         calculatedOverall ===
@@ -1740,7 +1758,7 @@ function BookPageContent() {
                       value={
                         overallRating ??
                         calculatedOverall ??
-                        5.5
+                        3
                       }
                       onChange={(
                         event
@@ -1765,10 +1783,10 @@ function BookPageContent() {
                         1
                       </span>
                       <span>
-                        5
+                        3
                       </span>
                       <span>
-                        10
+                        5
                       </span>
                     </div>
 
@@ -1796,22 +1814,22 @@ function BookPageContent() {
 
                   </div>
 
-                  {/* REVIEW TEXT */}
+                  {/* OPTIONAL THOUGHTS */}
 
                   <textarea
                     value={
-                      reviewText
+                      ratingThought
                     }
                     onChange={(
                       event
                     ) =>
-                      setReviewText(
+                      setRatingThought(
                         event
                           .target
                           .value
                       )
                     }
-                    placeholder="What did you think of this book?"
+                    placeholder="What did you think of this book? (optional)"
                     className="mt-6 min-h-36 w-full resize-none rounded-2xl border border-stone-200 bg-white p-4 outline-none transition focus:border-[#6e7e60]"
                   />
 
@@ -1822,12 +1840,12 @@ function BookPageContent() {
                       <input
                         type="checkbox"
                         checked={
-                          reviewSpoiler
+                          ratingSpoiler
                         }
                         onChange={(
                           event
                         ) =>
-                          setReviewSpoiler(
+                          setRatingSpoiler(
                             event
                               .target
                               .checked
@@ -1843,11 +1861,11 @@ function BookPageContent() {
                     <button
                       type="button"
                       onClick={
-                        submitReview
+                        submitRating
                       }
                       className="rounded-full bg-[#4f5f45] px-6 py-3 text-sm font-semibold text-white hover:bg-[#425039]"
                     >
-                      Post review
+                      Done
                     </button>
 
                   </div>
@@ -1855,11 +1873,11 @@ function BookPageContent() {
                 </div>
               </div>
 
-              {/* REVIEW FEED */}
+              {/* RATING FEED */}
 
               <div className="mt-7 space-y-4">
 
-                {reviews.length ===
+                {ratings.length ===
                   0 && (
                   <div className="rounded-[28px] border border-dashed border-stone-300 bg-[#fffdf8] px-6 py-12 text-center">
 
@@ -1868,27 +1886,27 @@ function BookPageContent() {
                     </div>
 
                     <h3 className="mt-3 font-semibold">
-                      No reviews
+                      No ratings
                       yet
                     </h3>
 
                     <p className="mt-1 text-sm text-stone-500">
                       Be the first
                       reader to
-                      review this
+                      rate this
                       book.
                     </p>
 
                   </div>
                 )}
 
-                {reviews.map(
+                {ratings.map(
                   (
-                    review
+                    rating
                   ) => (
                     <article
                       key={
-                        review.id
+                        rating.id
                       }
                       className="rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 shadow-sm"
                     >
@@ -1902,7 +1920,7 @@ function BookPageContent() {
                             className="font-semibold hover:underline"
                           >
                             {
-                              review.username
+                              rating.username
                             }
                           </button>
 
@@ -1910,14 +1928,14 @@ function BookPageContent() {
 
                             <span className="text-3xl font-semibold text-[#4f5f45]">
                               {Number(
-                                review.overall_rating
+                                rating.overall_rating
                               ).toFixed(
                                 1
                               )}
                             </span>
 
                             <span className="pb-1 text-sm text-stone-400">
-                              / 10
+                              / 5
                             </span>
 
                           </div>
@@ -1926,19 +1944,21 @@ function BookPageContent() {
 
                         <div className="text-xs text-stone-400">
                           {formatDate(
-                            review.created_at
+                            rating.created_at
                           )}
                         </div>
 
                       </div>
 
-                      <div className="mt-5">
-                        {spoilerContent(
-                          `review-${review.id}`,
-                          review.content,
-                          review.contains_spoilers
-                        )}
-                      </div>
+                      {rating.content && (
+                        <div className="mt-5">
+                          {spoilerContent(
+                            `rating-${rating.id}`,
+                            rating.content,
+                            rating.contains_spoilers
+                          )}
+                        </div>
+                      )}
 
                       {/* RATING BREAKDOWN */}
 
@@ -1954,27 +1974,27 @@ function BookPageContent() {
                           {[
                             [
                               "Plot",
-                              review.plot_rating,
+                              rating.plot_rating,
                             ],
                             [
                               "Characters",
-                              review.characters_rating,
+                              rating.characters_rating,
                             ],
                             [
                               "Pacing",
-                              review.pacing_rating,
+                              rating.pacing_rating,
                             ],
                             [
                               "Writing",
-                              review.writing_rating,
+                              rating.writing_rating,
                             ],
                             [
                               "Atmosphere",
-                              review.atmosphere_rating,
+                              rating.atmosphere_rating,
                             ],
                             [
                               "Ending",
-                              review.ending_rating,
+                              rating.ending_rating,
                             ],
                           ].map(
                             ([
@@ -2003,7 +2023,7 @@ function BookPageContent() {
                                         value
                                       ).toFixed(
                                         1
-                                      )}/10`
+                                      )}/5`
                                     : "—"}
                                 </div>
 
@@ -2017,22 +2037,22 @@ function BookPageContent() {
 
                       {/* CALCULATED VS FINAL */}
 
-                      {review.calculated_overall_rating !==
+                      {rating.calculated_overall_rating !==
                         null && (
                         <div className="mt-4 text-xs text-stone-400">
                           Calculated
                           score:{" "}
                           {Number(
-                            review.calculated_overall_rating
+                            rating.calculated_overall_rating
                           ).toFixed(
                             1
                           )}
-                          /10
+                          /5
                           {Number(
-                            review.calculated_overall_rating
+                            rating.calculated_overall_rating
                           ) !==
                             Number(
-                              review.overall_rating
+                              rating.overall_rating
                             ) &&
                             " · Reader adjusted their overall score"}
                         </div>
@@ -2042,12 +2062,12 @@ function BookPageContent() {
 
                         <span
                           className={`rounded-full px-3 py-1 text-xs font-medium ${
-                            review.contains_spoilers
+                            rating.contains_spoilers
                               ? "bg-amber-100 text-amber-800"
                               : "bg-[#e5ecdf] text-[#506246]"
                           }`}
                         >
-                          {review.contains_spoilers
+                          {rating.contains_spoilers
                             ? "⚠ Contains spoilers"
                             : "✓ Spoiler-free"}
                         </span>
