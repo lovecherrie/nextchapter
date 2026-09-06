@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import SiteHeader from "../components/SiteHeader";
 import { supabase } from "../../lib/supabase";
 
 type Book = {
@@ -137,6 +138,23 @@ function makeBookUrl(book: Book) {
   return `/book?${params.toString()}`;
 }
 
+function makeRatingUrl(book: SearchBook) {
+  const params = new URLSearchParams();
+
+  params.set("book", book.external_id);
+  params.set("title", book.title);
+
+  if (book.author) {
+    params.set("author", book.author);
+  }
+
+  if (book.cover_url) {
+    params.set("cover", book.cover_url);
+  }
+
+  return `/book?${params.toString()}#rate-book`;
+}
+
 function normalizeSearchResults(data: any): SearchBook[] {
   const rawBooks = Array.isArray(data)
     ? data
@@ -246,6 +264,7 @@ export default function CommunityPage() {
     useState<string | null>(null);
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [rateOpen, setRateOpen] = useState(false);
 
   const [bookQuery, setBookQuery] = useState("");
   const [bookResults, setBookResults] = useState<SearchBook[]>([]);
@@ -267,6 +286,26 @@ export default function CommunityPage() {
     setGuestUsername(guest.username);
 
     loadPosts();
+  }, []);
+
+  useEffect(() => {
+    function closeMenusOnOutsideClick(event: MouseEvent) {
+      const target = event.target as HTMLElement;
+
+      if (!target.closest("[data-menu-root]")) {
+        setCommentMenu(null);
+        setPostMenu(null);
+      }
+    }
+
+    document.addEventListener("mousedown", closeMenusOnOutsideClick);
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        closeMenusOnOutsideClick
+      );
+    };
   }, []);
 
   useEffect(() => {
@@ -502,6 +541,21 @@ export default function CommunityPage() {
     setPostError("");
   }
 
+  function openRateModal() {
+    setCreateOpen(false);
+    setRateOpen(true);
+    setBookQuery("");
+    setBookResults([]);
+    setSelectedBook(null);
+  }
+
+  function closeRateModal() {
+    setRateOpen(false);
+    setBookQuery("");
+    setBookResults([]);
+    setSelectedBook(null);
+  }
+
   async function toggleLike(post: DiscussionPost) {
     if (!guestUserId || likingPost) return;
 
@@ -563,6 +617,9 @@ export default function CommunityPage() {
   }
 
   function toggleComments(postId: string) {
+    setCommentMenu(null);
+    setPostMenu(null);
+
     setExpandedPosts((current) =>
       current.includes(postId)
         ? current.filter((id) => id !== postId)
@@ -863,6 +920,31 @@ export default function CommunityPage() {
     return result;
   }, [posts, filter]);
 
+  const featuredPost = useMemo(() => {
+    if (posts.length === 0) return null;
+
+    return [...posts].sort((a, b) => {
+      const scoreA =
+        a.discussion_likes.length + a.comments.length * 2;
+      const scoreB =
+        b.discussion_likes.length + b.comments.length * 2;
+
+      if (scoreB === scoreA) {
+        return (
+          new Date(b.created_at).getTime() -
+          new Date(a.created_at).getTime()
+        );
+      }
+
+      return scoreB - scoreA;
+    })[0];
+  }, [posts]);
+
+  const totalComments = useMemo(
+    () => posts.reduce((total, post) => total + post.comments.length, 0),
+    [posts]
+  );
+
   function renderComment(
     comment: Comment,
     post: DiscussionPost,
@@ -900,7 +982,7 @@ export default function CommunityPage() {
               )}
 
               {comment.contains_spoilers && (
-                <span className="rounded-full bg-[#eee3d2] px-2 py-1 text-[10px] font-bold text-[#8a6f47]">
+                <span className="rounded-full border border-[#bdc9b6] bg-[#e7eee2]/80 px-2 py-1 text-[10px] font-bold text-[#4f5f45]">
                   SPOILER
                 </span>
               )}
@@ -908,16 +990,17 @@ export default function CommunityPage() {
           </div>
 
           {mine && (
-            <div className="relative">
+            <div className="relative" data-menu-root>
               <button
                 type="button"
-                onClick={() =>
+                onClick={() => {
+                  setPostMenu(null);
                   setCommentMenu(
                     commentMenu === comment.id
                       ? null
                       : comment.id
-                  )
-                }
+                  );
+                }}
                 className="rounded-full px-2 py-1 text-lg text-[#8b9087] hover:bg-[#ebe7de]"
               >
                 •••
@@ -984,15 +1067,24 @@ export default function CommunityPage() {
               </button>
             </div>
           </div>
-        ) : comment.contains_spoilers && !revealed ? (
+        ) : comment.contains_spoilers ? (
           <button
             type="button"
             onClick={() =>
               toggleCommentSpoiler(comment.id)
             }
-            className="mt-3 rounded-xl border border-dashed border-[#d2c6b3] bg-[#f3ede2] px-4 py-3 text-sm font-semibold text-[#776a56]"
+            aria-expanded={revealed}
+            className="mt-3 w-full rounded-xl border border-[#aebaa5] bg-[#e7eee2]/75 px-4 py-3 text-left transition hover:bg-[#dfe9d9]/85"
           >
-            🙈 Spoiler comment — tap to reveal
+            {revealed ? (
+              <p className="whitespace-pre-wrap text-[15px] leading-6 text-[#4c5349]">
+                {comment.content}
+              </p>
+            ) : (
+              <span className="text-sm font-semibold text-[#4f5f45]">
+                Contains spoilers · Tap to reveal
+              </span>
+            )}
           </button>
         ) : (
           <p className="mt-3 whitespace-pre-wrap text-[15px] leading-6 text-[#4c5349]">
@@ -1004,6 +1096,8 @@ export default function CommunityPage() {
           <button
             type="button"
             onClick={() => {
+              setCommentMenu(null);
+              setPostMenu(null);
               setReplyingTo(
                 replyingTo === comment.id
                   ? null
@@ -1079,127 +1173,181 @@ export default function CommunityPage() {
 
   return (
     <main className="min-h-screen bg-[#f7f2e8] text-[#283322]">
-      <header className="sticky top-0 z-40 border-b border-[#ddd5c4] bg-[#f7f2e8]/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
-          <a
-            href="/"
-            className="flex items-center gap-2 text-xl font-bold tracking-tight text-[#415038]"
-          >
-            <span className="text-2xl">🐛</span>
-            NextChapter
-          </a>
+      <SiteHeader active="community" />
 
-          <nav className="flex items-center gap-2 text-sm font-semibold">
-            <a
-              href="/"
-              className="rounded-full px-4 py-2 text-[#59684f] transition hover:bg-[#ebe5d8]"
-            >
-              Find Books
-            </a>
-
-            <a
-              href="/community"
-              className="rounded-full bg-[#4f5f45] px-4 py-2 text-white"
-            >
-              Community
-            </a>
-          </nav>
-        </div>
-      </header>
-
-      <section className="mx-auto max-w-6xl px-5 py-10">
-        <div className="mb-9 grid gap-6 lg:grid-cols-[1fr_300px]">
-          <div className="rounded-[32px] border border-[#ded5c4] bg-[#fffdf8] p-7 shadow-sm sm:p-9">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#edf0e8] px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#53614c]">
-              ☕ The reading room
+      <section className="mx-auto max-w-6xl px-4 py-5 sm:px-5 sm:py-7">
+        <div className="mb-5 grid gap-4 lg:grid-cols-[1fr_280px]">
+          <div className="rounded-[24px] border border-[#ded5c4] bg-[#fffdf8] p-5 shadow-sm sm:p-6">
+            <div className="inline-flex rounded-full bg-[#edf0e8] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#53614c] sm:text-xs">
+              Community spotlight
             </div>
 
-            <h1 className="max-w-2xl text-4xl font-bold leading-tight text-[#35412f] sm:text-5xl">
-              Talk about the books you can&apos;t stop
-              thinking about.
-            </h1>
+            <div className="mt-3 flex items-start justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-bold leading-tight text-[#35412f] sm:text-3xl">
+                  What readers are talking about
+                </h1>
 
-            <p className="mt-4 max-w-2xl text-base leading-7 text-[#6c7465]">
-              Share theories, unpopular opinions, reactions,
-              and bookish thoughts with other readers.
-            </p>
+                <p className="mt-1.5 hidden max-w-2xl text-sm leading-5 text-[#6c7465] sm:block">
+                  See the conversations getting the most attention across NextChapter.
+                </p>
+              </div>
+
+              {!loading && !error && (
+                <div className="hidden shrink-0 items-center gap-5 text-right md:flex">
+                  <div className="text-2xl font-bold text-[#4f5f45]">
+                    {posts.length}
+                  </div>
+                  <div className="text-xs text-[#8b9185]">
+                    {posts.length === 1 ? "discussion" : "discussions"}
+                  </div>
+                  <div className="text-lg font-bold sm:text-xl text-[#4f5f45]">
+                    {totalComments}
+                  </div>
+                  <div className="text-xs text-[#8b9185]">
+                    {totalComments === 1 ? "comment" : "comments"}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {!loading && !error && featuredPost?.books ? (
+              <a
+                href={`#post-${featuredPost.id}`}
+                className="mt-4 flex items-center gap-3 rounded-2xl border border-[#e2dacb] bg-[#f8f5ee] p-3 transition hover:border-[#b8b09f] hover:bg-[#f5f1e8]"
+              >
+                {featuredPost.books.cover_url ? (
+                  <img
+                    src={featuredPost.books.cover_url}
+                    alt={featuredPost.books.title}
+                    className="h-20 w-14 shrink-0 rounded-lg object-cover shadow-sm"
+                  />
+                ) : (
+                  <div className="flex h-20 w-14 shrink-0 items-center justify-center rounded-lg bg-[#e6e0d4] text-xs font-bold text-[#7d8178]">
+                    Book
+                  </div>
+                )}
+
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-bold uppercase tracking-[0.12em] text-[#9b8b6c]">
+                    Most active discussion
+                  </div>
+                  <div className="mt-0.5 truncate text-base font-bold text-[#3f4b38] sm:text-lg">
+                    {featuredPost.books.title}
+                  </div>
+                  <div className="text-sm text-[#7c8275]">
+                    {featuredPost.books.author}
+                  </div>
+                  <p className="mt-1.5 line-clamp-1 text-sm leading-5 text-[#5f6759] sm:line-clamp-2">
+                    {featuredPost.contains_spoilers
+                      ? "This discussion contains spoilers."
+                      : featuredPost.content}
+                  </p>
+                  <div className="mt-2 text-xs font-semibold text-[#596650]">
+                    {featuredPost.discussion_likes.length} likes · {featuredPost.comments.length} {featuredPost.comments.length === 1 ? "comment" : "comments"} · View discussion
+                  </div>
+                </div>
+              </a>
+            ) : !loading && !error ? (
+              <div className="mt-6 rounded-2xl border border-dashed border-[#d9d1c3] bg-[#faf7f1] p-5 text-sm leading-6 text-[#7b8175]">
+                The first discussion will appear here once someone starts talking about a book.
+              </div>
+            ) : null}
           </div>
 
-          <div className="rounded-[32px] border border-[#ded5c4] bg-[#4f5f45] p-7 text-[#fffdf8] shadow-sm">
-            <div className="text-3xl">📚</div>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
+            <div className="rounded-[22px] border border-[#ded5c4] bg-[#4f5f45] p-4 text-[#fffdf8] shadow-sm sm:p-5">
+              <h2 className="text-lg font-bold sm:text-xl">
+                Start a discussion
+              </h2>
 
-            <h2 className="mt-5 text-xl font-bold">
-              Got something to say?
-            </h2>
+              <p className="mt-1.5 hidden text-sm leading-5 text-[#e5eadf] lg:block">
+                Share a theory, question, reaction, or unpopular opinion.
+              </p>
 
-            <p className="mt-2 text-sm leading-6 text-[#e5eadf]">
-              Choose a book and start a conversation.
-            </p>
+              <button
+                type="button"
+                onClick={() => setCreateOpen(true)}
+                className="mt-3 inline-flex rounded-full bg-[#fffdf8] px-4 py-2 text-xs font-bold text-[#4f5f45] sm:text-sm"
+              >
+                + Create post
+              </button>
+            </div>
 
-            <button
-              type="button"
-              onClick={() => setCreateOpen(true)}
-              className="mt-5 inline-flex rounded-full bg-[#fffdf8] px-5 py-2.5 text-sm font-bold text-[#4f5f45]"
-            >
-              + Create post
-            </button>
+            <div className="rounded-[22px] border border-[#4f5f45] bg-[#fffdf8] p-4 text-[#4f5f45] shadow-sm sm:p-5">
+              <h2 className="text-lg font-bold sm:text-xl">
+                Rate a book
+              </h2>
+
+              <p className="mt-1.5 hidden text-sm leading-5 text-[#66705f] lg:block">
+                Keep track of what you loved, liked, or would rather leave behind.
+              </p>
+
+              <button
+                type="button"
+                onClick={openRateModal}
+                className="mt-3 inline-flex rounded-full bg-[#4f5f45] px-4 py-2 text-xs font-bold text-[#fffdf8] sm:text-sm"
+              >
+                Rate a book
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-[#35412f]">
+            <h2 className="text-xl font-bold text-[#35412f] sm:text-2xl">
               Community discussions
             </h2>
 
-            <p className="mt-1 text-sm text-[#7b8175]">
+            <p className="mt-0.5 text-xs text-[#7b8175] sm:text-sm">
               Jump into conversations from across NextChapter.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:gap-3">
             <button
               type="button"
               onClick={() => setCreateOpen(true)}
-              className="rounded-full bg-[#4f5f45] px-5 py-2.5 text-sm font-bold text-white"
+              className="rounded-full bg-[#4f5f45] px-4 py-2 text-xs font-bold text-white sm:px-5 sm:text-sm"
             >
               + Create post
             </button>
 
-            <div className="flex rounded-full border border-[#d8d0c0] bg-[#fffdf8] p-1 shadow-sm">
+            <div className="flex min-w-0 flex-1 overflow-x-auto rounded-full border border-[#d8d0c0] bg-[#fffdf8] p-1 shadow-sm sm:flex-none">
               <button
                 onClick={() => setFilter("top")}
-                className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold sm:px-4 sm:py-2 sm:text-sm ${
                   filter === "top"
                     ? "bg-[#4f5f45] text-white"
                     : "text-[#677060]"
                 }`}
               >
-                🔥 Top
+                Top
               </button>
 
               <button
                 onClick={() => setFilter("newest")}
-                className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold sm:px-4 sm:py-2 sm:text-sm ${
                   filter === "newest"
                     ? "bg-[#4f5f45] text-white"
                     : "text-[#677060]"
                 }`}
               >
-                ✨ Newest
+                Newest
               </button>
 
               <button
                 onClick={() =>
                   setFilter("spoiler-free")
                 }
-                className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold sm:px-4 sm:py-2 sm:text-sm ${
                   filter === "spoiler-free"
                     ? "bg-[#4f5f45] text-white"
                     : "text-[#677060]"
                 }`}
               >
-                🌿 Spoiler-free
+                Spoiler-free
               </button>
             </div>
           </div>
@@ -1207,7 +1355,7 @@ export default function CommunityPage() {
 
         {loading && (
           <div className="rounded-[28px] border border-[#ded5c4] bg-[#fffdf8] px-6 py-16 text-center">
-            📖 Opening the reading room...
+            Book Opening the reading room...
           </div>
         )}
 
@@ -1221,14 +1369,14 @@ export default function CommunityPage() {
           !error &&
           filteredPosts.length === 0 && (
             <div className="rounded-[28px] border border-dashed border-[#d3cab9] bg-[#fffdf8] px-6 py-16 text-center">
-              <div className="text-5xl">🪱</div>
-              <h3 className="mt-5 text-xl font-bold">
+              <div className="text-5xl"></div>
+              <h3 className="mt-5 text-lg font-bold sm:text-xl">
                 It&apos;s a little quiet in here.
               </h3>
             </div>
           )}
 
-        <div className="space-y-5">
+        <div className="space-y-4">
           {filteredPosts.map((post) => {
             const book = post.books;
 
@@ -1249,11 +1397,12 @@ export default function CommunityPage() {
 
             return (
               <article
+                id={`post-${post.id}`}
                 key={post.id}
-                className="overflow-hidden rounded-[28px] border border-[#ded5c4] bg-[#fffdf8] shadow-sm"
+                className="scroll-mt-20 overflow-hidden rounded-[22px] border border-[#ded5c4] bg-[#fffdf8] shadow-sm sm:rounded-[24px]"
               >
                 {book && (
-                  <div className="border-b border-[#eee8dc] bg-[#fbf8f1] px-6 py-4">
+                  <div className="border-b border-[#eee8dc] bg-[#fbf8f1] px-4 py-3 sm:px-5">
                     <a
                       href={makeBookUrl(book)}
                       className="flex items-center gap-3"
@@ -1262,11 +1411,11 @@ export default function CommunityPage() {
                         <img
                           src={book.cover_url}
                           alt={book.title}
-                          className="h-16 w-11 rounded-md object-cover"
+                          className="h-14 w-10 rounded-md object-cover"
                         />
                       ) : (
-                        <div className="flex h-16 w-11 items-center justify-center rounded-md bg-[#e5dfd1]">
-                          📕
+                        <div className="flex h-14 w-10 items-center justify-center rounded-md bg-[#e5dfd1]">
+                          Book
                         </div>
                       )}
 
@@ -1287,11 +1436,11 @@ export default function CommunityPage() {
                   </div>
                 )}
 
-                <div className="p-6">
+                <div className="p-4 sm:p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#e4e9df]">
-                        🐛
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#e4e9df]">
+
                       </div>
 
                       <div>
@@ -1306,16 +1455,17 @@ export default function CommunityPage() {
                     </div>
 
                     {post.user_id === guestUserId && (
-                      <div className="relative">
+                      <div className="relative" data-menu-root>
                         <button
                           type="button"
-                          onClick={() =>
+                          onClick={() => {
+                            setCommentMenu(null);
                             setPostMenu(
                               postMenu === post.id
                                 ? null
                                 : post.id
-                            )
-                          }
+                            );
+                          }}
                           className="rounded-full px-2 py-1 text-lg text-[#8b9087] hover:bg-[#ebe7de]"
                         >
                           •••
@@ -1410,36 +1560,46 @@ export default function CommunityPage() {
                         </div>
                       </div>
                     </div>
-                  ) : post.contains_spoilers &&
-                    !revealedSpoilers.includes(post.id) ? (
+                  ) : post.contains_spoilers ? (
                     <button
+                      type="button"
                       onClick={() =>
                         toggleSpoiler(post.id)
                       }
-                      className="mt-5 w-full rounded-2xl border border-dashed border-[#cfc3ae] bg-[#f7f1e6] px-5 py-7"
+                      aria-expanded={
+                        revealedSpoilers.includes(post.id)
+                      }
+                      className="mt-4 w-full rounded-2xl border border-[#aebaa5] bg-[#e7eee2]/75 px-4 py-5 text-left transition hover:bg-[#dfe9d9]/85"
                     >
-                      🙈 This post contains spoilers — tap to
-                      reveal
+                      {revealedSpoilers.includes(post.id) ? (
+                        <p className="whitespace-pre-wrap text-[15px] leading-6 text-[#495046]">
+                          {post.content}
+                        </p>
+                      ) : (
+                        <span className="text-sm font-semibold text-[#4f5f45]">
+                          Contains spoilers · Tap to reveal
+                        </span>
+                      )}
                     </button>
                   ) : (
-                    <p className="mt-5 whitespace-pre-wrap leading-7 text-[#495046]">
+                    <p className="mt-4 whitespace-pre-wrap text-[15px] leading-6 text-[#495046]">
                       {post.content}
                     </p>
                   )}
 
-                  <div className="mt-6 flex items-center gap-3 border-t border-[#eee8dc] pt-4">
+                  <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[#eee8dc] pt-3">
                     <button
                       onClick={() => toggleLike(post)}
                       disabled={
                         likingPost === post.id
                       }
-                      className={`rounded-full px-4 py-2 text-sm font-bold ${
+                      className={`rounded-full px-3 py-1.5 text-xs font-bold sm:px-4 sm:py-2 sm:text-sm ${
                         likedByMe
                           ? "bg-[#e5eadf] text-[#43503b]"
                           : "bg-[#f4f0e7] text-[#72786d]"
                       }`}
                     >
-                      {likedByMe ? "♥" : "♡"}{" "}
+                      {likedByMe ? "Liked" : "Like"}{" "}
                       {post.discussion_likes.length}
                     </button>
 
@@ -1447,9 +1607,9 @@ export default function CommunityPage() {
                       onClick={() =>
                         toggleComments(post.id)
                       }
-                      className="rounded-full bg-[#f4f0e7] px-4 py-2 text-sm font-bold text-[#72786d]"
+                      className="rounded-full bg-[#f4f0e7] px-3 py-1.5 text-xs font-bold text-[#72786d] sm:px-4 sm:py-2 sm:text-sm"
                     >
-                      💬 {post.comments.length}{" "}
+                       {post.comments.length}{" "}
                       {post.comments.length === 1
                         ? "comment"
                         : "comments"}
@@ -1458,7 +1618,7 @@ export default function CommunityPage() {
                     {book && (
                       <a
                         href={makeBookUrl(book)}
-                        className="ml-auto text-sm font-bold text-[#56634f]"
+                        className="ml-auto text-xs font-bold text-[#56634f] sm:text-sm"
                       >
                         View book →
                       </a>
@@ -1521,7 +1681,7 @@ export default function CommunityPage() {
                               postingComment ===
                                 post.id
                             }
-                            className="rounded-full bg-[#4f5f45] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                            className="rounded-full bg-[#4f5f45] px-4 py-2 text-xs font-bold text-white sm:px-5 sm:text-sm disabled:opacity-50"
                           >
                             {postingComment === post.id
                               ? "Posting..."
@@ -1532,7 +1692,7 @@ export default function CommunityPage() {
 
                       {topComments.length === 0 ? (
                         <p className="py-4 text-center text-sm text-[#969b91]">
-                          No comments yet. Be the first 💬
+                          No comments yet. Be the first
                         </p>
                       ) : (
                         <div className="space-y-3">
@@ -1553,13 +1713,13 @@ export default function CommunityPage() {
           })}
         </div>
 
-        <div className="mt-8 rounded-[28px] border border-[#ded5c4] bg-[#fffdf8] px-6 py-5 text-center text-sm text-[#7a8174]">
+        <div className="mt-6 rounded-[20px] border border-[#ded5c4] bg-[#fffdf8] px-4 py-3 text-center text-xs text-[#7a8174] sm:text-sm">
           Posting as{" "}
           <span className="font-bold">
             {guestUsername ||
               "temporary Bookworm"}
           </span>
-          . Profiles are coming later. 🐛
+          . Profiles are coming later.
         </div>
       </section>
 
@@ -1611,7 +1771,7 @@ export default function CommunityPage() {
                       />
                     ) : (
                       <div className="flex h-20 w-14 items-center justify-center rounded-lg bg-[#ddd8cb]">
-                        📕
+                        Book
                       </div>
                     )}
 
@@ -1723,7 +1883,7 @@ export default function CommunityPage() {
                   }
                   className="accent-[#4f5f45]"
                 />
-                ⚠️ This post contains spoilers
+                 This post contains spoilers
               </label>
 
               {postError && (
@@ -1743,6 +1903,110 @@ export default function CommunityPage() {
                     : "Post discussion"}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {rateOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#2c3328]/45 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeRateModal();
+            }
+          }}
+        >
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[30px] bg-[#fffdf8] shadow-2xl">
+            <div className="flex items-start justify-between border-b border-[#eee7da] px-7 py-5">
+              <div>
+                <div className="text-xs font-bold uppercase tracking-[0.14em] text-[#8a7b60]">
+                  Your reading history
+                </div>
+
+                <h2 className="mt-1 text-2xl font-bold text-[#394534]">
+                  Rate a book
+                </h2>
+
+                <p className="mt-2 text-sm text-[#778071]">
+                  Search for a book, then jump straight to its rating.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeRateModal}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f1ede4] text-xl"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="p-7">
+              <label className="mb-2 block text-sm font-bold">
+                Which book do you want to rate?
+              </label>
+
+              <input
+                value={bookQuery}
+                onChange={(event) => {
+                  setSelectedBook(null);
+                  setBookQuery(event.target.value);
+                }}
+                autoFocus
+                placeholder="Search for a book..."
+                className="w-full rounded-2xl border border-[#d5cdbd] bg-white px-4 py-3.5 outline-none focus:border-[#829078]"
+              />
+
+              {bookQuery.trim().length >= 2 && (
+                <div className="mt-3 overflow-hidden rounded-2xl border border-[#e2dacb] bg-white shadow-lg">
+                  {searchingBooks && (
+                    <div className="p-4 text-sm text-[#778071]">
+                      Searching books...
+                    </div>
+                  )}
+
+                  {!searchingBooks && bookResults.length === 0 && (
+                    <div className="p-4 text-sm text-[#8a8f84]">
+                      No books found yet. Try another title or author.
+                    </div>
+                  )}
+
+                  {!searchingBooks &&
+                    bookResults.slice(0, 6).map((book) => (
+                      <a
+                        key={`${book.external_id}-${book.title}`}
+                        href={makeRatingUrl(book)}
+                        className="flex w-full items-center gap-3 border-b border-[#eee8dc] p-3 text-left transition last:border-b-0 hover:bg-[#f7f4ed]"
+                      >
+                        {book.cover_url ? (
+                          <img
+                            src={book.cover_url}
+                            alt={book.title}
+                            className="h-14 w-10 rounded object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-14 w-10 shrink-0 items-center justify-center rounded bg-[#e5dfd1]">
+                            Book
+                          </div>
+                        )}
+
+                        <div className="min-w-0 flex-1">
+                          <div className="font-bold text-[#3f4b38]">
+                            {book.title}
+                          </div>
+                          <div className="text-sm text-[#7c8275]">
+                            {book.author}
+                          </div>
+                        </div>
+
+                        <span className="shrink-0 text-sm font-bold text-[#59684f]">
+                          Rate →
+                        </span>
+                      </a>
+                    ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

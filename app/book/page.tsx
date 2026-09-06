@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import SiteHeader from "../components/SiteHeader";
 import { supabase } from "@/lib/supabase";
 
 type Rating = {
@@ -862,7 +863,7 @@ function BookPageContent() {
 
       await loadRatings();
 
-      alert("Rating saved ✓");
+      alert("Rating saved ");
     };
 
   // -------------------------
@@ -1178,16 +1179,17 @@ function BookPageContent() {
   // SPOILERS
   // -------------------------
 
-  const revealSpoiler = (
+  const toggleSpoiler = (
     id: string
   ) => {
     setRevealedSpoilers(
-      (
-        previous
-      ) => [
-        ...previous,
-        id,
-      ]
+      (previous) =>
+        previous.includes(id)
+          ? previous.filter(
+              (spoilerId) =>
+                spoilerId !== id
+            )
+          : [...previous, id]
     );
   };
 
@@ -1197,14 +1199,9 @@ function BookPageContent() {
     hasSpoiler: boolean
   ) => {
     const revealed =
-      revealedSpoilers.includes(
-        id
-      );
+      revealedSpoilers.includes(id);
 
-    if (
-      !hasSpoiler ||
-      revealed
-    ) {
+    if (!hasSpoiler) {
       return (
         <p className="whitespace-pre-wrap leading-7 text-stone-700">
           {text}
@@ -1216,21 +1213,20 @@ function BookPageContent() {
       <button
         type="button"
         onClick={() =>
-          revealSpoiler(
-            id
-          )
+          toggleSpoiler(id)
         }
-        className="w-full rounded-2xl border border-dashed border-amber-300 bg-amber-50 px-5 py-6 text-left"
+        className="w-full rounded-2xl border border-[#aebaa5] bg-[#e7eee2]/75 px-5 py-5 text-left transition hover:bg-[#dfe9d9]/85"
+        aria-expanded={revealed}
       >
-        <div className="text-sm font-semibold text-amber-800">
-          ⚠ Contains
-          spoilers
-        </div>
-
-        <div className="mt-1 text-sm text-amber-700">
-          Tap to reveal this
-          content.
-        </div>
+        {revealed ? (
+          <p className="whitespace-pre-wrap leading-7 text-stone-700">
+            {text}
+          </p>
+        ) : (
+          <div className="text-sm font-semibold text-[#4f5f45]">
+            Contains spoilers · Tap to reveal
+          </div>
+        )}
       </button>
     );
   };
@@ -1370,17 +1366,10 @@ function BookPageContent() {
 
   return (
     <main className="min-h-screen bg-[#f7f2e8] text-stone-900">
+      <SiteHeader />
       <div className="mx-auto max-w-5xl px-5 py-8 md:py-12">
 
         {/* BOOK HEADER */}
-
-        <a
-          href="/"
-          className="text-sm font-medium text-stone-500 hover:text-stone-900"
-        >
-          ← Back to
-          NextChapter
-        </a>
 
         <section className="mt-6 rounded-[32px] border border-stone-200 bg-[#fffdf8] p-6 shadow-sm md:p-8">
           <div className="flex gap-5">
@@ -1397,7 +1386,7 @@ function BookPageContent() {
               />
             ) : (
               <div className="flex h-40 w-28 shrink-0 items-center justify-center rounded-xl bg-[#e9dfcf] text-4xl">
-                📖
+                No cover
               </div>
             )}
 
@@ -1448,7 +1437,7 @@ function BookPageContent() {
                 : "text-stone-600 hover:bg-stone-100"
             }`}
           >
-            ⭐ Ratings
+            Ratings
           </button>
 
           <button
@@ -1465,7 +1454,7 @@ function BookPageContent() {
                 : "text-stone-600 hover:bg-stone-100"
             }`}
           >
-            💬 Discussion
+            Discussion
           </button>
 
         </div>
@@ -1528,7 +1517,10 @@ function BookPageContent() {
 
                 {/* RATE BOOK */}
 
-                <div className="rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 shadow-sm md:p-7">
+                <div
+                  id="rate-book"
+                  className="scroll-mt-28 rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 shadow-sm md:p-7"
+                >
 
                   <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#8a6f47]">
                     Your rating
@@ -1882,7 +1874,7 @@ function BookPageContent() {
                   <div className="rounded-[28px] border border-dashed border-stone-300 bg-[#fffdf8] px-6 py-12 text-center">
 
                     <div className="text-3xl">
-                      📚
+                      No cover
                     </div>
 
                     <h3 className="mt-3 font-semibold">
@@ -2068,8 +2060,8 @@ function BookPageContent() {
                           }`}
                         >
                           {rating.contains_spoilers
-                            ? "⚠ Contains spoilers"
-                            : "✓ Spoiler-free"}
+                            ? " Contains spoilers"
+                            : " Spoiler-free"}
                         </span>
 
                       </div>
@@ -2100,7 +2092,7 @@ function BookPageContent() {
 
                 <h2 className="mt-2 text-2xl font-semibold">
                   Talk about
-                  this book 🪱
+                  this book
                 </h2>
 
                 <p className="mt-2 text-sm text-stone-500">
@@ -2267,7 +2259,7 @@ function BookPageContent() {
                   <div className="rounded-[28px] border border-dashed border-stone-300 bg-[#fffdf8] px-6 py-12 text-center">
 
                     <div className="text-3xl">
-                      🪱
+
                     </div>
 
                     <h3 className="mt-3 font-semibold">
@@ -2335,8 +2327,8 @@ function BookPageContent() {
                                 }`}
                               >
                                 {post.contains_spoilers
-                                  ? "⚠ Contains spoilers"
-                                  : "✓ Spoiler-free"}
+                                  ? " Contains spoilers"
+                                  : " Spoiler-free"}
                               </span>
 
                             </div>
@@ -2375,8 +2367,8 @@ function BookPageContent() {
                             }`}
                           >
                             {post.likedByMe
-                              ? "♥"
-                              : "♡"}{" "}
+                              ? "Liked"
+                              : "Like"}{" "}
                             {
                               post.likes
                             }
@@ -2391,7 +2383,7 @@ function BookPageContent() {
                             }
                             className="text-sm font-medium text-stone-500"
                           >
-                            💬{" "}
+                            {" "}
                             {
                               post.comments
                             }
@@ -2452,7 +2444,7 @@ function BookPageContent() {
                                         {comment.contains_spoilers && (
                                           <div className="mt-2">
                                             <span className="rounded-full bg-amber-100 px-2 py-1 text-[11px] font-medium text-amber-800">
-                                              ⚠
+
                                               Spoiler
                                             </span>
                                           </div>
@@ -2521,7 +2513,7 @@ function BookPageContent() {
                                             {reply.contains_spoilers && (
                                               <div className="mt-2">
                                                 <span className="rounded-full bg-amber-100 px-2 py-1 text-[11px] font-medium text-amber-800">
-                                                  ⚠
+
                                                   Spoiler
                                                 </span>
                                               </div>

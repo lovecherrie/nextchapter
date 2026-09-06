@@ -4,6 +4,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import SiteHeader from "./components/SiteHeader";
 
 type Recommendation = {
   title: string;
@@ -128,39 +129,30 @@ export default function NextChapter() {
   const moods = [
     {
       n: "Dark",
-      e: "🌑",
     },
     {
       n: "Cozy",
-      e: "☕",
     },
     {
       n: "Emotional",
-      e: "😭",
     },
     {
       n: "Funny",
-      e: "😂",
     },
     {
       n: "Creepy",
-      e: "🕯️",
     },
     {
       n: "Romantic",
-      e: "💕",
     },
     {
       n: "Mind-bending",
-      e: "🧠",
     },
     {
       n: "Comforting",
-      e: "🫶",
     },
     {
       n: "Surprise me",
-      e: "🎲",
     },
   ];
 
@@ -711,50 +703,7 @@ export default function NextChapter() {
   return (
     <main className="min-h-screen bg-[#f7f2e8] text-stone-900">
 
-      {/* NAVIGATION */}
-
-      <header className="border-b border-stone-200 bg-[#fffdf8]/95">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-6 px-5 py-5">
-
-          <a
-            href="/"
-            className="flex items-center gap-3"
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#4f5f45] text-lg text-white">
-              🪱
-            </div>
-
-            <div>
-              <div className="text-xl font-semibold tracking-tight">
-                NextChapter
-              </div>
-
-              <div className="text-[10px] uppercase tracking-[0.18em] text-[#8a6f47]">
-                Find your next
-                story
-              </div>
-            </div>
-          </a>
-
-          <nav className="flex items-center gap-1 rounded-2xl border border-stone-200 bg-white p-1.5">
-
-            <a
-              href="/"
-              className="rounded-xl bg-[#4f5f45] px-4 py-2 text-sm font-semibold text-white"
-            >
-              Find Books
-            </a>
-
-            <a
-              href="/community"
-              className="rounded-xl px-4 py-2 text-sm font-medium text-stone-600 transition hover:bg-[#eef2ea] hover:text-[#4f5f45]"
-            >
-              Community
-            </a>
-
-          </nav>
-        </div>
-      </header>
+      <SiteHeader active="find" />
 
       <div className="mx-auto max-w-5xl px-5 py-10 md:py-14">
 
@@ -829,7 +778,7 @@ export default function NextChapter() {
 
                   <div className="font-semibold text-stone-800">
                     Books you
-                    loved 💚
+                    loved
                   </div>
 
                   <p className="mt-1 text-xs leading-5 text-stone-500">
@@ -900,7 +849,7 @@ export default function NextChapter() {
                                   />
                                 ) : (
                                   <span>
-                                    📚
+                                    No cover
                                   </span>
                                 )}
 
@@ -974,7 +923,7 @@ export default function NextChapter() {
                               />
                             ) : (
                               <div className="flex h-full items-center justify-center">
-                                📚
+                                No cover
                               </div>
                             )}
 
@@ -1005,7 +954,7 @@ export default function NextChapter() {
                             }
                             className="flex h-8 w-8 items-center justify-center rounded-full text-stone-400 transition hover:bg-white hover:text-stone-700"
                           >
-                            ✕
+                            Close
                           </button>
 
                         </div>
@@ -1097,7 +1046,7 @@ export default function NextChapter() {
                                   />
                                 ) : (
                                   <span>
-                                    📚
+                                    No cover
                                   </span>
                                 )}
 
@@ -1171,7 +1120,7 @@ export default function NextChapter() {
                               />
                             ) : (
                               <div className="flex h-full items-center justify-center">
-                                📚
+                                No cover
                               </div>
                             )}
 
@@ -1202,7 +1151,7 @@ export default function NextChapter() {
                             }
                             className="flex h-8 w-8 items-center justify-center rounded-full text-stone-400 transition hover:bg-white hover:text-stone-700"
                           >
-                            ✕
+                            Close
                           </button>
 
                         </div>
@@ -1266,7 +1215,6 @@ export default function NextChapter() {
                         : "border-stone-200 bg-white text-stone-600 hover:border-[#aab5a0] hover:bg-[#eef2ea]"
                     }`}
                   >
-                    {item.e}{" "}
                     {item.n}
                   </button>
                 )
@@ -1553,7 +1501,7 @@ export default function NextChapter() {
                 }
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-500 transition hover:bg-stone-100"
               >
-                ✕
+                Close
               </button>
 
             </div>
@@ -1588,7 +1536,7 @@ export default function NextChapter() {
                           <div className="text-center">
 
                             <div className="text-3xl">
-                              📚
+                              No cover
                             </div>
 
                             <div className="mt-1 text-[9px] uppercase tracking-wide text-stone-400">
