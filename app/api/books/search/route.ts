@@ -48,38 +48,78 @@ function scoreBook(book: SearchBook, query: string) {
 
   let score = 0;
 
-  if (title === q) score += 10000;
-  else if (title.startsWith(q)) score += 7000;
-  else if (title.includes(q)) score += 3500;
+  // These are RANKING boosts only. Nothing is filtered out for not matching.
+  if (title === q) score += 12000;
+  if (title.startsWith(q)) score += 9000;
+  if (title.includes(q)) score += 5500;
 
   const queryWords = q.split(" ").filter(Boolean);
   const titleWords = title.split(" ").filter(Boolean);
 
-  let matchedWords = 0;
+  let prefixMatches = 0;
+  let looseMatches = 0;
 
   for (const queryWord of queryWords) {
     if (titleWords.some((titleWord) => titleWord.startsWith(queryWord))) {
-      matchedWords += 1;
+      prefixMatches += 1;
+    } else if (
+      titleWords.some(
+        (titleWord) =>
+          titleWord.includes(queryWord) || queryWord.includes(titleWord)
+      )
+    ) {
+      looseMatches += 1;
     }
   }
 
-  if (queryWords.length > 0) {
-    score += matchedWords * 600;
+  score += prefixMatches * 1400;
+  score += looseMatches * 500;
 
-    if (matchedWords === queryWords.length) {
-      score += 1200;
-    }
+  if (queryWords.length && prefixMatches === queryWords.length) {
+    score += 2500;
   }
 
-  if (author.includes(q)) score += 500;
+  if (author.includes(q)) score += 800;
 
-  score += Math.min(book.popularity, 3000) / 50;
-
-  if (book.source === "google") score += 100;
-
-  score -= Math.max(0, title.length - q.length) * 0.2;
+  // Light popularity boost only.
+  score += Math.min(book.popularity, 5000) / 50;
 
   return score;
+}
+
+function mapGoogleBook(item: any): SearchBook | null {
+  const info = item?.volumeInfo || {};
+  const title = String(info.title || "").trim();
+
+  if (!title) return null;
+
+  const author =
+    Array.isArray(info.authors) && info.authors.length > 0
+      ? info.authors.join(", ")
+      : "Unknown author";
+
+  const rawCover =
+    info.imageLinks?.thumbnail ||
+    info.imageLinks?.smallThumbnail ||
+    null;
+
+  const cover = rawCover
+    ? String(rawCover).replace(/^http:/, "https:")
+    : null;
+
+  return {
+    id: `google-${item.id}`,
+    external_id: `google-${item.id}`,
+    title,
+    author,
+    cover,
+    cover_url: cover,
+    publishedDate: info.publishedDate || null,
+    source: "google",
+    popularity:
+      Number(info.ratingsCount || 0) +
+      Number(info.averageRating || 0) * 10,
+  };
 }
 
 async function fetchGoogleBooks(searchQuery: string): Promise<SearchBook[]> {
@@ -88,14 +128,14 @@ async function fetchGoogleBooks(searchQuery: string): Promise<SearchBook[]> {
       "https://www.googleapis.com/books/v1/volumes?" +
       new URLSearchParams({
         q: searchQuery,
-        maxResults: "20",
+        maxResults: "40",
         printType: "books",
         orderBy: "relevance",
       }).toString();
 
     const response = await fetch(url, {
-      next: { revalidate: 1800 },
-      signal: AbortSignal.timeout(3000),
+      cache: "no-store",
+      signal: AbortSignal.timeout(4500),
     });
 
     if (!response.ok) return [];
@@ -103,40 +143,7 @@ async function fetchGoogleBooks(searchQuery: string): Promise<SearchBook[]> {
     const data = await response.json();
 
     return (data.items || [])
-      .map((item: any): SearchBook | null => {
-        const info = item.volumeInfo || {};
-        const title = String(info.title || "").trim();
-
-        if (!title) return null;
-
-        const author =
-          Array.isArray(info.authors) && info.authors.length > 0
-            ? info.authors.join(", ")
-            : "Unknown author";
-
-        const rawCover =
-          info.imageLinks?.thumbnail ||
-          info.imageLinks?.smallThumbnail ||
-          null;
-
-        const cover = rawCover
-          ? String(rawCover).replace(/^http:/, "https:")
-          : null;
-
-        return {
-          id: `google-${item.id}`,
-          external_id: `google-${item.id}`,
-          title,
-          author,
-          cover,
-          cover_url: cover,
-          publishedDate: info.publishedDate || null,
-          source: "google",
-          popularity:
-            Number(info.ratingsCount || 0) +
-            Number(info.averageRating || 0) * 10,
-        };
-      })
+      .map(mapGoogleBook)
       .filter(Boolean) as SearchBook[];
   } catch (error) {
     console.error("Google Books search failed:", error);
@@ -145,28 +152,32 @@ async function fetchGoogleBooks(searchQuery: string): Promise<SearchBook[]> {
 }
 
 async function searchGoogleBooks(query: string): Promise<SearchBook[]> {
-  const [normalResults, titleResults] = await Promise.all([
+  // Search BOTH broadly and by title.
+  // The broad query prevents the autocomplete from becoming brittle.
+  const [broad, titleFocused] = await Promise.all([
     fetchGoogleBooks(query),
     fetchGoogleBooks(`intitle:${query}`),
   ]);
 
-  return dedupeBooks([...normalResults, ...titleResults]);
+  return dedupeBooks([...broad, ...titleFocused]);
 }
 
 async function searchOpenLibrary(query: string): Promise<SearchBook[]> {
   try {
+    // IMPORTANT: use q= instead of title=.
+    // q is intentionally broad. We rank title matches ourselves afterward.
     const url =
       "https://openlibrary.org/search.json?" +
       new URLSearchParams({
-        title: query,
-        limit: "15",
+        q: query,
+        limit: "40",
         fields:
-          "key,title,author_name,cover_i,first_publish_year,edition_count",
+          "key,title,author_name,cover_i,first_publish_year,edition_count,ratings_count",
       }).toString();
 
     const response = await fetch(url, {
-      next: { revalidate: 1800 },
-      signal: AbortSignal.timeout(2200),
+      cache: "no-store",
+      signal: AbortSignal.timeout(4500),
     });
 
     if (!response.ok) return [];
@@ -205,7 +216,9 @@ async function searchOpenLibrary(query: string): Promise<SearchBook[]> {
             ? String(doc.first_publish_year)
             : null,
           source: "openlibrary",
-          popularity: Number(doc.edition_count || 0),
+          popularity:
+            Number(doc.edition_count || 0) +
+            Number(doc.ratings_count || 0),
         };
       })
       .filter(Boolean) as SearchBook[];
@@ -218,21 +231,29 @@ async function searchOpenLibrary(query: string): Promise<SearchBook[]> {
 export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get("q")?.trim() || "";
 
+  // One character is too noisy, but "ro", "roc", "rock", etc. should search.
   if (query.length < 2) {
     return NextResponse.json({ books: [] });
   }
 
   try {
-    let books = await searchGoogleBooks(query);
+    // Always query BOTH sources.
+    // Do not let one provider returning "enough" results stop the other one.
+    const [googleBooks, openLibraryBooks] = await Promise.all([
+      searchGoogleBooks(query),
+      searchOpenLibrary(query),
+    ]);
 
-    if (books.length < 8) {
-      const openLibraryBooks = await searchOpenLibrary(query);
-      books = dedupeBooks([...books, ...openLibraryBooks]);
-    }
+    const books = dedupeBooks([
+      ...googleBooks,
+      ...openLibraryBooks,
+    ]);
 
+    // NO strict relevance filter here.
+    // Related results are allowed. Strong title matches simply rise to the top.
     const ranked = books
       .sort((a, b) => scoreBook(b, query) - scoreBook(a, query))
-      .slice(0, 8);
+      .slice(0, 12);
 
     return NextResponse.json(
       {
@@ -240,8 +261,9 @@ export async function GET(request: NextRequest) {
       },
       {
         headers: {
-          "Cache-Control":
-            "public, s-maxage=300, stale-while-revalidate=1800",
+          // Search suggestions change as the user types, so don't serve a stale
+          // result list that can make suggestions appear and then disappear.
+          "Cache-Control": "no-store",
         },
       }
     );
