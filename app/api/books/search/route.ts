@@ -23,98 +23,6 @@ function normalizeText(value: string) {
     .replace(/\s+/g, " ");
 }
 
-function levenshtein(a: string, b: string) {
-  const rows = a.length + 1;
-  const cols = b.length + 1;
-  const matrix = Array.from({ length: rows }, () =>
-    Array<number>(cols).fill(0)
-  );
-
-  for (let i = 0; i < rows; i++) matrix[i][0] = i;
-  for (let j = 0; j < cols; j++) matrix[0][j] = j;
-
-  for (let i = 1; i < rows; i++) {
-    for (let j = 1; j < cols; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      matrix[i][j] = Math.min(
-        matrix[i - 1][j] + 1,
-        matrix[i][j - 1] + 1,
-        matrix[i - 1][j - 1] + cost
-      );
-    }
-  }
-
-  return matrix[a.length][b.length];
-}
-
-function scoreBook(book: SearchBook, query: string) {
-  const title = normalizeText(book.title);
-  const author = normalizeText(book.author);
-  const q = normalizeText(query);
-
-  if (!title || !q) return -9999;
-
-  let score = 0;
-
-  if (title === q) score += 10000;
-  if (title.startsWith(q)) score += 7000;
-  if (title.includes(q)) score += 4000;
-
-  const qWords = q.split(" ").filter(Boolean);
-  const titleWords = title.split(" ").filter(Boolean);
-
-  let matchingWords = 0;
-  for (const word of qWords) {
-    if (titleWords.some((titleWord) => titleWord.startsWith(word))) {
-      matchingWords += 1;
-    }
-  }
-
-  score += matchingWords * 700;
-
-  if (q.length >= 4) {
-    const comparableTitle = title.slice(0, Math.min(title.length, q.length));
-    const distance = levenshtein(q, comparableTitle);
-
-    if (distance === 1) score += 2600;
-    else if (distance === 2 && q.length >= 6) score += 1500;
-  }
-
-  if (author.includes(q)) score += 900;
-  score += Math.min(book.popularity, 5000) / 50;
-  if (book.source === "google") score += 50;
-  score -= Math.max(0, title.length - q.length) * 0.6;
-
-  return score;
-}
-
-function isRelevant(book: SearchBook, query: string) {
-  const title = normalizeText(book.title);
-  const q = normalizeText(query);
-
-  if (!title || !q) return false;
-  if (title.startsWith(q) || title.includes(q)) return true;
-
-  const qWords = q.split(" ").filter(Boolean);
-  const titleWords = title.split(" ").filter(Boolean);
-
-  const matchingWords = qWords.filter((word) =>
-    titleWords.some((titleWord) => titleWord.startsWith(word))
-  ).length;
-
-  if (matchingWords === qWords.length && qWords.length > 0) return true;
-
-  if (q.length >= 4) {
-    const comparableTitle = title.slice(0, Math.min(title.length, q.length));
-    const distance = levenshtein(q, comparableTitle);
-
-    if (distance <= 1) return true;
-    if (q.length >= 7 && distance <= 2) return true;
-  }
-
-  return false;
-}
-
 function dedupeBooks(books: SearchBook[]) {
   const seen = new Set<string>();
   const result: SearchBook[] = [];
@@ -131,20 +39,63 @@ function dedupeBooks(books: SearchBook[]) {
   return result;
 }
 
-async function searchGoogleBooks(query: string): Promise<SearchBook[]> {
+function scoreBook(book: SearchBook, query: string) {
+  const title = normalizeText(book.title);
+  const author = normalizeText(book.author);
+  const q = normalizeText(query);
+
+  if (!title || !q) return 0;
+
+  let score = 0;
+
+  if (title === q) score += 10000;
+  else if (title.startsWith(q)) score += 7000;
+  else if (title.includes(q)) score += 3500;
+
+  const queryWords = q.split(" ").filter(Boolean);
+  const titleWords = title.split(" ").filter(Boolean);
+
+  let matchedWords = 0;
+
+  for (const queryWord of queryWords) {
+    if (titleWords.some((titleWord) => titleWord.startsWith(queryWord))) {
+      matchedWords += 1;
+    }
+  }
+
+  if (queryWords.length > 0) {
+    score += matchedWords * 600;
+
+    if (matchedWords === queryWords.length) {
+      score += 1200;
+    }
+  }
+
+  if (author.includes(q)) score += 500;
+
+  score += Math.min(book.popularity, 3000) / 50;
+
+  if (book.source === "google") score += 100;
+
+  score -= Math.max(0, title.length - q.length) * 0.2;
+
+  return score;
+}
+
+async function fetchGoogleBooks(searchQuery: string): Promise<SearchBook[]> {
   try {
     const url =
       "https://www.googleapis.com/books/v1/volumes?" +
       new URLSearchParams({
-        q: query,
+        q: searchQuery,
         maxResults: "20",
         printType: "books",
         orderBy: "relevance",
       }).toString();
 
     const response = await fetch(url, {
-      next: { revalidate: 3600 },
-      signal: AbortSignal.timeout(2500),
+      next: { revalidate: 1800 },
+      signal: AbortSignal.timeout(3000),
     });
 
     if (!response.ok) return [];
@@ -155,6 +106,7 @@ async function searchGoogleBooks(query: string): Promise<SearchBook[]> {
       .map((item: any): SearchBook | null => {
         const info = item.volumeInfo || {};
         const title = String(info.title || "").trim();
+
         if (!title) return null;
 
         const author =
@@ -192,20 +144,29 @@ async function searchGoogleBooks(query: string): Promise<SearchBook[]> {
   }
 }
 
+async function searchGoogleBooks(query: string): Promise<SearchBook[]> {
+  const [normalResults, titleResults] = await Promise.all([
+    fetchGoogleBooks(query),
+    fetchGoogleBooks(`intitle:${query}`),
+  ]);
+
+  return dedupeBooks([...normalResults, ...titleResults]);
+}
+
 async function searchOpenLibrary(query: string): Promise<SearchBook[]> {
   try {
     const url =
       "https://openlibrary.org/search.json?" +
       new URLSearchParams({
         title: query,
-        limit: "12",
+        limit: "15",
         fields:
           "key,title,author_name,cover_i,first_publish_year,edition_count",
       }).toString();
 
     const response = await fetch(url, {
-      next: { revalidate: 3600 },
-      signal: AbortSignal.timeout(1800),
+      next: { revalidate: 1800 },
+      signal: AbortSignal.timeout(2200),
     });
 
     if (!response.ok) return [];
@@ -215,6 +176,7 @@ async function searchOpenLibrary(query: string): Promise<SearchBook[]> {
     return (data.docs || [])
       .map((doc: any): SearchBook | null => {
         const title = String(doc.title || "").trim();
+
         if (!title) return null;
 
         const author =
@@ -253,12 +215,6 @@ async function searchOpenLibrary(query: string): Promise<SearchBook[]> {
   }
 }
 
-function rankBooks(books: SearchBook[], query: string) {
-  return dedupeBooks(books)
-    .filter((book) => isRelevant(book, query))
-    .sort((a, b) => scoreBook(b, query) - scoreBook(a, query));
-}
-
 export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get("q")?.trim() || "";
 
@@ -267,24 +223,25 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const googleBooks = await searchGoogleBooks(query);
-    let ranked = rankBooks(googleBooks, query);
+    let books = await searchGoogleBooks(query);
 
-    if (ranked.length < 5) {
+    if (books.length < 8) {
       const openLibraryBooks = await searchOpenLibrary(query);
-      ranked = rankBooks([...googleBooks, ...openLibraryBooks], query);
+      books = dedupeBooks([...books, ...openLibraryBooks]);
     }
+
+    const ranked = books
+      .sort((a, b) => scoreBook(b, query) - scoreBook(a, query))
+      .slice(0, 8);
 
     return NextResponse.json(
       {
-        books: ranked
-          .slice(0, 8)
-          .map(({ source, popularity, ...book }) => book),
+        books: ranked.map(({ source, popularity, ...book }) => book),
       },
       {
         headers: {
           "Cache-Control":
-            "public, s-maxage=300, stale-while-revalidate=3600",
+            "public, s-maxage=300, stale-while-revalidate=1800",
         },
       }
     );
