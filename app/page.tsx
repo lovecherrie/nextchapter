@@ -56,16 +56,12 @@ export default function NextChapter() {
   const [
     likedResults,
     setLikedResults,
-  ] = useState<
-    BookSearchResult[]
-  >([]);
+  ] = useState<BookSearchResult[]>([]);
 
   const [
     dislikedResults,
     setDislikedResults,
-  ] = useState<
-    BookSearchResult[]
-  >([]);
+  ] = useState<BookSearchResult[]>([]);
 
   const [
     likedSearching,
@@ -110,9 +106,7 @@ export default function NextChapter() {
   const [
     recommendations,
     setRecommendations,
-  ] = useState<
-    Recommendation[]
-  >([]);
+  ] = useState<Recommendation[]>([]);
 
   const [
     seenRecommendations,
@@ -191,6 +185,8 @@ export default function NextChapter() {
   // ----------------------------------
   // SEARCH LIKED BOOKS
   // ----------------------------------
+  // FIXED: added AbortController + an "isCurrent" flag so an older,
+  // slower request can never overwrite the results of a newer one.
 
   useEffect(() => {
     if (
@@ -204,6 +200,11 @@ export default function NextChapter() {
       return;
     }
 
+    const controller =
+      new AbortController();
+
+    let isCurrent = true;
+
     const timer =
       setTimeout(
         async () => {
@@ -216,7 +217,11 @@ export default function NextChapter() {
               await fetch(
                 `/api/books/search?q=${encodeURIComponent(
                   likedQuery
-                )}`
+                )}`,
+                {
+                  signal:
+                    controller.signal,
+                }
               );
 
             const data =
@@ -231,39 +236,55 @@ export default function NextChapter() {
               );
             }
 
-            setLikedResults(
-              data.books ||
-                []
-            );
+            if (
+              isCurrent
+            ) {
+              setLikedResults(
+                data.books ||
+                  []
+              );
+            }
           } catch (
-            error
+            error: any
           ) {
-            console.error(
-              "Liked book search error:",
-              error
-            );
+            if (
+              error?.name !==
+                "AbortError" &&
+              isCurrent
+            ) {
+              console.error(
+                "Liked book search error:",
+                error
+              );
 
-            setLikedResults(
-              []
-            );
+              setLikedResults(
+                []
+              );
+            }
           } finally {
-            setLikedSearching(
-              false
-            );
+            if (
+              isCurrent
+            ) {
+              setLikedSearching(
+                false
+              );
+            }
           }
         },
         350
       );
 
-    return () =>
-      clearTimeout(
-        timer
-      );
+    return () => {
+      isCurrent = false;
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [likedQuery]);
 
   // ----------------------------------
   // SEARCH DISLIKED BOOKS
   // ----------------------------------
+  // FIXED: same AbortController + "isCurrent" guard as above.
 
   useEffect(() => {
     if (
@@ -277,6 +298,11 @@ export default function NextChapter() {
       return;
     }
 
+    const controller =
+      new AbortController();
+
+    let isCurrent = true;
+
     const timer =
       setTimeout(
         async () => {
@@ -289,7 +315,11 @@ export default function NextChapter() {
               await fetch(
                 `/api/books/search?q=${encodeURIComponent(
                   dislikedQuery
-                )}`
+                )}`,
+                {
+                  signal:
+                    controller.signal,
+                }
               );
 
             const data =
@@ -304,34 +334,49 @@ export default function NextChapter() {
               );
             }
 
-            setDislikedResults(
-              data.books ||
-                []
-            );
+            if (
+              isCurrent
+            ) {
+              setDislikedResults(
+                data.books ||
+                  []
+              );
+            }
           } catch (
-            error
+            error: any
           ) {
-            console.error(
-              "Disliked book search error:",
-              error
-            );
+            if (
+              error?.name !==
+                "AbortError" &&
+              isCurrent
+            ) {
+              console.error(
+                "Disliked book search error:",
+                error
+              );
 
-            setDislikedResults(
-              []
-            );
+              setDislikedResults(
+                []
+              );
+            }
           } finally {
-            setDislikedSearching(
-              false
-            );
+            if (
+              isCurrent
+            ) {
+              setDislikedSearching(
+                false
+              );
+            }
           }
         },
         350
       );
 
-    return () =>
-      clearTimeout(
-        timer
-      );
+    return () => {
+      isCurrent = false;
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [
     dislikedQuery,
   ]);
@@ -1596,6 +1641,7 @@ export default function NextChapter() {
                       >
                         Not for me
                       </button>
+
 
                       <a
                         href={getBookPageUrl(
