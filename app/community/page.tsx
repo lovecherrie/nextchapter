@@ -1994,7 +1994,7 @@ export default function CommunityPage() {
                   setSelectedBook(null);
                   setBookQuery(event.target.value);
                 }}
-                autoFocus
+               
                 placeholder="Search for a book..."
                 className="w-full rounded-2xl border border-[#e2d4cf] bg-white px-4 py-3.5 outline-none focus:border-[#b65a65]"
               />
