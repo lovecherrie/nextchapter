@@ -284,10 +284,6 @@ export default function CommunityPage() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [rateOpen, setRateOpen] = useState(false);
-  const [rateViewport, setRateViewport] = useState<{
-    top: number;
-    height: number;
-  } | null>(null);
 
   const [bookQuery, setBookQuery] = useState("");
   const [bookResults, setBookResults] = useState<SearchBook[]>([]);
@@ -301,39 +297,6 @@ export default function CommunityPage() {
 
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState("");
-
-  useEffect(() => {
-    if (!rateOpen) {
-      setRateViewport(null);
-      return;
-    }
-
-    const updateRateViewport = () => {
-      const viewport = window.visualViewport;
-
-      if (window.innerWidth >= 640 || !viewport) {
-        setRateViewport(null);
-        return;
-      }
-
-      setRateViewport({
-        top: viewport.offsetTop,
-        height: viewport.height,
-      });
-    };
-
-    updateRateViewport();
-
-    window.visualViewport?.addEventListener("resize", updateRateViewport);
-    window.visualViewport?.addEventListener("scroll", updateRateViewport);
-    window.addEventListener("orientationchange", updateRateViewport);
-
-    return () => {
-      window.visualViewport?.removeEventListener("resize", updateRateViewport);
-      window.visualViewport?.removeEventListener("scroll", updateRateViewport);
-      window.removeEventListener("orientationchange", updateRateViewport);
-    };
-  }, [rateOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1988,23 +1951,14 @@ export default function CommunityPage() {
 
       {rateOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#2d2625]/45 p-4 backdrop-blur-sm"
-          style={
-            rateViewport
-              ? {
-                  top: `${rateViewport.top}px`,
-                  bottom: "auto",
-                  height: `${rateViewport.height}px`,
-                }
-              : undefined
-          }
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#2d2625]/60 p-4"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
               closeRateModal();
             }
           }}
         >
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[30px] bg-[#fffdf9] shadow-2xl">
+          <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[30px] bg-[#fffdf9] shadow-2xl">
             <div className="flex items-start justify-between border-b border-[#eee2de] px-7 py-5">
               <div>
                 <div className="text-xs font-bold uppercase tracking-[0.14em] text-[#a05a62]">
@@ -2040,7 +1994,6 @@ export default function CommunityPage() {
                   setSelectedBook(null);
                   setBookQuery(event.target.value);
                 }}
-                autoFocus
                 placeholder="Search for a book..."
                 className="w-full rounded-2xl border border-[#e2d4cf] bg-white px-4 py-3.5 outline-none focus:border-[#b65a65]"
               />
