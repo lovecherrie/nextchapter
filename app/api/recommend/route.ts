@@ -143,7 +143,7 @@ async function askGemini(prompt: string): Promise<Recommendation[]> {
         },
       }),
     },
-    18000
+    12000
   );
 
   if (!response.ok) {
@@ -181,8 +181,8 @@ async function askOpenRouter(prompt: string): Promise<Recommendation[]> {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "HTTP-Referer":
-          process.env.NEXT_PUBLIC_SITE_URL || "https://nextchapter.app",
-        "X-Title": "NextChapter",
+          process.env.NEXT_PUBLIC_SITE_URL || "https://aepilog.com",
+        "X-Title": "aepilog",
       },
       body: JSON.stringify({
         model: "openrouter/free",
@@ -200,7 +200,7 @@ async function askOpenRouter(prompt: string): Promise<Recommendation[]> {
         temperature: 0.35,
       }),
     },
-    18000
+    12000
   );
 
   if (!response.ok) {
@@ -293,7 +293,7 @@ async function getBookEvidence(
   let cover: string | null = null;
   let popularityScore = 0;
 
-  const googleQuery = encodeURIComponent(`${title} ${author}`);
+  const googleQuery = encodeURIComponent(`intitle:"${title}" inauthor:"${author}"`);
   const openLibraryQuery = new URLSearchParams({
     title,
     author,
@@ -304,14 +304,14 @@ async function getBookEvidence(
 
   const [googleResult, openLibraryResult] = await Promise.allSettled([
     fetchWithTimeout(
-      `https://www.googleapis.com/books/v1/volumes?q=${googleQuery}&maxResults=5`,
+      `https://www.googleapis.com/books/v1/volumes?q=${googleQuery}&maxResults=10`,
       { next: { revalidate: 86400 } as any },
-      3500
+      2500
     ),
     fetchWithTimeout(
       `https://openlibrary.org/search.json?${openLibraryQuery.toString()}`,
       { next: { revalidate: 86400 } as any },
-      3500
+      2500
     ),
   ]);
 
@@ -380,7 +380,17 @@ async function getBookEvidence(
         verified = true;
 
         if (!cover && match?.cover_i) {
-          cover = `https://covers.openlibrary.org/b/id/${match.cover_i}-L.jpg?default=false`;
+          cover = `https://covers.openlibrary.org/b/id/${match.cover_i}-L.jpg`;
+        }
+
+        if (!cover && Array.isArray(match?.isbn) && match.isbn.length > 0) {
+          const isbn =
+            match.isbn.find((value: string) => /^\d{13}$/.test(String(value))) ||
+            match.isbn[0];
+
+          if (isbn) {
+            cover = `https://covers.openlibrary.org/b/isbn/${encodeURIComponent(isbn)}-L.jpg`;
+          }
         }
 
         popularityScore += logPopularity(match?.edition_count, 2.2);
@@ -523,7 +533,7 @@ IMPORTANT HARD RULES
 - Never recommend a book listed as disliked.
 - Never recommend a book listed under already recommended.
 - Do not repeat the same title twice.
-- Return exactly 12 candidate books so NextChapter can verify and rank them.
+- Return exactly 7 candidate books so aepilog can verify and rank them.
 - Each explanation should be concise, ideally 20–45 words.
 
 Return ONLY valid JSON in this exact shape:
@@ -613,7 +623,7 @@ Return ONLY valid JSON in this exact shape:
     // Popularity does NOT override a much better taste match.
     // ----------------------------------
 
-    const shortlist = filtered.slice(0, 12);
+    const shortlist = filtered.slice(0, 7);
 
     const enriched = await Promise.all(
       shortlist.map(async (book, index) => {

@@ -1,7 +1,7 @@
 "use client";
 
 type SiteHeaderProps = {
-  active?: "find" | "community" | "profile";
+  active?: "find" | "community" | "search" | "profile";
 };
 
 function ProfileIcon() {
@@ -67,6 +67,17 @@ export default function SiteHeader({
               }`}
             >
               Find Books
+            </a>
+
+            <a
+              href="/search"
+              className={`${navClass} ${
+                active === "search"
+                  ? "text-[var(--aepilog-cherry)] after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:rounded-full after:bg-[var(--aepilog-cherry)]"
+                  : "text-[#665a58] hover:text-[var(--aepilog-cherry)]"
+              }`}
+            >
+              Search
             </a>
           </nav>
 

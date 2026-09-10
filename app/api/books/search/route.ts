@@ -150,14 +150,14 @@ async function fetchGoogleBooks(searchQuery: string): Promise<SearchBook[]> {
       "https://www.googleapis.com/books/v1/volumes?" +
       new URLSearchParams({
         q: searchQuery,
-        maxResults: "40",
+        maxResults: "20",
         printType: "books",
         orderBy: "relevance",
       }).toString();
 
     const response = await fetch(url, {
       cache: "no-store",
-      signal: AbortSignal.timeout(4500),
+      signal: AbortSignal.timeout(3000),
     });
 
     if (!response.ok) return [];
@@ -192,14 +192,14 @@ async function searchOpenLibrary(query: string): Promise<SearchBook[]> {
       "https://openlibrary.org/search.json?" +
       new URLSearchParams({
         q: query,
-        limit: "40",
+        limit: "20",
         fields:
           "key,title,author_name,cover_i,first_publish_year,edition_count,ratings_count,isbn,editions",
       }).toString();
 
     const response = await fetch(url, {
       cache: "no-store",
-      signal: AbortSignal.timeout(4500),
+      signal: AbortSignal.timeout(3000),
     });
 
     if (!response.ok) return [];

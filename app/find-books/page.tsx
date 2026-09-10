@@ -853,15 +853,11 @@ export default function AepilogFindBooks() {
       .select(
         "id, external_id, title, author, cover_url"
       )
-      .eq(
+      .ilike(
         "title",
-        book.title
+        book.title.trim()
       )
-      .eq(
-        "author",
-        book.author
-      )
-      .limit(1);
+      .limit(10);
 
     if (titleLookupError) {
       throw titleLookupError;
@@ -871,7 +867,18 @@ export default function AepilogFindBooks() {
       existingByTitle &&
       existingByTitle.length > 0
     ) {
-      return existingByTitle[0];
+      const normalizedAuthor = (book.author || "")
+        .toLowerCase()
+        .trim();
+
+      const authorMatch = existingByTitle.find(
+        (candidate: any) =>
+          (candidate.author || "")
+            .toLowerCase()
+            .trim() === normalizedAuthor
+      );
+
+      return authorMatch || existingByTitle[0];
     }
 
     const {
@@ -909,14 +916,27 @@ export default function AepilogFindBooks() {
         )
         .maybeSingle();
 
-      if (
-        retryError ||
-        !retryBook
-      ) {
-        throw createError;
+      if (!retryError && retryBook) {
+        return retryBook;
       }
 
-      return retryBook;
+      const {
+        data: retryByTitle,
+        error: retryByTitleError,
+      } = await supabase
+        .from("books")
+        .select(
+          "id, external_id, title, author, cover_url"
+        )
+        .ilike("title", book.title.trim())
+        .limit(1)
+        .maybeSingle();
+
+      if (!retryByTitleError && retryByTitle) {
+        return retryByTitle;
+      }
+
+      throw createError;
     }
 
     return createdBook;
