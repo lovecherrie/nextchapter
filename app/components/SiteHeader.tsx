@@ -29,6 +29,31 @@ function ProfileIcon() {
   );
 }
 
+function SearchIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className="h-5 w-5"
+    >
+      <circle
+        cx="11"
+        cy="11"
+        r="6.5"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <path
+        d="m16 16 4 4"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 export default function SiteHeader({
   active,
 }: SiteHeaderProps) {
@@ -46,22 +71,37 @@ export default function SiteHeader({
           aepilog
         </a>
 
-          <a
-            href="/profile"
-            aria-label="Profile"
-            title="Profile"
-            className={`flex h-9 w-9 items-center justify-center rounded-full border transition sm:hidden ${
-              active === "profile"
-                ? "border-[var(--aepilog-cherry)] bg-[var(--aepilog-cherry)] text-white"
-                : "border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] text-[#665a58]"
-            }`}
-          >
-            <ProfileIcon />
-          </a>
+          <div className="flex items-center gap-2 sm:hidden">
+            <a
+              href="/search"
+              aria-label="Search"
+              title="Search"
+              className={`flex h-9 w-9 items-center justify-center rounded-full border transition ${
+                active === "search"
+                  ? "border-[var(--aepilog-cherry)] bg-[var(--aepilog-cherry)] text-white"
+                  : "border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] text-[#665a58]"
+              }`}
+            >
+              <SearchIcon />
+            </a>
+
+            <a
+              href="/profile"
+              aria-label="Profile"
+              title="Profile"
+              className={`flex h-9 w-9 items-center justify-center rounded-full border transition ${
+                active === "profile"
+                  ? "border-[var(--aepilog-cherry)] bg-[var(--aepilog-cherry)] text-white"
+                  : "border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] text-[#665a58]"
+              }`}
+            >
+              <ProfileIcon />
+            </a>
+          </div>
         </div>
 
         <div className="mt-3 flex items-center sm:mt-0 sm:gap-8">
-          <nav className="grid w-full grid-cols-3 items-center border-t border-[var(--aepilog-border)] pt-2 sm:flex sm:w-auto sm:gap-7 sm:border-0 sm:pt-0">
+          <nav className="grid w-full grid-cols-2 items-center border-t border-[var(--aepilog-border)] pt-2 sm:flex sm:w-auto sm:gap-7 sm:border-0 sm:pt-0">
             <a
               href="/"
               className={`${navClass} ${
@@ -86,7 +126,7 @@ export default function SiteHeader({
 
             <a
               href="/search"
-              className={`${navClass} ${
+              className={`hidden sm:block ${navClass} ${
                 active === "search"
                   ? "text-[var(--aepilog-cherry)] after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:rounded-full after:bg-[var(--aepilog-cherry)]"
                   : "text-[#665a58] hover:text-[var(--aepilog-cherry)]"

@@ -1285,9 +1285,9 @@ export default function CommunityPage() {
             ) : null}
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
             <div className="rounded-[22px] border border-[#e6d8d4] bg-[#8f2635] p-4 text-[#fffdf9] shadow-sm sm:p-5">
-              <h2 className="font-aepilog-serif text-xl font-medium sm:text-xl">
+              <h2 className="font-aepilog-serif text-[18px] font-medium leading-tight sm:text-xl">
                 Start a discussion
               </h2>
 
@@ -1298,14 +1298,14 @@ export default function CommunityPage() {
               <button
                 type="button"
                 onClick={() => setCreateOpen(true)}
-                className="mt-3 inline-flex rounded-full bg-[#fffdf9] px-4 py-2 text-xs font-bold text-[#8f2635] sm:text-sm"
+                className="mt-3 inline-flex rounded-full bg-[#fffdf9] px-3 py-2 text-[11px] font-bold text-[#8f2635] sm:px-4 sm:text-sm"
               >
                 + Create post
               </button>
             </div>
 
             <div className="rounded-[22px] border border-[#8f2635] bg-[#fffdf9] p-4 text-[#8f2635] shadow-sm sm:p-5">
-              <h2 className="font-aepilog-serif text-xl font-medium sm:text-xl">
+              <h2 className="font-aepilog-serif text-[18px] font-medium leading-tight sm:text-xl">
                 Rate a book
               </h2>
 
@@ -1316,7 +1316,7 @@ export default function CommunityPage() {
               <button
                 type="button"
                 onClick={openRateModal}
-                className="mt-3 inline-flex rounded-full bg-[#8f2635] px-4 py-2 text-xs font-bold text-[#fffdf9] sm:text-sm"
+                className="mt-3 inline-flex rounded-full bg-[#8f2635] px-3 py-2 text-[11px] font-bold text-[#fffdf9] sm:px-4 sm:text-sm"
               >
                 Rate a book
               </button>
