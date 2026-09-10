@@ -80,6 +80,8 @@ function BookPageContent() {
     null
   );
 
+  const [enrichedCover, setEnrichedCover] = useState<string | null>(null);
+
   const [
     descriptionLoading,
     setDescriptionLoading,
