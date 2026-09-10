@@ -2003,7 +2003,7 @@ export default function CommunityPage() {
             }
           }}
         >
-          <div className="max-h-[calc(100%-24px)] w-full max-w-2xl translate-y-3 overflow-y-auto rounded-[30px] bg-[#fffdf9] shadow-2xl sm:max-h-[90vh] sm:translate-y-0">
+          <div className="flex h-[calc(100%-24px)] max-h-[calc(100%-24px)] w-full max-w-2xl translate-y-3 flex-col overflow-hidden rounded-[30px] bg-[#fffdf9] shadow-2xl sm:h-auto sm:max-h-[90vh] sm:translate-y-0 sm:overflow-y-auto">
             <div className="flex items-start justify-between border-b border-[#eee2de] px-7 py-5">
               <div>
                 <div className="text-xs font-bold uppercase tracking-[0.14em] text-[#a05a62]">
@@ -2028,7 +2028,7 @@ export default function CommunityPage() {
               </button>
             </div>
 
-            <div className="p-7">
+            <div className="flex min-h-0 flex-1 flex-col p-7">
               <label className="mb-2 block text-sm font-bold">
                 Which book do you want to rate?
               </label>
@@ -2045,7 +2045,7 @@ export default function CommunityPage() {
               />
 
               {bookQuery.trim().length >= 2 && (
-                <div className="mt-3 overflow-hidden rounded-2xl border border-[#eaded9] bg-white shadow-lg">
+                <div className="mt-3 min-h-0 flex-1 overflow-y-auto rounded-2xl border border-[#eaded9] bg-white shadow-lg sm:flex-none sm:overflow-hidden">
                   {searchingBooks && (
                     <div className="p-4 text-sm text-[#756866]">
                       Searching books...
