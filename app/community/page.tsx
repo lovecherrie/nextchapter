@@ -1329,19 +1329,6 @@ export default function CommunityPage() {
                   Finished a book?
                 </h2>
 
-                <svg
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                  className="h-7 w-7 shrink-0 text-[#8f2635] sm:h-8 sm:w-8"
-                  fill="currentColor"
-                >
-                  <path
-                    d="M12 2.9 14.55 8l5.63.82-4.07 3.97.96 5.61L12 15.74 6.93 18.4l.96-5.61-4.07-3.97L9.45 8 12 2.9Z"
-                    stroke="currentColor"
-                    strokeWidth="1.3"
-                    strokeLinejoin="round"
-                  />
-                </svg>
               </div>
 
               <p className="mt-1.5 hidden text-sm leading-5 text-[#756866] lg:block">
@@ -1353,6 +1340,7 @@ export default function CommunityPage() {
                 onClick={openRateModal}
                 className="mt-auto inline-flex w-fit rounded-full bg-[#8f2635] px-3 py-2 text-[11px] font-bold text-[#fffdf9] sm:px-4 sm:text-sm"
               >
+                <span aria-hidden="true" className="mr-1.5 text-[13px] sm:text-base">★</span>
                 Rate a book
               </button>
             </div>
