@@ -8,6 +8,10 @@ type SearchBook = {
   cover: string | null;
   cover_url: string | null;
   publishedDate: string | null;
+  isbn10?: string | null;
+  isbn13?: string | null;
+  work_id?: string | null;
+  edition_id?: string | null;
   source: "google" | "openlibrary";
   popularity: number;
 };
@@ -99,9 +103,25 @@ function mapGoogleBook(item: any): SearchBook | null {
       : "Unknown author";
 
   const rawCover =
+    info.imageLinks?.extraLarge ||
+    info.imageLinks?.large ||
+    info.imageLinks?.medium ||
+    info.imageLinks?.small ||
     info.imageLinks?.thumbnail ||
     info.imageLinks?.smallThumbnail ||
     null;
+
+  const identifiers = Array.isArray(info.industryIdentifiers)
+    ? info.industryIdentifiers
+    : [];
+
+  const isbn13 =
+    identifiers.find((identifier: any) => identifier?.type === "ISBN_13")
+      ?.identifier || null;
+
+  const isbn10 =
+    identifiers.find((identifier: any) => identifier?.type === "ISBN_10")
+      ?.identifier || null;
 
   const cover = rawCover
     ? String(rawCover).replace(/^http:/, "https:")
@@ -115,6 +135,8 @@ function mapGoogleBook(item: any): SearchBook | null {
     cover,
     cover_url: cover,
     publishedDate: info.publishedDate || null,
+    isbn10,
+    isbn13,
     source: "google",
     popularity:
       Number(info.ratingsCount || 0) +
@@ -172,7 +194,7 @@ async function searchOpenLibrary(query: string): Promise<SearchBook[]> {
         q: query,
         limit: "40",
         fields:
-          "key,title,author_name,cover_i,first_publish_year,edition_count,ratings_count",
+          "key,title,author_name,cover_i,first_publish_year,edition_count,ratings_count,isbn,editions",
       }).toString();
 
     const response = await fetch(url, {
@@ -196,8 +218,18 @@ async function searchOpenLibrary(query: string): Promise<SearchBook[]> {
             : "Unknown author";
 
         const cover = doc.cover_i
-          ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`
+          ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg?default=false`
           : null;
+
+        const isbns = Array.isArray(doc.isbn) ? doc.isbn : [];
+        const isbn13 =
+          isbns.find((value: string) => /^\d{13}$/.test(String(value))) || null;
+        const isbn10 =
+          isbns.find((value: string) => /^\d{10}$/.test(String(value))) || null;
+
+        const bestEdition = doc.editions?.docs?.[0];
+        const editionKey = String(bestEdition?.key || "")
+          .replace(/^\/books\//, "") || null;
 
         const cleanKey = String(doc.key || "")
           .replace(/^\/works\//, "")
@@ -215,6 +247,10 @@ async function searchOpenLibrary(query: string): Promise<SearchBook[]> {
           publishedDate: doc.first_publish_year
             ? String(doc.first_publish_year)
             : null,
+          isbn10,
+          isbn13,
+          work_id: cleanKey,
+          edition_id: editionKey,
           source: "openlibrary",
           popularity:
             Number(doc.edition_count || 0) +
@@ -257,7 +293,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(
       {
-        books: ranked.map(({ source, popularity, ...book }) => book),
+        books: ranked.map(({ popularity, ...book }) => book),
       },
       {
         headers: {

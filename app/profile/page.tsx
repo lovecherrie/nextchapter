@@ -27,6 +27,14 @@ type TopBook = {
   books: Book | null;
 };
 
+type WantToReadItem = {
+  id: string;
+  user_id: string;
+  book_id: string;
+  created_at: string;
+  books: Book | null;
+};
+
 type DraftTopBook = {
   external_id: string;
   title: string;
@@ -85,6 +93,7 @@ export default function ProfilePage() {
   const [error, setError] = useState("");
 
   const [topBooks, setTopBooks] = useState<TopBook[]>([]);
+  const [wantToRead, setWantToRead] = useState<WantToReadItem[]>([]);
   const [topBooksOpen, setTopBooksOpen] = useState(false);
   const [draftTopBooks, setDraftTopBooks] = useState<(DraftTopBook | null)[]>([
     null,
@@ -254,7 +263,7 @@ export default function ProfilePage() {
     setError("");
 
     try {
-      const [ratingsResult, postsResult, topBooksResult] = await Promise.all([
+      const [ratingsResult, postsResult, topBooksResult, wantToReadResult] = await Promise.all([
         supabase
           .from("ratings")
           .select(`
@@ -315,6 +324,24 @@ export default function ProfilePage() {
           `)
           .eq("user_id", currentUserId)
           .order("position", { ascending: true }),
+
+        supabase
+          .from("want_to_read")
+          .select(`
+            id,
+            user_id,
+            book_id,
+            created_at,
+            books (
+              id,
+              external_id,
+              title,
+              author,
+              cover_url
+            )
+          `)
+          .eq("user_id", currentUserId)
+          .order("created_at", { ascending: false }),
       ]);
 
       if (ratingsResult.error) {
@@ -329,9 +356,14 @@ export default function ProfilePage() {
         throw topBooksResult.error;
       }
 
+      if (wantToReadResult.error) {
+        throw wantToReadResult.error;
+      }
+
       setRatings((ratingsResult.data || []) as unknown as Rating[]);
       setPosts((postsResult.data || []) as unknown as DiscussionPost[]);
       setTopBooks((topBooksResult.data || []) as unknown as TopBook[]);
+      setWantToRead((wantToReadResult.data || []) as unknown as WantToReadItem[]);
     } catch (profileError) {
       console.error("Profile load error:", profileError);
       setError("Could not load your profile activity right now.");
@@ -518,6 +550,39 @@ export default function ProfilePage() {
     }
   }
 
+  async function removeWantToRead(
+    itemId: string
+  ) {
+    const {
+      error,
+    } = await supabase
+      .from("want_to_read")
+      .delete()
+      .eq("id", itemId)
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error(
+        "Want to Read remove error:",
+        error
+      );
+
+      setError(
+        "Could not remove that book right now."
+      );
+
+      return;
+    }
+
+    setWantToRead(
+      (current) =>
+        current.filter(
+          (item) =>
+            item.id !== itemId
+        )
+    );
+  }
+
   const writtenReviews = useMemo(
     () =>
       ratings.filter(
@@ -651,28 +716,28 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f2e8] text-stone-900">
+    <main className="min-h-screen bg-[var(--aepilog-cream)] text-[var(--aepilog-ink)]">
       <SiteHeader active="profile" />
 
       <div className="mx-auto max-w-5xl px-5 py-8 md:py-12">
-        <section className="rounded-[32px] border border-stone-200 bg-[#fffdf8] p-6 shadow-sm md:p-8">
+        <section className="rounded-[32px] border border-[#e6d8d4] bg-[var(--aepilog-paper)] p-6 shadow-sm md:p-8">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#dfe7da] text-xl font-semibold text-[#4f5f45]">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#f6e8e6] text-xl font-semibold text-[#8f2635]">
                 {username.slice(0, 1).toUpperCase()}
               </div>
 
               <div>
-                <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#8a6f47]">
+                <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#a34c57]">
                   Reader profile
                 </div>
 
-                <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
+                <h1 className="font-aepilog-serif mt-1 text-3xl font-medium tracking-tight sm:text-4xl">
                   {username}
                 </h1>
 
                 <p className="mt-1 max-w-xl text-sm leading-6 text-stone-500">
-                  {bio || "Your reading life on NextChapter."}
+                  {bio || "Your reading life on aepilog."}
                 </p>
               </div>
             </div>
@@ -681,7 +746,7 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={openEditProfile}
-                className="rounded-xl border border-[#cfd8ca] bg-[#eef2ea] px-4 py-2 text-sm font-semibold text-[#4f5f45] transition hover:bg-[#e3eadf]"
+                className="rounded-xl border border-[#d8b9bc] bg-[#f6e8e6] px-4 py-2 text-sm font-semibold text-[#8f2635] transition hover:bg-[#ebcfd0]"
               >
                 Edit profile
               </button>
@@ -689,7 +754,7 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={logOut}
-                className="rounded-xl border border-stone-200 bg-white px-4 py-2 text-sm font-semibold text-stone-500 transition hover:bg-stone-50 hover:text-stone-700"
+                className="rounded-xl border border-[#e6d8d4] bg-white px-4 py-2 text-sm font-semibold text-stone-500 transition hover:bg-stone-50 hover:text-stone-700"
               >
                 Log out
               </button>
@@ -697,13 +762,13 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        <section className="mt-6 rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 md:p-7">
+        <section className="mt-6 rounded-[28px] border border-[#e6d8d4] bg-[var(--aepilog-paper)] p-6 md:p-7">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#8a6f47]">
+              <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#a34c57]">
                 Your taste
               </div>
-              <h2 className="mt-1 text-xl font-semibold">Top 4</h2>
+              <h2 className="font-aepilog-serif mt-1 text-2xl font-medium">Top 4</h2>
               <p className="mt-1 text-sm text-stone-500">
                 The four books that say the most about you.
               </p>
@@ -712,7 +777,7 @@ export default function ProfilePage() {
             <button
               type="button"
               onClick={openTopBooksEditor}
-              className="shrink-0 rounded-xl border border-[#cfd8ca] bg-[#eef2ea] px-4 py-2 text-sm font-semibold text-[#4f5f45] transition hover:bg-[#e3eadf]"
+              className="shrink-0 rounded-xl border border-[#d8b9bc] bg-[#f6e8e6] px-4 py-2 text-sm font-semibold text-[#8f2635] transition hover:bg-[#ebcfd0]"
             >
               {topBooks.length > 0 ? "Edit Top 4" : "Choose Top 4"}
             </button>
@@ -731,13 +796,13 @@ export default function ProfilePage() {
                       key={position}
                       type="button"
                       onClick={openTopBooksEditor}
-                      className="group aspect-[2/3] rounded-2xl border border-dashed border-[#cfd8ca] bg-[#eef2ea]/45 p-4 text-center transition hover:bg-[#eef2ea]"
+                      className="group aspect-[2/3] rounded-2xl border border-dashed border-[#d8b9bc] bg-[#f6e8e6]/55 p-4 text-center transition hover:bg-[#f6e8e6]"
                     >
                       <div className="flex h-full flex-col items-center justify-center">
-                        <div className="text-xs font-bold uppercase tracking-[0.14em] text-[#8a6f47]">
+                        <div className="text-xs font-bold uppercase tracking-[0.14em] text-[#a34c57]">
                           #{position}
                         </div>
-                        <div className="mt-2 text-sm font-semibold text-[#5c6755]">
+                        <div className="mt-2 text-sm font-semibold text-[#8f2635]">
                           Add a favorite
                         </div>
                       </div>
@@ -751,7 +816,7 @@ export default function ProfilePage() {
                     href={bookHref(item.books)}
                     className="group min-w-0"
                   >
-                    <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[#eee8dc] shadow-sm transition duration-200 group-hover:-translate-y-1 group-hover:shadow-md">
+                    <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[#f1e5e1] shadow-sm transition duration-200 group-hover:-translate-y-1 group-hover:shadow-md">
                       {item.books.cover_url ? (
                         <img
                           src={item.books.cover_url}
@@ -763,7 +828,7 @@ export default function ProfilePage() {
                           No cover
                         </div>
                       )}
-                      <div className="absolute left-2 top-2 rounded-full bg-[#fffdf8]/90 px-2 py-1 text-[10px] font-bold text-[#4f5f45] shadow-sm backdrop-blur">
+                      <div className="absolute left-2 top-2 rounded-full bg-[var(--aepilog-paper)]/90 px-2 py-1 text-[10px] font-bold text-[#4f5f45] shadow-sm backdrop-blur">
                         #{position}
                       </div>
                     </div>
@@ -780,8 +845,95 @@ export default function ProfilePage() {
           )}
         </section>
 
+        <section className="mt-6 rounded-[28px] border border-[#e6d8d4] bg-[var(--aepilog-paper)] p-6 md:p-7">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#a34c57]">
+                Your shelf
+              </div>
+              <h2 className="mt-1 text-xl font-semibold">
+                Want to Read
+              </h2>
+              <p className="mt-1 text-sm text-stone-500">
+                Books you saved from recommendations and book pages.
+              </p>
+            </div>
+
+            {!loading && (
+              <div className="rounded-full bg-[#eef2ea] px-3 py-1.5 text-xs font-bold text-[#4f5f45]">
+                {wantToRead.length}
+              </div>
+            )}
+          </div>
+
+          {loading ? (
+            <p className="mt-5 text-sm text-stone-500">
+              Loading your saved books...
+            </p>
+          ) : wantToRead.length === 0 ? (
+            <div className="mt-5 rounded-2xl border border-dashed border-[#cfd8ca] bg-[#eef2ea]/60 px-5 py-8 text-center">
+              <p className="text-sm font-medium text-[#8f2635]">
+                Books you save as Want to Read will show up here.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              {wantToRead.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center gap-4 rounded-2xl border border-[#e6d8d4] bg-white p-4"
+                >
+                  <a
+                    href={
+                      item.books
+                        ? bookHref(item.books)
+                        : "#"
+                    }
+                    className="flex min-w-0 flex-1 items-center gap-4"
+                  >
+                    <div className="h-24 w-16 shrink-0 overflow-hidden rounded-lg bg-[#f1e5e1]">
+                      {item.books?.cover_url ? (
+                        <img
+                          src={item.books.cover_url}
+                          alt={item.books.title}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center px-2 text-center text-[10px] text-stone-400">
+                          No cover
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="truncate font-semibold text-stone-800">
+                        {item.books?.title || "Book"}
+                      </div>
+                      <div className="mt-1 truncate text-sm text-stone-500">
+                        {item.books?.author || "Unknown author"}
+                      </div>
+                    </div>
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      removeWantToRead(
+                        item.id
+                      )
+                    }
+                    className="shrink-0 rounded-full border border-[#e6d8d4] px-3 py-2 text-xs font-semibold text-stone-500 transition hover:bg-stone-50 hover:text-stone-700"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
         <section className="mt-6 grid gap-4 sm:grid-cols-3">
-          <div className="rounded-2xl border border-stone-200 bg-white p-5">
+          <div className="rounded-2xl border border-[#e6d8d4] bg-white p-5">
             <div className="text-2xl font-semibold text-[#4f5f45]">
               {loading ? "—" : ratings.length}
             </div>
@@ -790,7 +942,7 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-stone-200 bg-white p-5">
+          <div className="rounded-2xl border border-[#e6d8d4] bg-white p-5">
             <div className="text-2xl font-semibold text-[#4f5f45]">
               {loading ? "—" : posts.length}
             </div>
@@ -799,7 +951,7 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-stone-200 bg-white p-5">
+          <div className="rounded-2xl border border-[#e6d8d4] bg-white p-5">
             <div className="text-2xl font-semibold text-[#4f5f45]">
               {loading ? "—" : writtenReviews.length}
             </div>
@@ -815,9 +967,9 @@ export default function ProfilePage() {
           </div>
         )}
 
-        <section className="mt-6 rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 md:p-7">
+        <section className="mt-6 rounded-[28px] border border-[#e6d8d4] bg-[var(--aepilog-paper)] p-6 md:p-7">
           <div>
-            <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#8a6f47]">
+            <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#a34c57]">
               Your books
             </div>
 
@@ -832,7 +984,7 @@ export default function ProfilePage() {
             </p>
           ) : ratings.length === 0 ? (
             <div className="mt-5 rounded-2xl border border-dashed border-[#cfd8ca] bg-[#eef2ea]/60 px-5 py-8 text-center">
-              <p className="text-sm font-medium text-[#5c6755]">
+              <p className="text-sm font-medium text-[#8f2635]">
                 Books you rate will show up here.
               </p>
             </div>
@@ -846,9 +998,9 @@ export default function ProfilePage() {
                       ? bookHref(rating.books)
                       : "#"
                   }
-                  className="flex items-center gap-4 rounded-2xl border border-stone-200 bg-white p-4 transition hover:border-[#c9d3c4] hover:bg-[#fafcf8]"
+                  className="flex items-center gap-4 rounded-2xl border border-[#e6d8d4] bg-white p-4 transition hover:border-[#c9d3c4] hover:bg-[#fafcf8]"
                 >
-                  <div className="h-20 w-14 shrink-0 overflow-hidden rounded-lg bg-[#eee8dc]">
+                  <div className="h-20 w-14 shrink-0 overflow-hidden rounded-lg bg-[#f1e5e1]">
                     {rating.books?.cover_url ? (
                       <img
                         src={rating.books.cover_url}
@@ -888,9 +1040,9 @@ export default function ProfilePage() {
           )}
         </section>
 
-        <section className="mt-6 rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 md:p-7">
+        <section className="mt-6 rounded-[28px] border border-[#e6d8d4] bg-[var(--aepilog-paper)] p-6 md:p-7">
           <div>
-            <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#8a6f47]">
+            <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#a34c57]">
               Your activity
             </div>
 
@@ -905,7 +1057,7 @@ export default function ProfilePage() {
             </p>
           ) : posts.length === 0 ? (
             <div className="mt-5 rounded-2xl border border-dashed border-[#cfd8ca] bg-[#eef2ea]/60 px-5 py-8 text-center">
-              <p className="text-sm font-medium text-[#5c6755]">
+              <p className="text-sm font-medium text-[#8f2635]">
                 Your posts will show up here.
               </p>
             </div>
@@ -917,7 +1069,7 @@ export default function ProfilePage() {
                   href={
                     post.books ? bookHref(post.books) : "#"
                   }
-                  className="block rounded-2xl border border-stone-200 bg-white p-5 transition hover:border-[#c9d3c4] hover:bg-[#fafcf8]"
+                  className="block rounded-2xl border border-[#e6d8d4] bg-white p-5 transition hover:border-[#c9d3c4] hover:bg-[#fafcf8]"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
@@ -958,10 +1110,10 @@ export default function ProfilePage() {
             }
           }}
         >
-          <div className="w-full max-w-2xl rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 shadow-xl sm:p-7">
+          <div className="w-full max-w-2xl rounded-[28px] border border-[#e6d8d4] bg-[var(--aepilog-paper)] p-6 shadow-xl sm:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#8a6f47]">
+                <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#a34c57]">
                   Your taste
                 </div>
                 <h2 className="mt-1 text-2xl font-semibold">Choose your Top 4</h2>
@@ -992,10 +1144,10 @@ export default function ProfilePage() {
                   className={`relative overflow-hidden rounded-2xl border text-left transition ${
                     activeTopBookSlot === index
                       ? "border-[#708066] ring-2 ring-[#dfe7da]"
-                      : "border-stone-200 hover:border-[#bfcab8]"
+                      : "border-[#e6d8d4] hover:border-[#bfcab8]"
                   }`}
                 >
-                  <div className="aspect-[2/3] bg-[#eee8dc]">
+                  <div className="aspect-[2/3] bg-[#f1e5e1]">
                     {book?.cover_url ? (
                       <img
                         src={book.cover_url}
@@ -1004,7 +1156,7 @@ export default function ProfilePage() {
                       />
                     ) : (
                       <div className="flex h-full flex-col items-center justify-center px-3 text-center">
-                        <div className="text-xs font-bold text-[#8a6f47]">#{index + 1}</div>
+                        <div className="text-xs font-bold text-[#a34c57]">#{index + 1}</div>
                         <div className="mt-2 text-xs font-semibold text-stone-500">
                           {book ? book.title : "Choose a book"}
                         </div>
@@ -1021,7 +1173,7 @@ export default function ProfilePage() {
                     </div>
                   )}
 
-                  <div className="absolute left-2 top-2 rounded-full bg-[#fffdf8]/90 px-2 py-1 text-[10px] font-bold text-[#4f5f45] shadow-sm">
+                  <div className="absolute left-2 top-2 rounded-full bg-[var(--aepilog-paper)]/90 px-2 py-1 text-[10px] font-bold text-[#4f5f45] shadow-sm">
                     #{index + 1}
                   </div>
                 </button>
@@ -1040,7 +1192,7 @@ export default function ProfilePage() {
               </div>
             )}
 
-            <div className="mt-5 rounded-2xl border border-stone-200 bg-white p-4">
+            <div className="mt-5 rounded-2xl border border-[#e6d8d4] bg-white p-4">
               <label htmlFor="top-book-search" className="text-sm font-semibold text-stone-700">
                 Search for book #{activeTopBookSlot + 1}
               </label>
@@ -1052,11 +1204,11 @@ export default function ProfilePage() {
                   setTopBooksError("");
                 }}
                 placeholder="Search by title or author..."
-                className="mt-2 w-full rounded-xl border border-stone-200 bg-[#fffdf8] px-4 py-3 text-sm outline-none transition focus:border-[#aebaa5] focus:ring-2 focus:ring-[#dfe7da]"
+                className="mt-2 w-full rounded-xl border border-[#e6d8d4] bg-[var(--aepilog-paper)] px-4 py-3 text-sm outline-none transition focus:border-[#aebaa5] focus:ring-2 focus:ring-[#dfe7da]"
               />
 
               {topBookQuery.trim().length >= 2 && (
-                <div className="mt-3 max-h-64 overflow-y-auto rounded-xl border border-stone-200 bg-[#fffdf8]">
+                <div className="mt-3 max-h-64 overflow-y-auto rounded-xl border border-[#e6d8d4] bg-[var(--aepilog-paper)]">
                   {searchingTopBooks ? (
                     <div className="p-4 text-sm text-stone-500">Searching books...</div>
                   ) : topBookResults.length === 0 ? (
@@ -1071,7 +1223,7 @@ export default function ProfilePage() {
                         onClick={() => chooseTopBook(book)}
                         className="flex w-full items-center gap-3 border-b border-stone-100 p-3 text-left transition last:border-b-0 hover:bg-[#f7f4ed]"
                       >
-                        <div className="h-16 w-11 shrink-0 overflow-hidden rounded-md bg-[#eee8dc]">
+                        <div className="h-16 w-11 shrink-0 overflow-hidden rounded-md bg-[#f1e5e1]">
                           {book.cover ? (
                             <img
                               src={book.cover}
@@ -1144,10 +1296,10 @@ export default function ProfilePage() {
             }
           }}
         >
-          <div className="w-full max-w-md rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 shadow-xl sm:p-7">
+          <div className="w-full max-w-md rounded-[28px] border border-[#e6d8d4] bg-[var(--aepilog-paper)] p-6 shadow-xl sm:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#8a6f47]">
+                <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#a34c57]">
                   Profile
                 </div>
                 <h2 className="mt-1 text-2xl font-semibold">
@@ -1179,7 +1331,7 @@ export default function ProfilePage() {
                   setDraftUsername(event.target.value)
                 }
                 maxLength={24}
-                className="mt-2 w-full rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#aebaa5] focus:ring-2 focus:ring-[#dfe7da]"
+                className="mt-2 w-full rounded-xl border border-[#e6d8d4] bg-white px-4 py-3 text-sm outline-none transition focus:border-[#aebaa5] focus:ring-2 focus:ring-[#dfe7da]"
                 placeholder="Your display name"
               />
               <div className="mt-1 text-right text-[11px] text-stone-400">
@@ -1202,7 +1354,7 @@ export default function ProfilePage() {
                 }
                 maxLength={160}
                 rows={4}
-                className="mt-2 w-full resize-none rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm leading-6 outline-none transition focus:border-[#aebaa5] focus:ring-2 focus:ring-[#dfe7da]"
+                className="mt-2 w-full resize-none rounded-xl border border-[#e6d8d4] bg-white px-4 py-3 text-sm leading-6 outline-none transition focus:border-[#aebaa5] focus:ring-2 focus:ring-[#dfe7da]"
                 placeholder="A little about your reading taste..."
               />
               <div className="mt-1 text-right text-[11px] text-stone-400">

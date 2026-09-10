@@ -69,6 +69,47 @@ function BookPageContent() {
     searchParams.get("cover") ||
     "";
 
+  const openedFrom =
+    searchParams.get("from") ||
+    "";
+
+  const [
+    bookDescription,
+    setBookDescription,
+  ] = useState<string | null>(
+    null
+  );
+
+  const [
+    descriptionLoading,
+    setDescriptionLoading,
+  ] = useState(true);
+
+  const [
+    bookMeta,
+    setBookMeta,
+  ] = useState<{
+    publishedDate: string | null;
+    pageCount: number | null;
+    categories: string[];
+    publisher: string | null;
+  }>({
+    publishedDate: null,
+    pageCount: null,
+    categories: [],
+    publisher: null,
+  });
+
+  const [
+    isWantToRead,
+    setIsWantToRead,
+  ] = useState(false);
+
+  const [
+    savingWantToRead,
+    setSavingWantToRead,
+  ] = useState(false);
+
   const [
     databaseBookId,
     setDatabaseBookId,
@@ -323,6 +364,109 @@ function BookPageContent() {
   ]);
 
   // -------------------------
+  // BOOK DESCRIPTION / METADATA
+  // -------------------------
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadBookDetails =
+      async () => {
+        setDescriptionLoading(
+          true
+        );
+
+        try {
+          const response =
+            await fetch(
+              `/api/books/details?title=${encodeURIComponent(
+                bookTitle
+              )}&author=${encodeURIComponent(
+                bookAuthor
+              )}`,
+              {
+                cache:
+                  "no-store",
+              }
+            );
+
+          const data =
+            await response.json();
+
+          if (
+            cancelled
+          ) {
+            return;
+          }
+
+          setBookDescription(
+            typeof data.description ===
+              "string" &&
+              data.description.trim()
+              ? data.description.trim()
+              : null
+          );
+
+          setEnrichedCover(
+            typeof data.cover === "string" && data.cover.trim()
+              ? data.cover.trim()
+              : null
+          );
+
+          setBookMeta({
+            publishedDate:
+              data.publishedDate ||
+              null,
+            pageCount:
+              typeof data.pageCount ===
+              "number"
+                ? data.pageCount
+                : null,
+            categories:
+              Array.isArray(
+                data.categories
+              )
+                ? data.categories
+                : [],
+            publisher:
+              data.publisher ||
+              null,
+          });
+        } catch (error) {
+          console.error(
+            "Book details load error:",
+            error
+          );
+
+          if (
+            !cancelled
+          ) {
+            setBookDescription(
+              null
+            );
+          }
+        } finally {
+          if (
+            !cancelled
+          ) {
+            setDescriptionLoading(
+              false
+            );
+          }
+        }
+      };
+
+    loadBookDetails();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    bookTitle,
+    bookAuthor,
+  ]);
+
+  // -------------------------
   // ACCOUNT / GUEST IDENTITY
   // -------------------------
 
@@ -548,6 +692,206 @@ function BookPageContent() {
     bookAuthor,
     bookCover,
   ]);
+
+  // -------------------------
+  // WANT TO READ
+  // -------------------------
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadWantToRead =
+      async () => {
+        if (
+          !databaseBookId
+        ) {
+          return;
+        }
+
+        const {
+          data: authData,
+        } =
+          await supabase.auth.getUser();
+
+        if (
+          !authData.user
+        ) {
+          if (
+            !cancelled
+          ) {
+            setIsWantToRead(
+              false
+            );
+          }
+          return;
+        }
+
+        const {
+          data,
+          error,
+        } = await supabase
+          .from(
+            "want_to_read"
+          )
+          .select("id")
+          .eq(
+            "user_id",
+            authData.user.id
+          )
+          .eq(
+            "book_id",
+            databaseBookId
+          )
+          .maybeSingle();
+
+        if (error) {
+          console.error(
+            "Want to Read load error:",
+            error
+          );
+          return;
+        }
+
+        if (
+          !cancelled
+        ) {
+          setIsWantToRead(
+            Boolean(data)
+          );
+        }
+      };
+
+    loadWantToRead();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    databaseBookId,
+  ]);
+
+  const toggleWantToRead =
+    async () => {
+      if (
+        !databaseBookId ||
+        savingWantToRead
+      ) {
+        return;
+      }
+
+      setSavingWantToRead(
+        true
+      );
+
+      try {
+        const {
+          data: authData,
+          error: authError,
+        } =
+          await supabase.auth.getUser();
+
+        if (authError) {
+          throw authError;
+        }
+
+        if (
+          !authData.user
+        ) {
+          sessionStorage.setItem(
+            "nextchapter_return_after_auth",
+            window.location.href
+          );
+
+          window.location.href =
+            "/auth";
+
+          return;
+        }
+
+        if (isWantToRead) {
+          const {
+            error,
+          } = await supabase
+            .from(
+              "want_to_read"
+            )
+            .delete()
+            .eq(
+              "user_id",
+              authData.user.id
+            )
+            .eq(
+              "book_id",
+              databaseBookId
+            );
+
+          if (error) {
+            throw error;
+          }
+
+          setIsWantToRead(
+            false
+          );
+        } else {
+          const {
+            error,
+          } = await supabase
+            .from(
+              "want_to_read"
+            )
+            .insert({
+              user_id:
+                authData.user.id,
+              book_id:
+                databaseBookId,
+            });
+
+          if (
+            error &&
+            error.code !==
+              "23505"
+          ) {
+            throw error;
+          }
+
+          setIsWantToRead(
+            true
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Want to Read update error:",
+          error
+        );
+
+        alert(
+          "Could not update Want to Read right now. Please try again."
+        );
+      } finally {
+        setSavingWantToRead(
+          false
+        );
+      }
+    };
+
+  const goBack =
+    () => {
+      if (
+        window.history.length >
+        1
+      ) {
+        window.history.back();
+        return;
+      }
+
+      window.location.href =
+        "/";
+    };
+
+  const buyQuery =
+    encodeURIComponent(
+      `${bookTitle} ${bookAuthor}`.trim()
+    );
 
   // -------------------------
   // LOAD RATINGS
@@ -1233,7 +1577,7 @@ function BookPageContent() {
             {text}
           </p>
         ) : (
-          <div className="text-sm font-semibold text-[#4f5f45]">
+          <div className="text-sm font-semibold text-[var(--aepilog-cherry)]">
             Contains spoilers · Tap to reveal
           </div>
         )}
@@ -1375,63 +1719,161 @@ function BookPageContent() {
   ];
 
   return (
-    <main className="min-h-screen bg-[#f7f2e8] text-stone-900">
+    <main className="min-h-screen bg-[var(--aepilog-cream)] text-stone-900">
       <SiteHeader />
       <div className="mx-auto max-w-5xl px-5 py-8 md:py-12">
 
         {/* BOOK HEADER */}
 
-        <section className="mt-6 rounded-[32px] border border-stone-200 bg-[#fffdf8] p-6 shadow-sm md:p-8">
-          <div className="flex gap-5">
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={goBack}
+            className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-[var(--aepilog-paper)] px-4 py-2 text-sm font-semibold text-[var(--aepilog-cherry)] shadow-sm transition hover:bg-[var(--aepilog-blush-light)]"
+          >
+            ←{" "}
+            {openedFrom ===
+            "recommendations"
+              ? "Back to recommendations"
+              : "Back"}
+          </button>
+        </div>
 
-            {bookCover ? (
-              <img
-                src={
-                  bookCover
-                }
-                alt={
-                  bookTitle
-                }
-                className="h-40 w-28 rounded-xl object-cover shadow-md"
-              />
-            ) : (
-              <div className="flex h-40 w-28 shrink-0 items-center justify-center rounded-xl bg-[#e9dfcf] text-4xl">
-                No cover
+        <section className="rounded-[32px] border border-stone-200 bg-[var(--aepilog-paper)] p-6 shadow-sm md:p-8">
+          <div className="grid gap-6 md:grid-cols-[180px_1fr]">
+
+            <div>
+              {(enrichedCover || bookCover) ? (
+                <img
+                  src={enrichedCover || bookCover || ""}
+                  alt={bookTitle}
+                  className="w-full max-w-[180px] rounded-2xl object-cover shadow-md"
+                />
+              ) : (
+                <div className="flex aspect-[2/3] w-full max-w-[180px] items-center justify-center rounded-2xl bg-[var(--aepilog-blush-light)] px-4 text-center text-sm font-semibold text-stone-400">
+                  No cover
+                </div>
+              )}
+            </div>
+
+            <div className="min-w-0">
+              <div className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--aepilog-cherry-soft)]">
+                aepilog
               </div>
-            )}
 
-            <div className="flex flex-col justify-center">
-
-              <div className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-[#8a6f47]">
-                NextChapter
-              </div>
-
-              <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
+              <h1 className="aepilog-heading mt-2 text-3xl font-medium tracking-tight md:text-4xl">
                 {bookTitle}
               </h1>
 
               {bookAuthor && (
-                <p className="mt-2 text-stone-500">
-                  by{" "}
-                  {bookAuthor}
+                <p className="mt-2 text-base text-stone-500">
+                  by {bookAuthor}
                 </p>
               )}
 
-              <p className="mt-4 max-w-xl text-sm leading-6 text-stone-600">
-                See how readers
-                rated it, rate the
-                book in detail,
-                or join the
-                discussion.
-              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {bookMeta.publishedDate && (
+                  <span className="rounded-full bg-[var(--aepilog-blush-light)] px-3 py-1.5 text-xs font-medium text-stone-600">
+                    {bookMeta.publishedDate}
+                  </span>
+                )}
 
+                {bookMeta.pageCount && (
+                  <span className="rounded-full bg-[var(--aepilog-blush-light)] px-3 py-1.5 text-xs font-medium text-stone-600">
+                    {bookMeta.pageCount} pages
+                  </span>
+                )}
+
+                {bookMeta.categories
+                  .slice(0, 2)
+                  .map(
+                    (
+                      category
+                    ) => (
+                      <span
+                        key={
+                          category
+                        }
+                        className="rounded-full bg-[var(--aepilog-blush-light)] px-3 py-1.5 text-xs font-medium text-[var(--aepilog-cherry)]"
+                      >
+                        {category}
+                      </span>
+                    )
+                  )}
+              </div>
+
+              <div className="mt-6">
+                <div className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--aepilog-cherry-soft)]">
+                  About this book
+                </div>
+
+                {descriptionLoading ? (
+                  <p className="mt-2 text-sm leading-7 text-stone-400">
+                    Loading description...
+                  </p>
+                ) : bookDescription ? (
+                  <p className="mt-2 max-w-3xl whitespace-pre-line text-sm leading-7 text-stone-600">
+                    {bookDescription}
+                  </p>
+                ) : (
+                  <p className="mt-2 text-sm leading-7 text-stone-500">
+                    A description is not available for this edition yet.
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-6 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={
+                    toggleWantToRead
+                  }
+                  disabled={
+                    savingWantToRead ||
+                    !databaseBookId
+                  }
+                  className={`rounded-full px-5 py-2.5 text-sm font-semibold transition ${
+                    isWantToRead
+                      ? "border border-[var(--aepilog-blush)] bg-[var(--aepilog-blush-light)] text-[var(--aepilog-cherry)]"
+                      : "bg-[var(--aepilog-cherry)] text-white hover:bg-[var(--aepilog-cherry-hover)]"
+                  } disabled:cursor-not-allowed disabled:opacity-60`}
+                >
+                  {savingWantToRead
+                    ? "Saving..."
+                    : isWantToRead
+                    ? "Saved to Want to Read"
+                    : "Want to Read"}
+                </button>
+
+                <a
+                  href={`https://www.amazon.com/s?k=${buyQuery}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full border border-stone-300 bg-white px-5 py-2.5 text-sm font-semibold text-stone-700 transition hover:bg-stone-50"
+                >
+                  Buy on Amazon
+                </a>
+
+                <a
+                  href={`https://bookshop.org/search?keywords=${buyQuery}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full border border-[#c9b899] bg-[#fffaf0] px-5 py-2.5 text-sm font-semibold text-[#715936] transition hover:bg-[#f7efe1]"
+                >
+                  Bookshop.org
+                </a>
+              </div>
+
+              <p className="mt-3 text-xs leading-5 text-stone-400">
+                Retailer buttons currently open normal search links. Affiliate tracking can be added later without changing this layout.
+              </p>
             </div>
           </div>
         </section>
 
         {/* TABS */}
 
-        <div className="mt-7 grid grid-cols-2 rounded-2xl border border-stone-200 bg-[#fffdf8] p-1.5 shadow-sm">
+        <div className="mt-7 grid grid-cols-2 rounded-2xl border border-stone-200 bg-[var(--aepilog-paper)] p-1.5 shadow-sm">
 
           <button
             type="button"
@@ -1443,7 +1885,7 @@ function BookPageContent() {
             className={`rounded-xl px-5 py-3 font-medium transition ${
               activeTab ===
               "ratings"
-                ? "bg-[#4f5f45] text-white shadow-sm"
+                ? "bg-[var(--aepilog-cherry)] text-white shadow-sm"
                 : "text-stone-600 hover:bg-stone-100"
             }`}
           >
@@ -1460,7 +1902,7 @@ function BookPageContent() {
             className={`rounded-xl px-5 py-3 font-medium transition ${
               activeTab ===
               "discussion"
-                ? "bg-[#4f5f45] text-white shadow-sm"
+                ? "bg-[var(--aepilog-cherry)] text-white shadow-sm"
                 : "text-stone-600 hover:bg-stone-100"
             }`}
           >
@@ -1487,7 +1929,7 @@ function BookPageContent() {
 
                 {/* READER SCORE */}
 
-                <div className="h-fit rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 shadow-sm">
+                <div className="h-fit rounded-[28px] border border-stone-200 bg-[var(--aepilog-paper)] p-6 shadow-sm">
 
                   <div className="text-sm font-semibold text-stone-500">
                     Reader score
@@ -1495,7 +1937,7 @@ function BookPageContent() {
 
                   <div className="mt-3 flex items-end gap-2">
 
-                    <div className="text-5xl font-semibold text-[#4f5f45]">
+                    <div className="text-5xl font-semibold text-[var(--aepilog-cherry)]">
                       {averageRating ||
                         "—"}
                     </div>
@@ -1529,14 +1971,14 @@ function BookPageContent() {
 
                 <div
                   id="rate-book"
-                  className="scroll-mt-28 rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 shadow-sm md:p-7"
+                  className="scroll-mt-28 rounded-[28px] border border-stone-200 bg-[var(--aepilog-paper)] p-6 shadow-sm md:p-7"
                 >
 
-                  <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#8a6f47]">
+                  <div className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--aepilog-cherry-soft)]">
                     Your rating
                   </div>
 
-                  <h2 className="mt-2 text-2xl font-semibold">
+                  <h2 className="aepilog-heading mt-2 text-2xl font-medium">
                     How was this
                     book?
                   </h2>
@@ -1588,7 +2030,7 @@ function BookPageContent() {
                               className={`shrink-0 rounded-full px-3 py-1 text-sm font-semibold ${
                                 category.value !==
                                 null
-                                  ? "bg-[#e5ecdf] text-[#4f5f45]"
+                                  ? "bg-[var(--aepilog-blush)] text-[var(--aepilog-cherry)]"
                                   : "bg-stone-100 text-stone-400"
                               }`}
                             >
@@ -1622,7 +2064,7 @@ function BookPageContent() {
                                 )
                               )
                             }
-                            className="mt-4 w-full cursor-pointer accent-[#4f5f45]"
+                            className="mt-4 w-full cursor-pointer accent-[var(--aepilog-cherry)]"
                           />
 
                           <div className="mt-1 flex justify-between text-[10px] text-stone-400">
@@ -1663,10 +2105,10 @@ function BookPageContent() {
 
                   {/* CALCULATED SCORE */}
 
-                  <div className="mt-6 rounded-2xl bg-[#eef2ea] p-5">
+                  <div className="mt-6 rounded-2xl bg-[var(--aepilog-blush-light)] p-5">
 
-                    <div className="text-sm font-semibold text-[#536149]">
-                      NextChapter
+                    <div className="text-sm font-semibold text-[var(--aepilog-cherry)]">
+                      aepilog
                       calculated
                       score
                     </div>
@@ -1726,7 +2168,7 @@ function BookPageContent() {
 
                       <div className="text-right">
 
-                        <div className="text-3xl font-semibold text-[#4f5f45]">
+                        <div className="text-3xl font-semibold text-[var(--aepilog-cherry)]">
                           {overallRating !==
                           null
                             ? overallRating.toFixed(
@@ -1777,7 +2219,7 @@ function BookPageContent() {
                           true
                         );
                       }}
-                      className="mt-5 w-full cursor-pointer accent-[#4f5f45] disabled:cursor-not-allowed disabled:opacity-40"
+                      className="mt-5 w-full cursor-pointer accent-[var(--aepilog-cherry)] disabled:cursor-not-allowed disabled:opacity-40"
                     />
 
                     <div className="mt-1 flex justify-between text-[10px] text-stone-400">
@@ -1832,7 +2274,7 @@ function BookPageContent() {
                       )
                     }
                     placeholder="What did you think of this book? (optional)"
-                    className="mt-6 min-h-36 w-full resize-none rounded-2xl border border-stone-200 bg-white p-4 outline-none transition focus:border-[#6e7e60]"
+                    className="mt-6 min-h-36 w-full resize-none rounded-2xl border border-stone-200 bg-white p-4 outline-none transition focus:border-[var(--aepilog-cherry)]"
                   />
 
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
@@ -1865,7 +2307,7 @@ function BookPageContent() {
                       onClick={
                         submitRating
                       }
-                      className="rounded-full bg-[#4f5f45] px-6 py-3 text-sm font-semibold text-white hover:bg-[#425039]"
+                      className="rounded-full bg-[var(--aepilog-cherry)] px-6 py-3 text-sm font-semibold text-white hover:bg-[var(--aepilog-cherry-hover)]"
                     >
                       Done
                     </button>
@@ -1881,7 +2323,7 @@ function BookPageContent() {
 
                 {ratings.length ===
                   0 && (
-                  <div className="rounded-[28px] border border-dashed border-stone-300 bg-[#fffdf8] px-6 py-12 text-center">
+                  <div className="rounded-[28px] border border-dashed border-stone-300 bg-[var(--aepilog-paper)] px-6 py-12 text-center">
 
                     <div className="text-3xl">
                       No cover
@@ -1910,7 +2352,7 @@ function BookPageContent() {
                       key={
                         rating.id
                       }
-                      className="rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 shadow-sm"
+                      className="rounded-[28px] border border-stone-200 bg-[var(--aepilog-paper)] p-6 shadow-sm"
                     >
 
                       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1928,7 +2370,7 @@ function BookPageContent() {
 
                           <div className="mt-2 flex items-end gap-2">
 
-                            <span className="text-3xl font-semibold text-[#4f5f45]">
+                            <span className="text-3xl font-semibold text-[var(--aepilog-cherry)]">
                               {Number(
                                 rating.overall_rating
                               ).toFixed(
@@ -2007,7 +2449,7 @@ function BookPageContent() {
                                 key={String(
                                   label
                                 )}
-                                className="rounded-xl bg-[#f5f0e6] px-3 py-2"
+                                className="rounded-xl bg-[var(--aepilog-blush-light)] px-3 py-2"
                               >
 
                                 <div className="text-[11px] text-stone-500">
@@ -2066,7 +2508,7 @@ function BookPageContent() {
                           className={`rounded-full px-3 py-1 text-xs font-medium ${
                             rating.contains_spoilers
                               ? "bg-amber-100 text-amber-800"
-                              : "bg-[#e5ecdf] text-[#506246]"
+                              : "bg-[var(--aepilog-blush)] text-[#506246]"
                           }`}
                         >
                           {rating.contains_spoilers
@@ -2094,13 +2536,13 @@ function BookPageContent() {
 
               {/* CREATE POST */}
 
-              <div className="rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 shadow-sm md:p-7">
+              <div className="rounded-[28px] border border-stone-200 bg-[var(--aepilog-paper)] p-6 shadow-sm md:p-7">
 
-                <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#8a6f47]">
+                <div className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--aepilog-cherry-soft)]">
                   Book Club
                 </div>
 
-                <h2 className="mt-2 text-2xl font-semibold">
+                <h2 className="aepilog-heading mt-2 text-2xl font-medium">
                   Talk about
                   this book
                 </h2>
@@ -2163,7 +2605,7 @@ function BookPageContent() {
                     )
                   }
                   placeholder="What do you want to talk about?"
-                  className="mt-5 min-h-36 w-full resize-none rounded-2xl border border-stone-200 bg-white p-4 outline-none transition focus:border-[#6e7e60]"
+                  className="mt-5 min-h-36 w-full resize-none rounded-2xl border border-stone-200 bg-white p-4 outline-none transition focus:border-[var(--aepilog-cherry)]"
                 />
 
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
@@ -2196,7 +2638,7 @@ function BookPageContent() {
                     onClick={
                       submitDiscussion
                     }
-                    className="rounded-full bg-[#4f5f45] px-6 py-3 text-sm font-semibold text-white hover:bg-[#425039]"
+                    className="rounded-full bg-[var(--aepilog-cherry)] px-6 py-3 text-sm font-semibold text-white hover:bg-[var(--aepilog-cherry-hover)]"
                   >
                     Post
                     discussion
@@ -2247,8 +2689,8 @@ function BookPageContent() {
                       className={`rounded-full px-4 py-2 text-sm font-medium ${
                         discussionFilter ===
                         item.key
-                          ? "bg-[#4f5f45] text-white"
-                          : "border border-stone-200 bg-[#fffdf8] text-stone-600"
+                          ? "bg-[var(--aepilog-cherry)] text-white"
+                          : "border border-stone-200 bg-[var(--aepilog-paper)] text-stone-600"
                       }`}
                     >
                       {
@@ -2266,7 +2708,7 @@ function BookPageContent() {
 
                 {filteredPosts.length ===
                   0 && (
-                  <div className="rounded-[28px] border border-dashed border-stone-300 bg-[#fffdf8] px-6 py-12 text-center">
+                  <div className="rounded-[28px] border border-dashed border-stone-300 bg-[var(--aepilog-paper)] px-6 py-12 text-center">
 
                     <div className="text-3xl">
 
@@ -2311,7 +2753,7 @@ function BookPageContent() {
                         key={
                           post.id
                         }
-                        className="rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 shadow-sm"
+                        className="rounded-[28px] border border-stone-200 bg-[var(--aepilog-paper)] p-6 shadow-sm"
                       >
 
                         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -2333,7 +2775,7 @@ function BookPageContent() {
                                 className={`rounded-full px-3 py-1 text-xs font-medium ${
                                   post.contains_spoilers
                                     ? "bg-amber-100 text-amber-800"
-                                    : "bg-[#e5ecdf] text-[#506246]"
+                                    : "bg-[var(--aepilog-blush)] text-[#506246]"
                                 }`}
                               >
                                 {post.contains_spoilers
@@ -2430,7 +2872,7 @@ function BookPageContent() {
                                       }
                                     >
 
-                                      <div className="rounded-2xl bg-[#f5f0e6] p-4">
+                                      <div className="rounded-2xl bg-[var(--aepilog-blush-light)] p-4">
 
                                         <div className="flex flex-wrap items-center justify-between gap-2">
 
@@ -2553,7 +2995,7 @@ function BookPageContent() {
                             {replyingTo[
                               post.id
                             ] && (
-                              <div className="mt-5 flex items-center justify-between rounded-xl bg-[#eef2ea] px-3 py-2 text-xs text-[#536149]">
+                              <div className="mt-5 flex items-center justify-between rounded-xl bg-[var(--aepilog-blush-light)] px-3 py-2 text-xs text-[var(--aepilog-cherry)]">
 
                                 <span>
                                   Replying
@@ -2610,7 +3052,7 @@ function BookPageContent() {
                                   ? "Write a reply..."
                                   : "Join the discussion..."
                               }
-                              className="mt-4 min-h-24 w-full resize-none rounded-2xl border border-stone-200 bg-white p-3 text-sm outline-none focus:border-[#6e7e60]"
+                              className="mt-4 min-h-24 w-full resize-none rounded-2xl border border-stone-200 bg-white p-3 text-sm outline-none focus:border-[var(--aepilog-cherry)]"
                             />
 
                             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
@@ -2654,7 +3096,7 @@ function BookPageContent() {
                                     post.id
                                   )
                                 }
-                                className="rounded-full bg-[#4f5f45] px-5 py-2 text-sm font-semibold text-white"
+                                className="rounded-full bg-[var(--aepilog-cherry)] px-5 py-2 text-sm font-semibold text-white"
                               >
                                 {replyingTo[
                                   post.id
@@ -2686,19 +3128,20 @@ function BookPageContent() {
             {guestUsername ||
               "Bookworm"}
           </span>
-          . Profiles are
-          coming later.
+          .
         </div>
 
       </div>
     </main>
   );
-}export default function BookPage() {
+}
+
+export default function BookPage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen bg-[#f7f2e8] flex items-center justify-center">
-          <p className="text-[#4f5f45] font-semibold">
+        <main className="min-h-screen bg-[var(--aepilog-cream)] flex items-center justify-center">
+          <p className="text-[var(--aepilog-cherry)] font-semibold">
             Opening book...
           </p>
         </main>

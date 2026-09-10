@@ -121,17 +121,17 @@ export default function AuthPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f2e8] text-stone-900">
+    <main className="min-h-screen bg-[var(--aepilog-cream)] text-stone-900">
       <SiteHeader />
 
       <div className="mx-auto flex max-w-5xl justify-center px-5 py-10 md:py-16">
-        <section className="w-full max-w-md rounded-[32px] border border-stone-200 bg-[#fffdf8] p-6 shadow-sm sm:p-8">
+        <section className="w-full max-w-md rounded-[32px] border border-stone-200 bg-[var(--aepilog-paper)] p-6 shadow-sm sm:p-8">
           <div className="text-center">
-            <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#8a6f47]">
-              NextChapter account
+            <div className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--aepilog-cherry-soft)]">
+              aepilog account
             </div>
 
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+            <h1 className="aepilog-heading mt-2 text-3xl font-medium tracking-tight">
               {mode === "login" ? "Welcome back" : "Create your account"}
             </h1>
 
@@ -148,8 +148,8 @@ export default function AuthPage() {
               onClick={() => switchMode("login")}
               className={
                 mode === "login"
-                  ? "rounded-xl bg-[#4f5f45] px-4 py-2.5 text-sm font-semibold text-white"
-                  : "rounded-xl px-4 py-2.5 text-sm font-semibold text-stone-500 transition hover:bg-[#eef2ea]"
+                  ? "rounded-xl bg-[var(--aepilog-cherry)] px-4 py-2.5 text-sm font-semibold text-white"
+                  : "rounded-xl px-4 py-2.5 text-sm font-semibold text-stone-500 transition hover:bg-[var(--aepilog-blush-light)]"
               }
             >
               Log in
@@ -160,8 +160,8 @@ export default function AuthPage() {
               onClick={() => switchMode("signup")}
               className={
                 mode === "signup"
-                  ? "rounded-xl bg-[#4f5f45] px-4 py-2.5 text-sm font-semibold text-white"
-                  : "rounded-xl px-4 py-2.5 text-sm font-semibold text-stone-500 transition hover:bg-[#eef2ea]"
+                  ? "rounded-xl bg-[var(--aepilog-cherry)] px-4 py-2.5 text-sm font-semibold text-white"
+                  : "rounded-xl px-4 py-2.5 text-sm font-semibold text-stone-500 transition hover:bg-[var(--aepilog-blush-light)]"
               }
             >
               Sign up
@@ -237,7 +237,7 @@ export default function AuthPage() {
             )}
 
             {message && (
-              <div className="mt-5 rounded-xl border border-[#bdc9b6] bg-[#e7eee2] px-4 py-3 text-sm leading-6 text-[#4f5f45]">
+              <div className="mt-5 rounded-xl border border-[#bdc9b6] bg-[#e7eee2] px-4 py-3 text-sm leading-6 text-[var(--aepilog-cherry)]">
                 {message}
               </div>
             )}
@@ -245,7 +245,7 @@ export default function AuthPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="mt-6 w-full rounded-xl bg-[#4f5f45] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#43513b] disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-6 w-full rounded-xl bg-[var(--aepilog-cherry)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#43513b] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting
                 ? mode === "login"

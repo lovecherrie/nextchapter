@@ -299,7 +299,7 @@ async function getBookEvidence(
     author,
     limit: "5",
     fields:
-      "title,author_name,cover_i,edition_count,ratings_count,want_to_read_count,currently_reading_count,already_read_count",
+      "key,title,author_name,cover_i,isbn,editions,edition_count,ratings_count,want_to_read_count,currently_reading_count,already_read_count",
   });
 
   const [googleResult, openLibraryResult] = await Promise.allSettled([
@@ -380,7 +380,7 @@ async function getBookEvidence(
         verified = true;
 
         if (!cover && match?.cover_i) {
-          cover = `https://covers.openlibrary.org/b/id/${match.cover_i}-L.jpg`;
+          cover = `https://covers.openlibrary.org/b/id/${match.cover_i}-L.jpg?default=false`;
         }
 
         popularityScore += logPopularity(match?.edition_count, 2.2);
@@ -431,7 +431,7 @@ export async function POST(req: Request) {
       : [];
 
     const prompt = `
-You are the recommendation engine for NextChapter, a personalized book discovery app.
+You are the recommendation engine for aepilog, a personalized book discovery app.
 
 Your goal is to recommend books the reader is genuinely likely to enjoy.
 

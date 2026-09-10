@@ -1,1 +1,59 @@
 @import "tailwindcss";
+
+:root {
+  --aepilog-cherry: #8f2635;
+  --aepilog-cherry-hover: #7b1f2d;
+  --aepilog-cherry-soft: #b65a65;
+  --aepilog-blush: #ebcfd0;
+  --aepilog-blush-light: #f6e8e6;
+  --aepilog-cream: #faf6ef;
+  --aepilog-paper: #fffdf9;
+  --aepilog-ink: #2d2625;
+  --aepilog-muted: #756866;
+  --aepilog-border: #e6d8d4;
+}
+
+html {
+  background: var(--aepilog-cream);
+}
+
+body {
+  margin: 0;
+  background: var(--aepilog-cream);
+  color: var(--aepilog-ink);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--aepilog-blush);
+  color: var(--aepilog-ink);
+}
+
+.font-aepilog-serif,
+.aepilog-wordmark,
+.aepilog-heading {
+  font-family: var(--font-serif), Georgia, "Times New Roman", serif;
+}
+
+.aepilog-wordmark {
+  font-weight: 500;
+  letter-spacing: -0.045em;
+}
+
+.aepilog-heading {
+  font-weight: 500;
+  letter-spacing: -0.025em;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+}
