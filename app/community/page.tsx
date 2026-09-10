@@ -1958,7 +1958,7 @@ export default function CommunityPage() {
             }
           }}
         >
-          <div className="flex h-[90vh] max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-[30px] bg-[#fffdf9] shadow-2xl sm:h-auto sm:overflow-y-auto">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[30px] bg-[#fffdf9] shadow-2xl">
             <div className="flex items-start justify-between border-b border-[#eee2de] px-7 py-5">
               <div>
                 <div className="text-xs font-bold uppercase tracking-[0.14em] text-[#a05a62]">
@@ -1983,7 +1983,7 @@ export default function CommunityPage() {
               </button>
             </div>
 
-            <div className="flex min-h-0 flex-1 flex-col p-7">
+            <div className="p-7">
               <label className="mb-2 block text-sm font-bold">
                 Which book do you want to rate?
               </label>
@@ -1994,12 +1994,13 @@ export default function CommunityPage() {
                   setSelectedBook(null);
                   setBookQuery(event.target.value);
                 }}
+                autoFocus
                 placeholder="Search for a book..."
                 className="w-full rounded-2xl border border-[#e2d4cf] bg-white px-4 py-3.5 outline-none focus:border-[#b65a65]"
               />
 
               {bookQuery.trim().length >= 2 && (
-                <div className="mt-3 min-h-0 flex-1 overflow-y-auto rounded-2xl border border-[#eaded9] bg-white shadow-lg sm:flex-none sm:overflow-hidden">
+                <div className="mt-3 overflow-hidden rounded-2xl border border-[#eaded9] bg-white shadow-lg">
                   {searchingBooks && (
                     <div className="p-4 text-sm text-[#756866]">
                       Searching books...
