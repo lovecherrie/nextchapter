@@ -1951,7 +1951,7 @@ export default function CommunityPage() {
 
       {rateOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#2d2625]/45 px-4 pb-4 pt-[max(16px,env(safe-area-inset-top))] backdrop-blur-sm sm:items-center sm:p-4"
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#2d2625]/45 px-4 pb-4 pt-4 backdrop-blur-sm sm:items-center sm:p-4"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
               closeRateModal();
@@ -1994,7 +1994,6 @@ export default function CommunityPage() {
                   setSelectedBook(null);
                   setBookQuery(event.target.value);
                 }}
-                autoFocus
                 placeholder="Search for a book..."
                 className="w-full rounded-2xl border border-[#e2d4cf] bg-white px-4 py-3.5 outline-none focus:border-[#b65a65]"
               />
