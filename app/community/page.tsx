@@ -1306,11 +1306,11 @@ export default function CommunityPage() {
 
             <div className="rounded-[22px] border border-[#8f2635] bg-[#fffdf9] p-4 text-[#8f2635] shadow-sm sm:p-5">
               <h2 className="font-aepilog-serif text-[18px] font-medium leading-tight sm:text-xl">
-                Rate a book
+                Finished a book?
               </h2>
 
               <p className="mt-1.5 hidden text-sm leading-5 text-[#756866] lg:block">
-                Keep track of what you loved, liked, or would rather leave behind.
+                Rate it and add it to your reading history.
               </p>
 
               <button
@@ -1336,14 +1336,6 @@ export default function CommunityPage() {
           </div>
 
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
-            <button
-              type="button"
-              onClick={() => setCreateOpen(true)}
-              className="w-full rounded-full bg-[#8f2635] px-4 py-2.5 text-xs font-bold text-white sm:w-auto sm:px-5 sm:py-2 sm:text-sm"
-            >
-              + Create post
-            </button>
-
             <div className="grid w-full grid-cols-3 rounded-full border border-[#e4d7d2] bg-[#fffdf9] p-1 shadow-sm sm:flex sm:w-auto sm:flex-none">
               <button
                 onClick={() => setFilter("top")}
@@ -1629,8 +1621,10 @@ export default function CommunityPage() {
                           : "bg-[#f7eeea] text-[#756866]"
                       }`}
                     >
-                      {likedByMe ? "Liked" : "Like"}{" "}
-                      {post.discussion_likes.length}
+                      <span className="text-base leading-none" aria-hidden="true">
+                        {likedByMe ? "♥" : "♡"}
+                      </span>{" "}
+                      <span>{post.discussion_likes.length}</span>
                     </button>
 
                     <button
