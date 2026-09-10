@@ -213,6 +213,25 @@ function normalizeSearchResults(data: any): SearchBook[] {
     .filter((book: SearchBook) => book.title);
 }
 
+function HeartIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-[19px] w-[19px]"
+      fill={filled ? "currentColor" : "none"}
+    >
+      <path
+        d="M12 20.25C10.6 19.04 3 14.15 2.35 9.05C1.9 5.5 4.45 2.75 7.55 2.75C9.55 2.75 11.05 3.8 12 5.15C12.95 3.8 14.45 2.75 16.45 2.75C19.55 2.75 22.1 5.5 21.65 9.05C21 14.15 13.4 19.04 12 20.25Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export default function CommunityPage() {
   const [posts, setPosts] = useState<DiscussionPost[]>([]);
   const [filter, setFilter] = useState<Filter>("top");
@@ -1304,10 +1323,26 @@ export default function CommunityPage() {
               </button>
             </div>
 
-            <div className="rounded-[22px] border border-[#8f2635] bg-[#fffdf9] p-4 text-[#8f2635] shadow-sm sm:p-5">
-              <h2 className="font-aepilog-serif text-[18px] font-medium leading-tight sm:text-xl">
-                Finished a book?
-              </h2>
+            <div className="flex h-full flex-col rounded-[22px] border border-[#8f2635] bg-[#fffdf9] p-4 text-[#8f2635] shadow-sm sm:p-5">
+              <div className="flex items-start justify-between gap-2">
+                <h2 className="font-aepilog-serif text-[18px] font-medium leading-tight sm:text-xl">
+                  Finished a book?
+                </h2>
+
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  className="h-7 w-7 shrink-0 text-[#8f2635] sm:h-8 sm:w-8"
+                  fill="currentColor"
+                >
+                  <path
+                    d="M12 2.9 14.55 8l5.63.82-4.07 3.97.96 5.61L12 15.74 6.93 18.4l.96-5.61-4.07-3.97L9.45 8 12 2.9Z"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </div>
 
               <p className="mt-1.5 hidden text-sm leading-5 text-[#756866] lg:block">
                 Rate it and add it to your reading history.
@@ -1316,7 +1351,7 @@ export default function CommunityPage() {
               <button
                 type="button"
                 onClick={openRateModal}
-                className="mt-3 inline-flex rounded-full bg-[#8f2635] px-3 py-2 text-[11px] font-bold text-[#fffdf9] sm:px-4 sm:text-sm"
+                className="mt-auto inline-flex w-fit rounded-full bg-[#8f2635] px-3 py-2 text-[11px] font-bold text-[#fffdf9] sm:px-4 sm:text-sm"
               >
                 Rate a book
               </button>
@@ -1615,15 +1650,13 @@ export default function CommunityPage() {
                       disabled={
                         likingPost === post.id
                       }
-                      className={`rounded-full px-3 py-1.5 text-xs font-bold sm:px-4 sm:py-2 sm:text-sm ${
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold sm:px-4 sm:py-2 sm:text-sm ${
                         likedByMe
                           ? "bg-[#f0d7d9] text-[#7b1f2d]"
                           : "bg-[#f7eeea] text-[#756866]"
                       }`}
                     >
-                      <span className="text-base leading-none" aria-hidden="true">
-                        {likedByMe ? "♥" : "♡"}
-                      </span>{" "}
+                      <HeartIcon filled={likedByMe} />
                       <span>{post.discussion_likes.length}</span>
                     </button>
 
