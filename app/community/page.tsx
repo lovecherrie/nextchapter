@@ -284,10 +284,6 @@ export default function CommunityPage() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [rateOpen, setRateOpen] = useState(false);
-  const [rateViewport, setRateViewport] = useState<{
-    top: number;
-    height: number;
-  } | null>(null);
 
   const [bookQuery, setBookQuery] = useState("");
   const [bookResults, setBookResults] = useState<SearchBook[]>([]);
@@ -301,36 +297,6 @@ export default function CommunityPage() {
 
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState("");
-
-  useEffect(() => {
-    if (!rateOpen || typeof window === "undefined") {
-      setRateViewport(null);
-      return;
-    }
-
-    const viewport = window.visualViewport;
-
-    const updateRateViewport = () => {
-      if (!viewport) {
-        setRateViewport(null);
-        return;
-      }
-
-      setRateViewport({
-        top: viewport.offsetTop,
-        height: viewport.height,
-      });
-    };
-
-    updateRateViewport();
-    viewport?.addEventListener("resize", updateRateViewport);
-    viewport?.addEventListener("scroll", updateRateViewport);
-
-    return () => {
-      viewport?.removeEventListener("resize", updateRateViewport);
-      viewport?.removeEventListener("scroll", updateRateViewport);
-    };
-  }, [rateOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1985,25 +1951,14 @@ export default function CommunityPage() {
 
       {rateOpen && (
         <div
-          className="fixed inset-x-0 z-50 flex items-center justify-center bg-[#2d2625]/45 p-4 backdrop-blur-sm"
-          style={
-            rateViewport
-              ? {
-                  top: `${rateViewport.top}px`,
-                  height: `${rateViewport.height}px`,
-                }
-              : {
-                  top: 0,
-                  height: "100dvh",
-                }
-          }
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#2d2625]/45 p-4 backdrop-blur-sm"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
               closeRateModal();
             }
           }}
         >
-          <div className="flex h-[calc(100%-24px)] max-h-[calc(100%-24px)] w-full max-w-2xl translate-y-3 flex-col overflow-hidden rounded-[30px] bg-[#fffdf9] shadow-2xl sm:h-auto sm:max-h-[90vh] sm:translate-y-0 sm:overflow-y-auto">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[30px] bg-[#fffdf9] shadow-2xl">
             <div className="flex items-start justify-between border-b border-[#eee2de] px-7 py-5">
               <div>
                 <div className="text-xs font-bold uppercase tracking-[0.14em] text-[#a05a62]">
@@ -2028,7 +1983,7 @@ export default function CommunityPage() {
               </button>
             </div>
 
-            <div className="flex min-h-0 flex-1 flex-col p-7">
+            <div className="p-7">
               <label className="mb-2 block text-sm font-bold">
                 Which book do you want to rate?
               </label>
@@ -2045,7 +2000,7 @@ export default function CommunityPage() {
               />
 
               {bookQuery.trim().length >= 2 && (
-                <div className="mt-3 min-h-0 flex-1 overflow-y-auto rounded-2xl border border-[#eaded9] bg-white shadow-lg sm:flex-none sm:overflow-hidden">
+                <div className="mt-3 overflow-hidden rounded-2xl border border-[#eaded9] bg-white shadow-lg">
                   {searchingBooks && (
                     <div className="p-4 text-sm text-[#756866]">
                       Searching books...
