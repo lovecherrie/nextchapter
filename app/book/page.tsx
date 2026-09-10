@@ -1571,7 +1571,7 @@ function BookPageContent() {
         onClick={() =>
           toggleSpoiler(id)
         }
-        className="w-full rounded-2xl border border-[#aebaa5] bg-[#e7eee2]/75 px-5 py-5 text-left transition hover:bg-[#dfe9d9]/85"
+        className="w-full rounded-2xl border border-[#E6D8D4] bg-[#F6E8E6]/75 px-5 py-5 text-left transition hover:bg-[#EBCFD0]/85"
         aria-expanded={revealed}
       >
         {revealed ? (
@@ -1860,7 +1860,7 @@ function BookPageContent() {
                   href={`https://bookshop.org/search?keywords=${buyQuery}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-full border border-[#c9b899] bg-[#fffaf0] px-5 py-2.5 text-sm font-semibold text-[#715936] transition hover:bg-[#f7efe1]"
+                  className="rounded-full border border-[#E6D8D4] bg-[#fffaf0] px-5 py-2.5 text-sm font-semibold text-[#8F2635] transition hover:bg-[#F6E8E6]"
                 >
                   Bookshop.org
                 </a>
@@ -2510,7 +2510,7 @@ function BookPageContent() {
                           className={`rounded-full px-3 py-1 text-xs font-medium ${
                             rating.contains_spoilers
                               ? "bg-amber-100 text-amber-800"
-                              : "bg-[var(--aepilog-blush)] text-[#506246]"
+                              : "bg-[var(--aepilog-blush)] text-[#8F2635]"
                           }`}
                         >
                           {rating.contains_spoilers
@@ -2777,7 +2777,7 @@ function BookPageContent() {
                                 className={`rounded-full px-3 py-1 text-xs font-medium ${
                                   post.contains_spoilers
                                     ? "bg-amber-100 text-amber-800"
-                                    : "bg-[var(--aepilog-blush)] text-[#506246]"
+                                    : "bg-[var(--aepilog-blush)] text-[#8F2635]"
                                 }`}
                               >
                                 {post.contains_spoilers
@@ -2942,7 +2942,7 @@ function BookPageContent() {
                                             key={
                                               reply.id
                                             }
-                                            className="ml-7 mt-2 rounded-2xl border-l-2 border-[#c9b899] bg-stone-50 p-4"
+                                            className="ml-7 mt-2 rounded-2xl border-l-2 border-[#E6D8D4] bg-stone-50 p-4"
                                           >
 
                                             <div className="flex flex-wrap items-center justify-between gap-2">

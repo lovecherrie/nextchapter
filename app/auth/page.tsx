@@ -185,7 +185,7 @@ export default function AuthPage() {
                   maxLength={24}
                   autoComplete="nickname"
                   placeholder="Bookworm"
-                  className="mt-2 w-full rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#aebaa5] focus:ring-2 focus:ring-[#dfe7da]"
+                  className="mt-2 w-full rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#E6D8D4] focus:ring-2 focus:ring-[#F6E8E6]"
                 />
               </div>
             )}
@@ -205,7 +205,7 @@ export default function AuthPage() {
                 onChange={(event) => setEmail(event.target.value)}
                 autoComplete="email"
                 placeholder="you@example.com"
-                className="mt-2 w-full rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#aebaa5] focus:ring-2 focus:ring-[#dfe7da]"
+                className="mt-2 w-full rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#E6D8D4] focus:ring-2 focus:ring-[#F6E8E6]"
               />
             </div>
 
@@ -226,7 +226,7 @@ export default function AuthPage() {
                   mode === "login" ? "current-password" : "new-password"
                 }
                 placeholder="At least 6 characters"
-                className="mt-2 w-full rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#aebaa5] focus:ring-2 focus:ring-[#dfe7da]"
+                className="mt-2 w-full rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#E6D8D4] focus:ring-2 focus:ring-[#F6E8E6]"
               />
             </div>
 
@@ -237,7 +237,7 @@ export default function AuthPage() {
             )}
 
             {message && (
-              <div className="mt-5 rounded-xl border border-[#bdc9b6] bg-[#e7eee2] px-4 py-3 text-sm leading-6 text-[var(--aepilog-cherry)]">
+              <div className="mt-5 rounded-xl border border-[#E6D8D4] bg-[#F6E8E6] px-4 py-3 text-sm leading-6 text-[var(--aepilog-cherry)]">
                 {message}
               </div>
             )}
@@ -245,7 +245,7 @@ export default function AuthPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="mt-6 w-full rounded-xl bg-[var(--aepilog-cherry)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#43513b] disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-6 w-full rounded-xl bg-[var(--aepilog-cherry)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#7B1F2D] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting
                 ? mode === "login"
