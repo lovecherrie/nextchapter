@@ -1776,7 +1776,7 @@ export default function CommunityPage() {
             }
           }}
         >
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[30px] bg-[#fffdf9] shadow-2xl">
+          <div className="max-h-[90vh] min-h-[600px] w-full max-w-2xl overflow-y-auto rounded-[30px] bg-[#fffdf9] shadow-2xl">
             <div className="flex items-start justify-between border-b border-[#eee2de] px-7 py-5">
               <div>
                 <div className="text-xs font-bold uppercase tracking-[0.14em] text-[#a05a62]">
@@ -1958,7 +1958,7 @@ export default function CommunityPage() {
             }
           }}
         >
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[30px] bg-[#fffdf9] shadow-2xl">
+          <div className="max-h-[90vh] min-h-[600px] w-full max-w-2xl overflow-y-auto rounded-[30px] bg-[#fffdf9] shadow-2xl">
             <div className="flex items-start justify-between border-b border-[#eee2de] px-7 py-5">
               <div>
                 <div className="text-xs font-bold uppercase tracking-[0.14em] text-[#a05a62]">
