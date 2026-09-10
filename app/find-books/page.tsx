@@ -1261,15 +1261,15 @@ export default function AepilogFindBooks() {
   // ----------------------------------
 
   return (
-    <main className="min-h-screen bg-[var(--aepilog-cream)] text-[var(--aepilog-ink)]">
+    <main className="min-h-screen overflow-x-hidden bg-[var(--aepilog-cream)] text-[var(--aepilog-ink)]">
 
       <SiteHeader active="find" />
 
-      <div className="mx-auto max-w-5xl px-5 py-10 md:py-14">
+      <div className="mx-auto max-w-5xl px-4 py-5 sm:px-5 sm:py-10 md:py-14">
 
         {/* HERO */}
 
-        <section className="rounded-[32px] border border-stone-200 bg-[#fffdf9] px-6 py-10 shadow-sm md:px-10 md:py-12">
+        <section className="rounded-[22px] border border-stone-200 bg-[#fffdf9] px-4 py-6 shadow-sm sm:rounded-[32px] sm:px-6 sm:py-10 md:px-10 md:py-12">
 
           <div className="max-w-2xl">
 
@@ -1278,7 +1278,7 @@ export default function AepilogFindBooks() {
               recommendations
             </div>
 
-            <h1 className="font-aepilog-serif mt-3 text-4xl font-medium tracking-tight md:text-5xl">
+            <h1 className="font-aepilog-serif mt-3 text-[34px] font-medium leading-[1.05] tracking-tight sm:text-4xl md:text-5xl">
               Find a book that
               actually feels{" "}
               <span className="italic text-[#8f2635]">
@@ -1305,7 +1305,7 @@ export default function AepilogFindBooks() {
 
           {/* STEP 1 */}
 
-          <section className="rounded-[28px] border border-stone-200 bg-[#fffdf9] p-6 shadow-sm md:p-8">
+          <section className="rounded-[22px] border border-stone-200 bg-[#fffdf9] p-4 shadow-sm sm:rounded-[28px] sm:p-6 md:p-8">
 
             <div className="flex items-start gap-4">
 
@@ -1729,7 +1729,7 @@ export default function AepilogFindBooks() {
 
           {/* STEP 2 */}
 
-          <section className="rounded-[28px] border border-stone-200 bg-[#fffdf9] p-6 shadow-sm md:p-8">
+          <section className="rounded-[22px] border border-stone-200 bg-[#fffdf9] p-4 shadow-sm sm:rounded-[28px] sm:p-6 md:p-8">
 
             <div className="flex items-start gap-4">
 
@@ -1786,7 +1786,7 @@ export default function AepilogFindBooks() {
 
           {/* STEP 3 */}
 
-          <section className="rounded-[28px] border border-stone-200 bg-[#fffdf9] p-6 shadow-sm md:p-8">
+          <section className="rounded-[22px] border border-stone-200 bg-[#fffdf9] p-4 shadow-sm sm:rounded-[28px] sm:p-6 md:p-8">
 
             <div className="flex items-start gap-4">
 
@@ -1843,7 +1843,7 @@ export default function AepilogFindBooks() {
 
           {/* STEP 4 */}
 
-          <section className="rounded-[28px] border border-stone-200 bg-[#fffdf9] p-6 shadow-sm md:p-8">
+          <section className="rounded-[22px] border border-stone-200 bg-[#fffdf9] p-4 shadow-sm sm:rounded-[28px] sm:p-6 md:p-8">
 
             <div className="flex items-start gap-4">
 
@@ -1899,7 +1899,7 @@ export default function AepilogFindBooks() {
 
           {/* STEP 5 */}
 
-          <section className="rounded-[28px] border border-stone-200 bg-[#fffdf9] p-6 shadow-sm md:p-8">
+          <section className="rounded-[22px] border border-stone-200 bg-[#fffdf9] p-4 shadow-sm sm:rounded-[28px] sm:p-6 md:p-8">
 
             <div className="flex items-start gap-4">
 
@@ -1957,7 +1957,7 @@ export default function AepilogFindBooks() {
 
           {/* STEP 6 */}
 
-          <section className="rounded-[28px] border border-stone-200 bg-[#fffdf9] p-6 shadow-sm md:p-8">
+          <section className="rounded-[22px] border border-stone-200 bg-[#fffdf9] p-4 shadow-sm sm:rounded-[28px] sm:p-6 md:p-8">
 
             <div className="flex items-start gap-4">
 
@@ -2010,7 +2010,7 @@ export default function AepilogFindBooks() {
             disabled={
               loading
             }
-            className="group w-full rounded-[28px] bg-[#8f2635] px-6 py-5 text-lg font-semibold text-white shadow-sm transition hover:bg-[#7b1f2d] disabled:cursor-not-allowed disabled:opacity-60"
+            className="group w-full rounded-[20px] bg-[#8f2635] px-5 py-4 text-base font-semibold text-white shadow-sm transition hover:bg-[#7b1f2d] disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-[28px] sm:px-6 sm:py-5 sm:text-lg"
           >
             {loading
               ? "Finding your next book..."

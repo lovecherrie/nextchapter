@@ -1206,19 +1206,19 @@ export default function CommunityPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#faf6ef] text-[#2d2625]">
+    <main className="min-h-screen overflow-x-hidden bg-[#faf6ef] text-[#2d2625]">
       <SiteHeader active="community" />
 
       <section className="mx-auto max-w-6xl px-4 py-5 sm:px-5 sm:py-7">
         <div className="mb-5 grid gap-4 lg:grid-cols-[1fr_280px]">
-          <div className="rounded-[24px] border border-[#e6d8d4] bg-[#fffdf9] p-5 shadow-sm sm:p-6">
+          <div className="rounded-[20px] border border-[#e6d8d4] bg-[#fffdf9] p-4 shadow-sm sm:rounded-[24px] sm:p-6">
             <div className="inline-flex rounded-full bg-[#f6e8e6] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#8f2635] sm:text-xs">
               Community spotlight
             </div>
 
             <div className="mt-3 flex items-start justify-between gap-4">
               <div>
-                <h1 className="font-aepilog-serif text-3xl font-medium leading-tight text-[#3a2b2b] sm:text-4xl">
+                <h1 className="font-aepilog-serif text-[28px] font-medium leading-[1.08] text-[#3a2b2b] sm:text-4xl">
                   What readers are talking about
                 </h1>
 
@@ -1285,7 +1285,7 @@ export default function CommunityPage() {
             ) : null}
           </div>
 
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
             <div className="rounded-[22px] border border-[#e6d8d4] bg-[#8f2635] p-4 text-[#fffdf9] shadow-sm sm:p-5">
               <h2 className="font-aepilog-serif text-xl font-medium sm:text-xl">
                 Start a discussion
@@ -1335,16 +1335,16 @@ export default function CommunityPage() {
             </p>
           </div>
 
-          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:gap-3">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
             <button
               type="button"
               onClick={() => setCreateOpen(true)}
-              className="rounded-full bg-[#8f2635] px-4 py-2 text-xs font-bold text-white sm:px-5 sm:text-sm"
+              className="w-full rounded-full bg-[#8f2635] px-4 py-2.5 text-xs font-bold text-white sm:w-auto sm:px-5 sm:py-2 sm:text-sm"
             >
               + Create post
             </button>
 
-            <div className="flex min-w-0 flex-1 overflow-x-auto rounded-full border border-[#e4d7d2] bg-[#fffdf9] p-1 shadow-sm sm:flex-none">
+            <div className="grid w-full grid-cols-3 rounded-full border border-[#e4d7d2] bg-[#fffdf9] p-1 shadow-sm sm:flex sm:w-auto sm:flex-none">
               <button
                 onClick={() => setFilter("top")}
                 className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold sm:px-4 sm:py-2 sm:text-sm ${

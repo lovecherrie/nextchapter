@@ -1721,9 +1721,9 @@ function BookPageContent() {
   ];
 
   return (
-    <main className="min-h-screen bg-[var(--aepilog-cream)] text-stone-900">
+    <main className="min-h-screen overflow-x-hidden bg-[var(--aepilog-cream)] text-stone-900">
       <SiteHeader />
-      <div className="mx-auto max-w-5xl px-5 py-8 md:py-12">
+      <div className="mx-auto max-w-5xl px-4 py-5 sm:px-5 sm:py-8 md:py-12">
 
         {/* BOOK HEADER */}
 
@@ -1741,18 +1741,18 @@ function BookPageContent() {
           </button>
         </div>
 
-        <section className="rounded-[32px] border border-stone-200 bg-[var(--aepilog-paper)] p-6 shadow-sm md:p-8">
-          <div className="grid gap-6 md:grid-cols-[180px_1fr]">
+        <section className="rounded-[22px] border border-stone-200 bg-[var(--aepilog-paper)] p-4 shadow-sm sm:rounded-[32px] sm:p-6 md:p-8">
+          <div className="grid gap-4 sm:gap-6 md:grid-cols-[180px_1fr]">
 
             <div>
               {(enrichedCover || bookCover) ? (
                 <img
                   src={enrichedCover || bookCover || ""}
                   alt={bookTitle}
-                  className="w-full max-w-[180px] rounded-2xl object-cover shadow-md"
+                  className="mx-auto w-[128px] rounded-xl object-cover shadow-md sm:w-full sm:max-w-[180px] sm:rounded-2xl md:mx-0"
                 />
               ) : (
-                <div className="flex aspect-[2/3] w-full max-w-[180px] items-center justify-center rounded-2xl bg-[var(--aepilog-blush-light)] px-4 text-center text-sm font-semibold text-stone-400">
+                <div className="mx-auto flex aspect-[2/3] w-[128px] items-center justify-center rounded-xl bg-[var(--aepilog-blush-light)] px-4 text-center text-sm font-semibold text-stone-400 sm:w-full sm:max-w-[180px] sm:rounded-2xl md:mx-0">
                   No cover
                 </div>
               )}
@@ -1875,7 +1875,7 @@ function BookPageContent() {
 
         {/* TABS */}
 
-        <div className="mt-7 grid grid-cols-2 rounded-2xl border border-stone-200 bg-[var(--aepilog-paper)] p-1.5 shadow-sm">
+        <div className="mt-5 grid grid-cols-2 rounded-2xl border border-stone-200 bg-[var(--aepilog-paper)] p-1 shadow-sm sm:mt-7 sm:p-1.5">
 
           <button
             type="button"
@@ -1931,7 +1931,7 @@ function BookPageContent() {
 
                 {/* READER SCORE */}
 
-                <div className="h-fit rounded-[28px] border border-stone-200 bg-[var(--aepilog-paper)] p-6 shadow-sm">
+                <div className="h-fit rounded-[22px] border border-stone-200 bg-[var(--aepilog-paper)] p-4 shadow-sm sm:rounded-[28px] sm:p-6">
 
                   <div className="text-sm font-semibold text-stone-500">
                     Reader score
@@ -1973,7 +1973,7 @@ function BookPageContent() {
 
                 <div
                   id="rate-book"
-                  className="scroll-mt-28 rounded-[28px] border border-stone-200 bg-[var(--aepilog-paper)] p-6 shadow-sm md:p-7"
+                  className="scroll-mt-28 rounded-[22px] border border-stone-200 bg-[var(--aepilog-paper)] p-4 shadow-sm sm:rounded-[28px] sm:p-6 md:p-7"
                 >
 
                   <div className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--aepilog-cherry-soft)]">
@@ -2325,7 +2325,7 @@ function BookPageContent() {
 
                 {ratings.length ===
                   0 && (
-                  <div className="rounded-[28px] border border-dashed border-stone-300 bg-[var(--aepilog-paper)] px-6 py-12 text-center">
+                  <div className="rounded-[22px] border border-dashed border-stone-300 bg-[var(--aepilog-paper)] px-4 py-8 text-center sm:rounded-[28px] sm:px-6 sm:py-12">
 
                     <div className="text-3xl">
                       No cover
@@ -2354,7 +2354,7 @@ function BookPageContent() {
                       key={
                         rating.id
                       }
-                      className="rounded-[28px] border border-stone-200 bg-[var(--aepilog-paper)] p-6 shadow-sm"
+                      className="rounded-[22px] border border-stone-200 bg-[var(--aepilog-paper)] p-4 shadow-sm sm:rounded-[28px] sm:p-6"
                     >
 
                       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -2538,7 +2538,7 @@ function BookPageContent() {
 
               {/* CREATE POST */}
 
-              <div className="rounded-[28px] border border-stone-200 bg-[var(--aepilog-paper)] p-6 shadow-sm md:p-7">
+              <div className="rounded-[22px] border border-stone-200 bg-[var(--aepilog-paper)] p-4 shadow-sm sm:rounded-[28px] sm:p-6 md:p-7">
 
                 <div className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--aepilog-cherry-soft)]">
                   Book Club
@@ -2710,7 +2710,7 @@ function BookPageContent() {
 
                 {filteredPosts.length ===
                   0 && (
-                  <div className="rounded-[28px] border border-dashed border-stone-300 bg-[var(--aepilog-paper)] px-6 py-12 text-center">
+                  <div className="rounded-[22px] border border-dashed border-stone-300 bg-[var(--aepilog-paper)] px-4 py-8 text-center sm:rounded-[28px] sm:px-6 sm:py-12">
 
                     <div className="text-3xl">
 
@@ -2755,7 +2755,7 @@ function BookPageContent() {
                         key={
                           post.id
                         }
-                        className="rounded-[28px] border border-stone-200 bg-[var(--aepilog-paper)] p-6 shadow-sm"
+                        className="rounded-[22px] border border-stone-200 bg-[var(--aepilog-paper)] p-4 shadow-sm sm:rounded-[28px] sm:p-6"
                       >
 
                         <div className="flex flex-wrap items-start justify-between gap-3">
