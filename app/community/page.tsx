@@ -284,6 +284,7 @@ export default function CommunityPage() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [rateOpen, setRateOpen] = useState(false);
+  const [rateViewport, setRateViewport] = useState({ top: 0, height: 0 });
 
   const [bookQuery, setBookQuery] = useState("");
   const [bookResults, setBookResults] = useState<SearchBook[]>([]);
@@ -360,6 +361,41 @@ export default function CommunityPage() {
       );
     };
   }, []);
+
+  useEffect(() => {
+    if (!rateOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const previousPosition = document.body.style.position;
+    const previousWidth = document.body.style.width;
+
+    document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.width = "100%";
+
+    const updateRateViewport = () => {
+      const viewport = window.visualViewport;
+
+      setRateViewport({
+        top: viewport?.offsetTop ?? 0,
+        height: viewport?.height ?? window.innerHeight,
+      });
+    };
+
+    updateRateViewport();
+
+    window.visualViewport?.addEventListener("resize", updateRateViewport);
+    window.visualViewport?.addEventListener("scroll", updateRateViewport);
+
+    return () => {
+      window.visualViewport?.removeEventListener("resize", updateRateViewport);
+      window.visualViewport?.removeEventListener("scroll", updateRateViewport);
+
+      document.body.style.overflow = previousOverflow;
+      document.body.style.position = previousPosition;
+      document.body.style.width = previousWidth;
+    };
+  }, [rateOpen]);
 
   useEffect(() => {
     if (selectedBook) return;
@@ -1951,14 +1987,18 @@ export default function CommunityPage() {
 
       {rateOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#2d2625]/60 p-4"
+          className="fixed left-0 right-0 z-50 flex items-center justify-center overflow-hidden bg-[#2d2625]/45 p-4 backdrop-blur-sm"
+          style={{
+            top: `${rateViewport.top}px`,
+            height: `${rateViewport.height || window.innerHeight}px`,
+          }}
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
               closeRateModal();
             }
           }}
         >
-          <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[30px] bg-[#fffdf9] shadow-2xl">
+          <div className="w-full max-w-2xl overflow-hidden rounded-[30px] bg-[#fffdf9] shadow-2xl">
             <div className="flex items-start justify-between border-b border-[#eee2de] px-7 py-5">
               <div>
                 <div className="text-xs font-bold uppercase tracking-[0.14em] text-[#a05a62]">
@@ -1999,7 +2039,7 @@ export default function CommunityPage() {
               />
 
               {bookQuery.trim().length >= 2 && (
-                <div className="mt-3 overflow-hidden rounded-2xl border border-[#eaded9] bg-white shadow-lg">
+                <div className="mt-3 max-h-[180px] overflow-y-auto rounded-2xl border border-[#eaded9] bg-white shadow-lg sm:max-h-[260px]">
                   {searchingBooks && (
                     <div className="p-4 text-sm text-[#756866]">
                       Searching books...
