@@ -1323,7 +1323,7 @@ export default function CommunityPage() {
               </button>
             </div>
 
-            <div className="flex h-full flex-col rounded-[22px] border border-[#8f2635] bg-[#fffdf9] p-4 text-[#8f2635] shadow-sm sm:p-5">
+            <div className="flex h-full flex-col rounded-[22px] border border-[#8f2635] bg-[#fffdf9] p-4 text-[#8f2635] shadow-sm sm:p-5 lg:block lg:h-auto">
               <div className="flex items-start justify-between gap-2">
                 <h2 className="font-aepilog-serif text-[18px] font-medium leading-tight sm:text-xl">
                   Finished a book?
@@ -1338,9 +1338,8 @@ export default function CommunityPage() {
               <button
                 type="button"
                 onClick={openRateModal}
-                className="mt-auto inline-flex w-fit rounded-full bg-[#8f2635] px-3 py-2 text-[11px] font-bold text-[#fffdf9] sm:px-4 sm:text-sm"
+                className="mt-auto inline-flex w-fit rounded-full bg-[#8f2635] px-3 py-2 text-[11px] font-bold text-[#fffdf9] sm:px-4 sm:text-sm lg:mt-3"
               >
-                <span aria-hidden="true" className="mr-1.5 text-[13px] sm:text-base">★</span>
                 Rate a book
               </button>
             </div>
