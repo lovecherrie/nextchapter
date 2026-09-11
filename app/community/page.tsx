@@ -51,33 +51,6 @@ type DiscussionPost = {
 
 type Filter = "top" | "newest" | "spoiler-free";
 
-function getGuestUser() {
-  if (typeof window === "undefined") {
-    return {
-      id: "",
-      username: "Bookworm",
-    };
-  }
-
-  let id = localStorage.getItem("nextchapter_guest_id");
-  let username = localStorage.getItem("nextchapter_guest_username");
-
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem("nextchapter_guest_id", id);
-  }
-
-  if (!username) {
-    username = `Bookworm${Math.floor(1000 + Math.random() * 9000)}`;
-    localStorage.setItem("nextchapter_guest_username", username);
-  }
-
-  return {
-    id,
-    username,
-  };
-}
-
 function timeAgo(dateString: string) {
   const date = new Date(dateString);
   const now = new Date();
@@ -321,11 +294,12 @@ export default function CommunityPage() {
           setGuestUsername(username);
         }
       } else {
-        const guest = getGuestUser();
+        localStorage.removeItem("nextchapter_guest_id");
+        localStorage.removeItem("nextchapter_guest_username");
 
         if (!cancelled) {
-          setGuestUserId(guest.id);
-          setGuestUsername(guest.username);
+          setGuestUserId("");
+          setGuestUsername("");
         }
       }
 
@@ -510,6 +484,24 @@ export default function CommunityPage() {
     throw insertError;
   }
 
+  function requireAccount() {
+    if (guestUserId && guestUsername) {
+      return true;
+    }
+
+    sessionStorage.setItem(
+      "nextchapter_return_after_auth",
+      window.location.href
+    );
+    window.location.href = "/auth";
+    return false;
+  }
+
+  function openCreateModal() {
+    if (!requireAccount()) return;
+    setCreateOpen(true);
+  }
+
   async function createPost() {
     setPostError("");
 
@@ -523,8 +515,7 @@ export default function CommunityPage() {
       return;
     }
 
-    if (!guestUserId || !guestUsername) {
-      setPostError("Guest profile is still loading.");
+    if (!requireAccount()) {
       return;
     }
 
@@ -595,6 +586,8 @@ export default function CommunityPage() {
   }
 
   function openRateModal() {
+    if (!requireAccount()) return;
+
     setCreateOpen(false);
     setRateOpen(true);
     setBookQuery("");
@@ -610,7 +603,7 @@ export default function CommunityPage() {
   }
 
   async function toggleLike(post: DiscussionPost) {
-    if (!guestUserId || likingPost) return;
+    if (!requireAccount() || likingPost) return;
 
     setLikingPost(post.id);
 
@@ -681,6 +674,8 @@ export default function CommunityPage() {
   }
 
   async function addComment(postId: string) {
+    if (!requireAccount()) return;
+
     const content = commentDrafts[postId]?.trim();
 
     if (!content) return;
@@ -737,6 +732,8 @@ export default function CommunityPage() {
   }
 
   async function addReply(postId: string, parentCommentId: string) {
+    if (!requireAccount()) return;
+
     const content = replyText.trim();
 
     if (!content) return;
@@ -1316,7 +1313,7 @@ export default function CommunityPage() {
 
               <button
                 type="button"
-                onClick={() => setCreateOpen(true)}
+                onClick={openCreateModal}
                 className="mt-3 inline-flex rounded-full bg-[#fffdf9] px-3 py-2 text-[11px] font-bold text-[#8f2635] sm:px-4 sm:text-sm"
               >
                 + Create post

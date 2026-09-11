@@ -497,22 +497,12 @@ function BookPageContent() {
         return;
       }
 
-      let userId = localStorage.getItem("nextchapter_guest_id");
-      let username = localStorage.getItem("nextchapter_guest_username");
-
-      if (!userId) {
-        userId = `guest_${crypto.randomUUID()}`;
-        localStorage.setItem("nextchapter_guest_id", userId);
-      }
-
-      if (!username) {
-        username = `Bookworm${Math.floor(1000 + Math.random() * 9000)}`;
-        localStorage.setItem("nextchapter_guest_username", username);
-      }
+      localStorage.removeItem("nextchapter_guest_id");
+      localStorage.removeItem("nextchapter_guest_username");
 
       if (!cancelled) {
-        setGuestUserId(userId);
-        setGuestUsername(username);
+        setGuestUserId("");
+        setGuestUsername("");
       }
     };
 
@@ -1140,16 +1130,30 @@ function BookPageContent() {
     guestUserId,
   ]);
 
+  function requireAccount() {
+    if (guestUserId && guestUsername) {
+      return true;
+    }
+
+    sessionStorage.setItem(
+      "nextchapter_return_after_auth",
+      window.location.href
+    );
+    window.location.href = "/auth";
+    return false;
+  }
+
   // -------------------------
   // SAVE RATING
   // -------------------------
 
   const submitRating =
     async () => {
-      if (
-        !databaseBookId ||
-        !guestUserId
-      ) {
+      if (!requireAccount()) {
+        return;
+      }
+
+      if (!databaseBookId) {
         return;
       }
 
@@ -1228,9 +1232,12 @@ function BookPageContent() {
 
   const submitDiscussion =
     async () => {
+      if (!requireAccount()) {
+        return;
+      }
+
       if (
         !databaseBookId ||
-        !guestUserId ||
         !postText.trim()
       ) {
         return;
@@ -1287,9 +1294,7 @@ function BookPageContent() {
     async (
       postId: string
     ) => {
-      if (
-        !guestUserId
-      ) {
+      if (!requireAccount()) {
         return;
       }
 
@@ -1451,10 +1456,11 @@ function BookPageContent() {
           postId
         ]?.trim();
 
-      if (
-        !guestUserId ||
-        !content
-      ) {
+      if (!requireAccount()) {
+        return;
+      }
+
+      if (!content) {
         return;
       }
 
@@ -1571,7 +1577,7 @@ function BookPageContent() {
         onClick={() =>
           toggleSpoiler(id)
         }
-        className="w-full rounded-2xl border border-[#E6D8D4] bg-[#F6E8E6]/75 px-5 py-5 text-left transition hover:bg-[#EBCFD0]/85"
+        className="w-full rounded-2xl border border-[#aebaa5] bg-[#e7eee2]/75 px-5 py-5 text-left transition hover:bg-[#dfe9d9]/85"
         aria-expanded={revealed}
       >
         {revealed ? (
@@ -1721,9 +1727,9 @@ function BookPageContent() {
   ];
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[var(--aepilog-cream)] text-stone-900">
+    <main className="min-h-screen bg-[var(--aepilog-cream)] text-stone-900">
       <SiteHeader />
-      <div className="mx-auto max-w-5xl px-4 py-5 sm:px-5 sm:py-8 md:py-12">
+      <div className="mx-auto max-w-5xl px-5 py-8 md:py-12">
 
         {/* BOOK HEADER */}
 
@@ -1741,18 +1747,18 @@ function BookPageContent() {
           </button>
         </div>
 
-        <section className="rounded-[22px] border border-stone-200 bg-[var(--aepilog-paper)] p-4 shadow-sm sm:rounded-[32px] sm:p-6 md:p-8">
-          <div className="grid gap-4 sm:gap-6 md:grid-cols-[180px_1fr]">
+        <section className="rounded-[32px] border border-stone-200 bg-[var(--aepilog-paper)] p-6 shadow-sm md:p-8">
+          <div className="grid gap-6 md:grid-cols-[180px_1fr]">
 
             <div>
               {(enrichedCover || bookCover) ? (
                 <img
                   src={enrichedCover || bookCover || ""}
                   alt={bookTitle}
-                  className="mx-auto w-[128px] rounded-xl object-cover shadow-md sm:w-full sm:max-w-[180px] sm:rounded-2xl md:mx-0"
+                  className="w-full max-w-[180px] rounded-2xl object-cover shadow-md"
                 />
               ) : (
-                <div className="mx-auto flex aspect-[2/3] w-[128px] items-center justify-center rounded-xl bg-[var(--aepilog-blush-light)] px-4 text-center text-sm font-semibold text-stone-400 sm:w-full sm:max-w-[180px] sm:rounded-2xl md:mx-0">
+                <div className="flex aspect-[2/3] w-full max-w-[180px] items-center justify-center rounded-2xl bg-[var(--aepilog-blush-light)] px-4 text-center text-sm font-semibold text-stone-400">
                   No cover
                 </div>
               )}
@@ -1860,7 +1866,7 @@ function BookPageContent() {
                   href={`https://bookshop.org/search?keywords=${buyQuery}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-full border border-[#E6D8D4] bg-[#fffaf0] px-5 py-2.5 text-sm font-semibold text-[#8F2635] transition hover:bg-[#F6E8E6]"
+                  className="rounded-full border border-[#c9b899] bg-[#fffaf0] px-5 py-2.5 text-sm font-semibold text-[#715936] transition hover:bg-[#f7efe1]"
                 >
                   Bookshop.org
                 </a>
@@ -1875,7 +1881,7 @@ function BookPageContent() {
 
         {/* TABS */}
 
-        <div className="mt-5 grid grid-cols-2 rounded-2xl border border-stone-200 bg-[var(--aepilog-paper)] p-1 shadow-sm sm:mt-7 sm:p-1.5">
+        <div className="mt-7 grid grid-cols-2 rounded-2xl border border-stone-200 bg-[var(--aepilog-paper)] p-1.5 shadow-sm">
 
           <button
             type="button"
@@ -1931,7 +1937,7 @@ function BookPageContent() {
 
                 {/* READER SCORE */}
 
-                <div className="h-fit rounded-[22px] border border-stone-200 bg-[var(--aepilog-paper)] p-4 shadow-sm sm:rounded-[28px] sm:p-6">
+                <div className="h-fit rounded-[28px] border border-stone-200 bg-[var(--aepilog-paper)] p-6 shadow-sm">
 
                   <div className="text-sm font-semibold text-stone-500">
                     Reader score
@@ -1973,7 +1979,7 @@ function BookPageContent() {
 
                 <div
                   id="rate-book"
-                  className="scroll-mt-28 rounded-[22px] border border-stone-200 bg-[var(--aepilog-paper)] p-4 shadow-sm sm:rounded-[28px] sm:p-6 md:p-7"
+                  className="scroll-mt-28 rounded-[28px] border border-stone-200 bg-[var(--aepilog-paper)] p-6 shadow-sm md:p-7"
                 >
 
                   <div className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--aepilog-cherry-soft)]">
@@ -2325,7 +2331,7 @@ function BookPageContent() {
 
                 {ratings.length ===
                   0 && (
-                  <div className="rounded-[22px] border border-dashed border-stone-300 bg-[var(--aepilog-paper)] px-4 py-8 text-center sm:rounded-[28px] sm:px-6 sm:py-12">
+                  <div className="rounded-[28px] border border-dashed border-stone-300 bg-[var(--aepilog-paper)] px-6 py-12 text-center">
 
                     <div className="text-3xl">
                       No cover
@@ -2354,7 +2360,7 @@ function BookPageContent() {
                       key={
                         rating.id
                       }
-                      className="rounded-[22px] border border-stone-200 bg-[var(--aepilog-paper)] p-4 shadow-sm sm:rounded-[28px] sm:p-6"
+                      className="rounded-[28px] border border-stone-200 bg-[var(--aepilog-paper)] p-6 shadow-sm"
                     >
 
                       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -2510,7 +2516,7 @@ function BookPageContent() {
                           className={`rounded-full px-3 py-1 text-xs font-medium ${
                             rating.contains_spoilers
                               ? "bg-amber-100 text-amber-800"
-                              : "bg-[var(--aepilog-blush)] text-[#8F2635]"
+                              : "bg-[var(--aepilog-blush)] text-[#506246]"
                           }`}
                         >
                           {rating.contains_spoilers
@@ -2538,7 +2544,7 @@ function BookPageContent() {
 
               {/* CREATE POST */}
 
-              <div className="rounded-[22px] border border-stone-200 bg-[var(--aepilog-paper)] p-4 shadow-sm sm:rounded-[28px] sm:p-6 md:p-7">
+              <div className="rounded-[28px] border border-stone-200 bg-[var(--aepilog-paper)] p-6 shadow-sm md:p-7">
 
                 <div className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--aepilog-cherry-soft)]">
                   Book Club
@@ -2710,7 +2716,7 @@ function BookPageContent() {
 
                 {filteredPosts.length ===
                   0 && (
-                  <div className="rounded-[22px] border border-dashed border-stone-300 bg-[var(--aepilog-paper)] px-4 py-8 text-center sm:rounded-[28px] sm:px-6 sm:py-12">
+                  <div className="rounded-[28px] border border-dashed border-stone-300 bg-[var(--aepilog-paper)] px-6 py-12 text-center">
 
                     <div className="text-3xl">
 
@@ -2755,7 +2761,7 @@ function BookPageContent() {
                         key={
                           post.id
                         }
-                        className="rounded-[22px] border border-stone-200 bg-[var(--aepilog-paper)] p-4 shadow-sm sm:rounded-[28px] sm:p-6"
+                        className="rounded-[28px] border border-stone-200 bg-[var(--aepilog-paper)] p-6 shadow-sm"
                       >
 
                         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -2777,7 +2783,7 @@ function BookPageContent() {
                                 className={`rounded-full px-3 py-1 text-xs font-medium ${
                                   post.contains_spoilers
                                     ? "bg-amber-100 text-amber-800"
-                                    : "bg-[var(--aepilog-blush)] text-[#8F2635]"
+                                    : "bg-[var(--aepilog-blush)] text-[#506246]"
                                 }`}
                               >
                                 {post.contains_spoilers
@@ -2942,7 +2948,7 @@ function BookPageContent() {
                                             key={
                                               reply.id
                                             }
-                                            className="ml-7 mt-2 rounded-2xl border-l-2 border-[#E6D8D4] bg-stone-50 p-4"
+                                            className="ml-7 mt-2 rounded-2xl border-l-2 border-[#c9b899] bg-stone-50 p-4"
                                           >
 
                                             <div className="flex flex-wrap items-center justify-between gap-2">
