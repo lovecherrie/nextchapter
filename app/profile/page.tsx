@@ -86,7 +86,7 @@ function bookHref(book: Book) {
 
 export default function ProfilePage() {
   const [userId, setUserId] = useState("");
-  const [username, setUsername] = useState("Bookworm");
+  const [username, setUsername] = useState("");
   const [ratings, setRatings] = useState<Rating[]>([]);
   const [posts, setPosts] = useState<DiscussionPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -158,22 +158,23 @@ export default function ProfilePage() {
     const savedGuestId =
       localStorage.getItem("nextchapter_guest_id") || "";
     const savedUsername =
-      localStorage.getItem("nextchapter_guest_username") ||
-      "Bookworm";
+      localStorage.getItem("nextchapter_guest_username") || "";
     const savedBio =
       localStorage.getItem("nextchapter_profile_bio") || "";
 
     try {
-      const { data, error: authError } =
+      const { data } =
         await supabase.auth.getUser();
-
-      if (authError) {
-        throw authError;
-      }
 
       const authUser = data.user;
 
-      if (!authUser) {
+      if (!authUser || authUser.is_anonymous) {
+        if (authUser?.is_anonymous) {
+          await supabase.auth.signOut();
+        }
+
+        localStorage.removeItem("nextchapter_guest_id");
+        localStorage.removeItem("nextchapter_guest_username");
         window.location.href = "/auth";
         return;
       }
@@ -182,7 +183,7 @@ export default function ProfilePage() {
         typeof authUser.user_metadata?.username === "string" &&
         authUser.user_metadata.username.trim()
           ? authUser.user_metadata.username.trim()
-          : savedUsername;
+          : savedUsername || "Reader";
 
       // Move activity created before signup from the temporary guest id
       // to the real Supabase account id.
@@ -712,15 +713,17 @@ export default function ProfilePage() {
       return;
     }
 
+    localStorage.removeItem("nextchapter_guest_id");
+    localStorage.removeItem("nextchapter_guest_username");
     window.location.href = "/auth";
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#f7f2e8] text-stone-900">
+    <main className="min-h-screen bg-[#f7f2e8] text-stone-900">
       <SiteHeader active="profile" />
 
-      <div className="mx-auto max-w-5xl px-4 py-5 sm:px-5 sm:py-8 md:py-12">
-        <section className="rounded-[22px] border border-stone-200 bg-[#fffdf8] p-4 shadow-sm sm:rounded-[32px] sm:p-6 md:p-8">
+      <div className="mx-auto max-w-5xl px-5 py-8 md:py-12">
+        <section className="rounded-[32px] border border-stone-200 bg-[#fffdf8] p-6 shadow-sm md:p-8">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
               <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#EBCFD0] text-xl font-semibold text-[#8F2635]">
@@ -762,7 +765,7 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        <section className="mt-4 rounded-[22px] border border-stone-200 bg-[#fffdf8] p-4 sm:mt-6 sm:rounded-[28px] sm:p-6 md:p-7">
+        <section className="mt-6 rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 md:p-7">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#B65A65]">
@@ -845,7 +848,7 @@ export default function ProfilePage() {
           )}
         </section>
 
-        <section className="mt-4 rounded-[22px] border border-stone-200 bg-[#fffdf8] p-4 sm:mt-6 sm:rounded-[28px] sm:p-6 md:p-7">
+        <section className="mt-6 rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 md:p-7">
           <div className="flex items-end justify-between gap-4">
             <div>
               <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#B65A65]">
@@ -932,7 +935,7 @@ export default function ProfilePage() {
           )}
         </section>
 
-        <section className="mt-4 grid grid-cols-3 gap-2 sm:mt-6 sm:gap-4">
+        <section className="mt-6 grid gap-4 sm:grid-cols-3">
           <div className="rounded-2xl border border-stone-200 bg-white p-5">
             <div className="text-2xl font-semibold text-[#8F2635]">
               {loading ? "—" : ratings.length}
@@ -967,7 +970,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        <section className="mt-4 rounded-[22px] border border-stone-200 bg-[#fffdf8] p-4 sm:mt-6 sm:rounded-[28px] sm:p-6 md:p-7">
+        <section className="mt-6 rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 md:p-7">
           <div>
             <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#B65A65]">
               Your books
@@ -1040,7 +1043,7 @@ export default function ProfilePage() {
           )}
         </section>
 
-        <section className="mt-4 rounded-[22px] border border-stone-200 bg-[#fffdf8] p-4 sm:mt-6 sm:rounded-[28px] sm:p-6 md:p-7">
+        <section className="mt-6 rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 md:p-7">
           <div>
             <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#B65A65]">
               Your activity
@@ -1110,7 +1113,7 @@ export default function ProfilePage() {
             }
           }}
         >
-          <div className="w-full max-w-2xl rounded-[22px] border border-stone-200 bg-[#fffdf8] p-4 shadow-xl sm:rounded-[28px] sm:p-7">
+          <div className="w-full max-w-2xl rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 shadow-xl sm:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#B65A65]">
@@ -1132,7 +1135,7 @@ export default function ProfilePage() {
               </button>
             </div>
 
-            <div className="mt-5 grid grid-cols-2 gap-2 sm:mt-6 sm:grid-cols-4 sm:gap-3">
+            <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
               {draftTopBooks.map((book, index) => (
                 <button
                   key={index}
