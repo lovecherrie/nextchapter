@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
 
 type SearchBook = {
   id: string;
@@ -12,7 +13,7 @@ type SearchBook = {
   isbn13?: string | null;
   work_id?: string | null;
   edition_id?: string | null;
-  source: "google" | "openlibrary";
+  source: "google" | "openlibrary" | "cache";
   popularity: number;
 };
 
@@ -52,7 +53,6 @@ function scoreBook(book: SearchBook, query: string) {
 
   let score = 0;
 
-  // These are RANKING boosts only. Nothing is filtered out for not matching.
   if (title === q) score += 12000;
   if (title.startsWith(q)) score += 9000;
   if (title.includes(q)) score += 5500;
@@ -85,7 +85,6 @@ function scoreBook(book: SearchBook, query: string) {
 
   if (author.includes(q)) score += 800;
 
-  // Light popularity boost only.
   score += Math.min(book.popularity, 5000) / 50;
 
   return score;
@@ -144,7 +143,9 @@ function mapGoogleBook(item: any): SearchBook | null {
   };
 }
 
-async function fetchGoogleBooks(searchQuery: string): Promise<SearchBook[]> {
+async function fetchGoogleBooks(
+  searchQuery: string
+): Promise<SearchBook[]> {
   try {
     const url =
       "https://www.googleapis.com/books/v1/volumes?" +
@@ -173,9 +174,9 @@ async function fetchGoogleBooks(searchQuery: string): Promise<SearchBook[]> {
   }
 }
 
-async function searchGoogleBooks(query: string): Promise<SearchBook[]> {
-  // Search BOTH broadly and by title.
-  // The broad query prevents the autocomplete from becoming brittle.
+async function searchGoogleBooks(
+  query: string
+): Promise<SearchBook[]> {
   const [broad, titleFocused] = await Promise.all([
     fetchGoogleBooks(query),
     fetchGoogleBooks(`intitle:${query}`),
@@ -184,10 +185,10 @@ async function searchGoogleBooks(query: string): Promise<SearchBook[]> {
   return dedupeBooks([...broad, ...titleFocused]);
 }
 
-async function searchOpenLibrary(query: string): Promise<SearchBook[]> {
+async function searchOpenLibrary(
+  query: string
+): Promise<SearchBook[]> {
   try {
-    // IMPORTANT: use q= instead of title=.
-    // q is intentionally broad. We rank title matches ourselves afterward.
     const url =
       "https://openlibrary.org/search.json?" +
       new URLSearchParams({
@@ -222,14 +223,22 @@ async function searchOpenLibrary(query: string): Promise<SearchBook[]> {
           : null;
 
         const isbns = Array.isArray(doc.isbn) ? doc.isbn : [];
+
         const isbn13 =
-          isbns.find((value: string) => /^\d{13}$/.test(String(value))) || null;
+          isbns.find((value: string) =>
+            /^\d{13}$/.test(String(value))
+          ) || null;
+
         const isbn10 =
-          isbns.find((value: string) => /^\d{10}$/.test(String(value))) || null;
+          isbns.find((value: string) =>
+            /^\d{10}$/.test(String(value))
+          ) || null;
 
         const bestEdition = doc.editions?.docs?.[0];
-        const editionKey = String(bestEdition?.key || "")
-          .replace(/^\/books\//, "") || null;
+
+        const editionKey =
+          String(bestEdition?.key || "").replace(/^\/books\//, "") ||
+          null;
 
         const cleanKey = String(doc.key || "")
           .replace(/^\/works\//, "")
@@ -264,41 +273,188 @@ async function searchOpenLibrary(query: string): Promise<SearchBook[]> {
   }
 }
 
-export async function GET(request: NextRequest) {
-  const query = request.nextUrl.searchParams.get("q")?.trim() || "";
+/*
+|--------------------------------------------------------------------------
+| AEPILOG BOOK CACHE
+|--------------------------------------------------------------------------
+*/
 
-  // One character is too noisy, but "ro", "roc", "rock", etc. should search.
+async function searchCachedBooks(
+  query: string
+): Promise<SearchBook[]> {
+  try {
+    const clean = query.trim();
+
+    const [titleResult, authorResult] = await Promise.all([
+      supabase
+        .from("books")
+        .select("id, external_id, title, author, cover_url")
+        .ilike("title", `%${clean}%`)
+        .limit(20),
+
+      supabase
+        .from("books")
+        .select("id, external_id, title, author, cover_url")
+        .ilike("author", `%${clean}%`)
+        .limit(20),
+    ]);
+
+    if (titleResult.error) {
+      console.error(
+        "Cached title search failed:",
+        titleResult.error
+      );
+    }
+
+    if (authorResult.error) {
+      console.error(
+        "Cached author search failed:",
+        authorResult.error
+      );
+    }
+
+    const rows = [
+      ...(titleResult.data || []),
+      ...(authorResult.data || []),
+    ];
+
+    const books: SearchBook[] = rows.map((book: any) => ({
+      id: book.external_id || book.id,
+      external_id: book.external_id || String(book.id),
+      title: book.title,
+      author: book.author || "Unknown author",
+      cover: book.cover_url || null,
+      cover_url: book.cover_url || null,
+      publishedDate: null,
+      source: "cache",
+      popularity: 0,
+    }));
+
+    return dedupeBooks(books);
+  } catch (error) {
+    console.error("Cached book search failed:", error);
+    return [];
+  }
+}
+
+async function saveBooksToCache(books: SearchBook[]) {
+  try {
+    const rows = books
+      .filter(
+        (book) =>
+          book.external_id &&
+          book.title &&
+          book.source !== "cache"
+      )
+      .map((book) => ({
+        external_id: book.external_id,
+        title: book.title,
+        author:
+          book.author === "Unknown author"
+            ? null
+            : book.author,
+        cover_url: book.cover_url || book.cover || null,
+      }));
+
+    if (rows.length === 0) return;
+
+    const { error } = await supabase
+      .from("books")
+      .upsert(rows, {
+        onConflict: "external_id",
+        ignoreDuplicates: true,
+      });
+
+    if (error) {
+      console.error("Book cache save failed:", error);
+    }
+  } catch (error) {
+    console.error("Book cache save failed:", error);
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
+| SEARCH ROUTE
+|--------------------------------------------------------------------------
+*/
+
+export async function GET(request: NextRequest) {
+  const query =
+    request.nextUrl.searchParams.get("q")?.trim() || "";
+
   if (query.length < 2) {
     return NextResponse.json({ books: [] });
   }
 
   try {
-    // Always query BOTH sources.
-    // Do not let one provider returning "enough" results stop the other one.
-    const [googleBooks, openLibraryBooks] = await Promise.all([
-      searchGoogleBooks(query),
-      searchOpenLibrary(query),
-    ]);
+    /*
+     * First ask Aepilog's own database.
+     */
+    const cachedBooks = await searchCachedBooks(query);
 
-    const books = dedupeBooks([
+    const rankedCached = dedupeBooks(cachedBooks)
+      .sort(
+        (a, b) =>
+          scoreBook(b, query) - scoreBook(a, query)
+      )
+      .slice(0, 12);
+
+    /*
+     * If Aepilog already knows matching books,
+     * show those immediately.
+     */
+    if (rankedCached.length > 0) {
+      return NextResponse.json(
+        {
+          books: rankedCached.map(
+            ({ popularity, ...book }) => book
+          ),
+        },
+        {
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        }
+      );
+    }
+
+    /*
+     * Nothing cached yet:
+     * search Google Books + Open Library.
+     */
+    const [googleBooks, openLibraryBooks] =
+      await Promise.all([
+        searchGoogleBooks(query),
+        searchOpenLibrary(query),
+      ]);
+
+    const externalBooks = dedupeBooks([
       ...googleBooks,
       ...openLibraryBooks,
     ]);
 
-    // NO strict relevance filter here.
-    // Related results are allowed. Strong title matches simply rise to the top.
-    const ranked = books
-      .sort((a, b) => scoreBook(b, query) - scoreBook(a, query))
+    const ranked = externalBooks
+      .sort(
+        (a, b) =>
+          scoreBook(b, query) - scoreBook(a, query)
+      )
       .slice(0, 12);
+
+    /*
+     * Save what we discovered so the next
+     * person doesn't need the external search.
+     */
+    await saveBooksToCache(ranked);
 
     return NextResponse.json(
       {
-        books: ranked.map(({ popularity, ...book }) => book),
+        books: ranked.map(
+          ({ popularity, ...book }) => book
+        ),
       },
       {
         headers: {
-          // Search suggestions change as the user types, so don't serve a stale
-          // result list that can make suggestions appear and then disappear.
           "Cache-Control": "no-store",
         },
       }
@@ -307,8 +463,13 @@ export async function GET(request: NextRequest) {
     console.error("Book search route failed:", error);
 
     return NextResponse.json(
-      { error: "Book search failed", books: [] },
-      { status: 500 }
+      {
+        error: "Book search failed",
+        books: [],
+      },
+      {
+        status: 500,
+      }
     );
   }
 }
