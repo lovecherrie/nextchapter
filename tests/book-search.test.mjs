@@ -11,7 +11,7 @@ const source = ts.transpileModule(
   { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }
 ).outputText;
 
-function setup({ cached = [], google = [], providerFailure = false, cacheFailure = false } = {}) {
+function setup({ cached = [], google = [], openLibraryCandidates = [], providerFailure = false, cacheFailure = false } = {}) {
   const calls = { providers: 0, writes: [] };
   const database = {
     select() { return this; },
@@ -23,7 +23,7 @@ function setup({ cached = [], google = [], providerFailure = false, cacheFailure
     upsert(rows) { calls.writes.push(...rows); return Promise.resolve({ error: null }); }
   };
   const context = {
-    exports: {}, console: { error() {} }, URLSearchParams, AbortSignal,
+    exports: {}, console: { error() {} }, URL, URLSearchParams, AbortSignal,
     require(name) {
       if (name === 'next/server') return { NextResponse: { json: (body) => ({ json: async () => body }) } };
       if (name === '@/lib/supabase') return { supabase: { from: () => database } };
@@ -32,7 +32,9 @@ function setup({ cached = [], google = [], providerFailure = false, cacheFailure
     async fetch(url) {
       calls.providers++;
       if (providerFailure) throw new Error('Provider unavailable');
-      return { ok: true, json: async () => url.includes('googleapis') ? { items: google } : { docs: [] } };
+      return { ok: true, json: async () => url.includes('googleapis')
+        ? { items: google }
+        : { docs: new URL(url).searchParams.get('q').startsWith('title:') ? openLibraryCandidates : [] } };
     }
   };
   vm.runInNewContext(source, context);
@@ -124,4 +126,39 @@ test('different authors do not share covers', async () => {
   const app = setup({ cached: [{ ...cached, title: 'Harry Potter', author: 'Different Author' }], google });
   const result = await app.search('Harry Potter');
   assert.equal(result.books.find(book => book.author === 'Different Author').cover_url, null);
+});
+
+for (const [title, query] of [
+  ['The Great Gatsby', 'the great gatsbi'],
+  ['Frankenstein', 'frankenstien'],
+  ['Pride and Prejudice', 'pride and prejudcie'],
+  ['To Kill a Mockingbird', 'to kill a mockingbrid'],
+  ['The Hobbit', 'the hobibt'],
+  ['Velvet Horizons', 'velvet horiznos'],
+]) {
+  test(`the same spelling rule works for ${title}`, async () => {
+    const app = setup({ cached: [{ ...cached, title, author: 'Fixture Author' }] });
+    const result = await app.search(query);
+    assert.equal(result.suggestions[0]?.title, title);
+  });
+}
+
+test('uncached titles can be suggested using Open Library candidates', async () => {
+  const app = setup({ openLibraryCandidates: [
+    { key: '/works/OL1W', title: 'The Hobbit', author_name: ['J. R. R. Tolkien'], cover_i: 123 },
+    { key: '/works/OL2W', title: 'The History of Hoboken', author_name: ['Another Author'] },
+  ] });
+  const result = await app.search('the hobibt');
+  assert.deepEqual(result.suggestions.map(book => book.title), ['The Hobbit']);
+  assert.match(result.suggestions[0].external_id, /^openlibrary-/);
+});
+test('an unrelated provider candidate is never shown as a spelling suggestion', async () => {
+  const app = setup({ openLibraryCandidates: [
+    { key: '/works/OL1W', title: 'The History of Hoboken', author_name: ['Another Author'] },
+  ] });
+  assert.equal((await app.search('the hobibt')).suggestions.length, 0);
+});
+test('cached spelling suggestions survive an Open Library outage', async () => {
+  const app = setup({ cached: [noExit], providerFailure: true });
+  assert.equal((await app.search('no exir')).suggestions[0].title, 'No Exit');
 });

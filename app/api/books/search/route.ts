@@ -93,9 +93,14 @@ async function searchCloseTitles(query: string) {
   if (!word || query.length > 80) return [];
   // A bounded candidate lookup, followed by full-title comparison. Never
   // treat a shared word alone as evidence that a different title is a typo.
-  const candidates = await searchCachedBooks(word.slice(0, 2));
-  return candidates
-    .filter((book) => closeTitleDistance(book.title, query) !== null)
+  const prefix = word.slice(0, 2);
+  const cached = await searchCachedBooks(prefix);
+  const candidates = cached.filter((book) => closeTitleDistance(book.title, query) !== null);
+  if (candidates.length === 0) {
+    const external = await searchOpenLibrary(`title:${prefix}*`, 60);
+    candidates.push(...external.filter((book) => closeTitleDistance(book.title, query) !== null));
+  }
+  return dedupeBooks(candidates)
     .sort((a, b) => closeTitleDistance(a.title, query)! - closeTitleDistance(b.title, query)!)
     .slice(0, 5);
 }
@@ -244,16 +249,18 @@ async function searchGoogleBooks(
 }
 
 async function searchOpenLibrary(
-  query: string
+  query: string,
+  limit = 20
 ): Promise<SearchBook[]> {
   try {
     const url =
       "https://openlibrary.org/search.json?" +
       new URLSearchParams({
         q: query,
-        limit: "20",
-        fields:
-          "key,title,author_name,cover_i,first_publish_year,edition_count,ratings_count,isbn,editions",
+        limit: String(limit),
+        fields: limit > 20
+          ? "key,title,author_name,cover_i,first_publish_year,edition_count,ratings_count"
+          : "key,title,author_name,cover_i,first_publish_year,edition_count,ratings_count,isbn,editions",
       }).toString();
 
     const response = await fetch(url, {
