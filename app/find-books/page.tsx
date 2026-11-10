@@ -6,6 +6,10 @@ import {
 } from "react";
 import SiteHeader from "../components/SiteHeader";
 import { supabase } from "@/lib/supabase";
+import {
+  BOOK_CATEGORIES, normalizeCategories, normalizeMatters,
+  toggleCategory, visibleMatters,
+} from "@/lib/recommendation-preferences";
 
 type Recommendation = {
   title: string;
@@ -74,8 +78,8 @@ export default function AepilogFindBooks() {
     setDislikedSearching,
   ] = useState(false);
 
-  const [mood, setMood] =
-    useState("");
+  const [categories, setCategories] = useState<string[]>([]);
+  const [mattersExpanded, setMattersExpanded] = useState(false);
 
   const [
     matters,
@@ -174,20 +178,8 @@ export default function AepilogFindBooks() {
             : []
         );
 
-        setMood(
-          typeof parsed.mood ===
-            "string"
-            ? parsed.mood
-            : ""
-        );
-
-        setMatters(
-          Array.isArray(
-            parsed.matters
-          )
-            ? parsed.matters
-            : []
-        );
+        setCategories(normalizeCategories(parsed.categories));
+        setMatters(normalizeMatters(parsed.matters));
 
         setReadingStyle(
           Array.isArray(
@@ -268,7 +260,7 @@ export default function AepilogFindBooks() {
         JSON.stringify({
           likedBooks,
           dislikedBooks,
-          mood,
+          categories,
           matters,
           readingStyle,
           avoid,
@@ -289,7 +281,7 @@ export default function AepilogFindBooks() {
     sessionRestored,
     likedBooks,
     dislikedBooks,
-    mood,
+    categories,
     matters,
     readingStyle,
     avoid,
@@ -300,46 +292,8 @@ export default function AepilogFindBooks() {
     showResults,
   ]);
 
-  const moods = [
-    {
-      n: "Dark",
-    },
-    {
-      n: "Cozy",
-    },
-    {
-      n: "Emotional",
-    },
-    {
-      n: "Funny",
-    },
-    {
-      n: "Creepy",
-    },
-    {
-      n: "Romantic",
-    },
-    {
-      n: "Mind-bending",
-    },
-    {
-      n: "Comforting",
-    },
-    {
-      n: "Surprise me",
-    },
-  ];
-
-  const priorities = [
-    "Plot twists",
-    "Strong characters",
-    "Fast pacing",
-    "Beautiful writing",
-    "Atmosphere",
-    "Romance",
-    "Suspense",
-    "Emotional impact",
-  ];
+  const shownMatters = visibleMatters(categories, matters, mattersExpanded);
+  const categoryCount = categories.filter((item) => item !== "Anything").length;
 
   const readingStyles = [
     "Easy read",
@@ -657,28 +611,10 @@ export default function AepilogFindBooks() {
   // PREFERENCE BUTTONS
   // ----------------------------------
 
-  const toggleMatter = (
-    value: string
-  ) => {
-    if (
-      matters.includes(
-        value
-      )
-    ) {
-      setMatters(
-        matters.filter(
-          (item) =>
-            item !== value
-        )
-      );
-    } else if (
-      matters.length < 3
-    ) {
-      setMatters([
-        ...matters,
-        value,
-      ]);
-    }
+  const toggleMatter = (value: string) => {
+    setMatters((current) => current.includes(value)
+      ? current.filter((item) => item !== value)
+      : current.length < 3 ? [...current, value] : current);
   };
 
   const toggleReadingStyle =
@@ -1180,7 +1116,7 @@ export default function AepilogFindBooks() {
                     dislikedBooks:
                       dislikedBooksForAI,
 
-                    mood,
+                    categories,
 
                     matters,
 
@@ -1290,9 +1226,8 @@ export default function AepilogFindBooks() {
               Tell aepilog
               what you love,
               what you don't,
-              and what kind of
-              reading mood
-              you're in. We'll
+              and what you&apos;d
+              like to read. We&apos;ll
               find books that
               fit.
             </p>
@@ -1728,117 +1663,68 @@ export default function AepilogFindBooks() {
           </section>
 
           {/* STEP 2 */}
-
           <section className="rounded-[22px] border border-stone-200 bg-[#fffdf9] p-4 shadow-sm sm:rounded-[28px] sm:p-6 md:p-8">
-
             <div className="flex items-start gap-4">
-
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#ebcfd0] font-semibold text-[#8f2635]">
-                2
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#ebcfd0] font-semibold text-[#8f2635]">2</div>
+              <div className="min-w-0 flex-1">
+                <h2 id="book-categories-heading" className="font-aepilog-serif text-2xl font-medium">What would you like to read?</h2>
+                <p className="mt-1 text-sm text-stone-500">Choose up to three.</p>
               </div>
-
-              <div>
-                <h2 className="font-aepilog-serif text-2xl font-medium">
-                  What's the
-                  mood?
-                </h2>
-
-                <p className="mt-1 text-sm text-stone-500">
-                  What kind of
-                  feeling do you
-                  want right now?
-                </p>
-              </div>
-
+              <span aria-label={`${categoryCount} of 3 categories selected`} className="shrink-0 pt-1 text-xs font-medium tabular-nums text-stone-500">{categoryCount}/3</span>
             </div>
-
-            <div className="mt-6 flex flex-wrap gap-2">
-
-              {moods.map(
-                (
-                  item
-                ) => (
+            <div role="group" aria-labelledby="book-categories-heading" className="mt-6 flex flex-wrap gap-2">
+              {BOOK_CATEGORIES.map((category) => {
+                const selected = categories.includes(category);
+                return (
                   <button
+                    key={category}
                     type="button"
-                    key={
-                      item.n
-                    }
-                    onClick={() =>
-                      setMood(
-                        item.n
-                      )
-                    }
-                    className={`rounded-full border px-4 py-2.5 text-sm font-medium transition ${
-                      mood ===
-                      item.n
-                        ? "border-[#8f2635] bg-[#8f2635] text-white shadow-sm"
-                        : "border-stone-200 bg-white text-stone-600 hover:border-[#d8aeb2] hover:bg-[#f6e8e6]"
-                    }`}
-                  >
-                    {item.n}
-                  </button>
-                )
-              )}
-
+                    aria-pressed={selected}
+                    disabled={!selected && category !== "Anything" && categoryCount >= 3}
+                    onClick={() => setCategories((current) => toggleCategory(current, category))}
+                    className={`rounded-full border px-3.5 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${selected
+                      ? "border-[#8f2635] bg-[#8f2635] text-white"
+                      : "border-stone-200 bg-white text-stone-600 hover:border-[#d8aeb2] hover:bg-[#f6e8e6]"}`}
+                  >{category}</button>
+                );
+              })}
             </div>
-
           </section>
 
           {/* STEP 3 */}
-
           <section className="rounded-[22px] border border-stone-200 bg-[#fffdf9] p-4 shadow-sm sm:rounded-[28px] sm:p-6 md:p-8">
-
             <div className="flex items-start gap-4">
-
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#ebcfd0] font-semibold text-[#8f2635]">
-                3
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#ebcfd0] font-semibold text-[#8f2635]">3</div>
+              <div className="min-w-0 flex-1">
+                <h2 id="book-priorities-heading" className="font-aepilog-serif text-2xl font-medium">What matters most?</h2>
+                <p className="mt-1 text-sm text-stone-500">Choose up to three.</p>
               </div>
-
-              <div>
-                <h2 className="font-aepilog-serif text-2xl font-medium">
-                  What matters
-                  most?
-                </h2>
-
-                <p className="mt-1 text-sm text-stone-500">
-                  Choose up to
-                  three.
-                </p>
-              </div>
-
+              <span aria-label={`${matters.length} of 3 preferences selected`} className="shrink-0 pt-1 text-xs font-medium tabular-nums text-stone-500">{matters.length}/3</span>
             </div>
-
-            <div className="mt-6 flex flex-wrap gap-2">
-
-              {priorities.map(
-                (
-                  item
-                ) => (
+            <div id="book-priority-options" role="group" aria-labelledby="book-priorities-heading" className="mt-6 flex flex-wrap gap-2">
+              {shownMatters.map((item) => {
+                const selected = matters.includes(item);
+                return (
                   <button
+                    key={item}
                     type="button"
-                    key={
-                      item
-                    }
-                    onClick={() =>
-                      toggleMatter(
-                        item
-                      )
-                    }
-                    className={`rounded-full border px-4 py-2.5 text-sm font-medium transition ${
-                      matters.includes(
-                        item
-                      )
-                        ? "border-[#a34c57] bg-[#f6e8e6] text-[#8f2635]"
-                        : "border-stone-200 bg-white text-stone-500 hover:bg-[#fbf1ef]"
-                    }`}
-                  >
-                    {item}
-                  </button>
-                )
-              )}
-
+                    aria-pressed={selected}
+                    disabled={!selected && matters.length >= 3}
+                    onClick={() => toggleMatter(item)}
+                    className={`rounded-full border px-3.5 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${selected
+                      ? "border-[#8f2635] bg-[#8f2635] text-white"
+                      : "border-stone-200 bg-white text-stone-600 hover:border-[#d8aeb2] hover:bg-[#f6e8e6]"}`}
+                  >{item}</button>
+                );
+              })}
             </div>
-
+            <button
+              type="button"
+              aria-expanded={mattersExpanded}
+              aria-controls="book-priority-options"
+              onClick={() => setMattersExpanded((current) => !current)}
+              className="mt-4 rounded-lg px-1 py-2 text-sm font-semibold text-[#8f2635] underline-offset-4 hover:underline"
+            >{mattersExpanded ? "Fewer options" : "More options"}</button>
           </section>
 
           {/* STEP 4 */}

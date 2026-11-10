@@ -1,3 +1,5 @@
+import { recommendationPreferencePrompt } from "@/lib/recommendation-preferences";
+
 type Recommendation = {
   title: string;
   author: string;
@@ -428,6 +430,7 @@ export async function POST(req: Request) {
     const {
       likedBooks,
       dislikedBooks,
+      categories,
       mood,
       matters,
       readingStyle,
@@ -461,8 +464,7 @@ ${dislikedBooks || "Not provided"}
 Current mood:
 ${mood || "No preference"}
 
-What matters most:
-${matters?.length ? matters.join(", ") : "No preference"}
+${recommendationPreferencePrompt(categories, matters)}
 
 Preferred reading style:
 ${readingStyle?.length ? readingStyle.join(", ") : "No preference"}
@@ -481,6 +483,9 @@ HOW TO THINK ABOUT THE READER
 First infer WHY they probably loved the books they loved and WHY they disliked the books they disliked.
 
 Consider:
+- subject matter and the ideas the reader wants to explore
+- clarity of explanations and the quality of evidence or arguments
+- practical usefulness, depth, and fresh perspectives
 - pacing
 - tension and suspense
 - plot structure
@@ -495,6 +500,8 @@ Consider:
 - mystery style
 - whether the story is survival-focused, domestic, psychological, procedural, literary, etc.
 - whether the ending/reveal is a major part of the appeal
+
+Use story-specific qualities only where they apply. For philosophy, psychology, and other nonfiction, prioritize the reader's intellectual interests and chosen preferences rather than looking for a fictional plot, romance, or twist.
 
 Disliked books are strong negative evidence. Do not recommend books that reproduce the same qualities the reader is probably reacting against.
 
