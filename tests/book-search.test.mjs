@@ -14,8 +14,12 @@ const source = ts.transpileModule(
 function setup({ cached = [], google = [], providerFailure = false, cacheFailure = false } = {}) {
   const calls = { providers: 0, writes: [] };
   const database = {
-    select() { return this; }, ilike() { return this; },
-    limit() { return Promise.resolve({ data: cacheFailure ? null : cached, error: cacheFailure ? { message: 'Cache unavailable' } : null }); },
+    select() { return this; },
+    ilike(column, pattern) { this.column = column; this.term = pattern.slice(1, -1).toLowerCase(); return this; },
+    limit() {
+      const data = cached.filter((book) => String(book[this.column] || '').toLowerCase().includes(this.term));
+      return Promise.resolve({ data: cacheFailure ? null : data, error: cacheFailure ? { message: 'Cache unavailable' } : null });
+    },
     upsert(rows) { calls.writes.push(...rows); return Promise.resolve({ error: null }); }
   };
   const context = {
@@ -72,4 +76,52 @@ test('short queries do not call providers or save books', async () => {
   assert.deepEqual(await app.search('a'), { books: [] });
   assert.equal(app.calls.providers, 0);
   assert.equal(app.calls.writes.length, 0);
+});
+
+const noExit = { ...cached, external_id: 'no-exit', title: 'No Exit', author: 'Taylor Adams' };
+const odyssey = { ...cached, external_id: 'odyssey', title: 'The Odyssey', author: 'Homer' };
+test('a one-letter typo suggests No Exit without silently changing the search', async () => {
+  const app = setup({ cached: [noExit, { ...cached, title: 'No Exit from Pakistan' }] });
+  const result = await app.search('no exir');
+  assert.equal(result.books.length, 0);
+  assert.deepEqual(result.suggestions.map(book => book.title), ['No Exit']);
+});
+test('a close two-edit spelling suggests The Odyssey', async () => {
+  const app = setup({ cached: [odyssey, { ...cached, title: 'The Jews of Odessa' }] });
+  const result = await app.search('the odessy');
+  assert.deepEqual(result.suggestions.map(book => book.title), ['The Odyssey']);
+});
+test('adjacent transposed letters can suggest the intended title', async () => {
+  const app = setup({ cached: [noExit] });
+  assert.equal((await app.search('no exti')).suggestions[0].title, 'No Exit');
+});
+test('exact and partial title matches do not trigger spelling suggestions', async () => {
+  for (const query of ['no exit', 'no ex']) {
+    const app = setup({ cached: [noExit] });
+    assert.equal((await app.search(query)).suggestions.length, 0);
+  }
+});
+test('unrelated titles and very short queries are never spelling suggestions', async () => {
+  for (const query of ['odzzzz', 'ex', 'no exir from Mars']) {
+    const app = setup({ cached: [noExit, odyssey] });
+    assert.equal((await app.search(query)).suggestions.length, 0);
+  }
+});
+test('a matching provider cover fills a cached cover without changing its identity', async () => {
+  const google = [{ ...exact, volumeInfo: { ...exact.volumeInfo, imageLinks: { thumbnail: 'https://example.com/cover.jpg' } } }];
+  const app = setup({ cached: [{ ...cached, title: 'Harry Potter', author: 'J. K. Rowling' }], google });
+  const { books } = await app.search('Harry Potter');
+  assert.equal(books[0].external_id, cached.external_id);
+  assert.equal(books[0].cover_url, 'https://example.com/cover.jpg');
+});
+test('a missing provider cover can use a known ISBN', async () => {
+  const google = [{ ...exact, volumeInfo: { ...exact.volumeInfo, industryIdentifiers: [{ type: 'ISBN_13', identifier: '9780141439518' }] } }];
+  const app = setup({ google });
+  assert.match((await app.search('Harry Potter')).books[0].cover_url, /isbn\/9780141439518-L.jpg/);
+});
+test('different authors do not share covers', async () => {
+  const google = [{ ...exact, volumeInfo: { ...exact.volumeInfo, imageLinks: { thumbnail: 'https://example.com/cover.jpg' } } }];
+  const app = setup({ cached: [{ ...cached, title: 'Harry Potter', author: 'Different Author' }], google });
+  const result = await app.search('Harry Potter');
+  assert.equal(result.books.find(book => book.author === 'Different Author').cover_url, null);
 });

@@ -29,19 +29,75 @@ function normalizeText(value: string) {
 }
 
 function dedupeBooks(books: SearchBook[]) {
-  const seen = new Set<string>();
+  const seen = new Map<string, SearchBook>();
   const result: SearchBook[] = [];
 
   for (const book of books) {
     const key = `${normalizeText(book.title)}|${normalizeText(book.author)}`;
 
     if (!seen.has(key)) {
-      seen.add(key);
+      seen.set(key, book);
       result.push(book);
+    } else {
+      // Keep the existing identity, but fill a missing cover from the same
+      // title and author rather than discarding the provider's useful data.
+      const existing = seen.get(key)!;
+      if (!existing.cover_url && book.cover_url) {
+        existing.cover = book.cover_url;
+        existing.cover_url = book.cover_url;
+      }
+      existing.isbn13 ||= book.isbn13;
+      existing.isbn10 ||= book.isbn10;
     }
   }
 
   return result;
+}
+
+function titleForComparison(value: string) {
+  return normalizeText(value).replace(/^(the|an|a) /, "");
+}
+
+function editDistance(left: string, right: string) {
+  const rows = Array.from({ length: left.length + 1 }, (_, i) =>
+    Array.from({ length: right.length + 1 }, (_, j) => i === 0 ? j : j === 0 ? i : 0)
+  );
+  for (let i = 1; i <= left.length; i++) {
+    for (let j = 1; j <= right.length; j++) {
+      rows[i][j] = Math.min(
+        rows[i - 1][j] + 1,
+        rows[i][j - 1] + 1,
+        rows[i - 1][j - 1] + (left[i - 1] === right[j - 1] ? 0 : 1)
+      );
+      if (i > 1 && j > 1 && left[i - 1] === right[j - 2] && left[i - 2] === right[j - 1]) {
+        rows[i][j] = Math.min(rows[i][j], rows[i - 2][j - 2] + 1);
+      }
+    }
+  }
+  return rows[left.length][right.length];
+}
+
+function closeTitleDistance(title: string, query: string) {
+  const wanted = titleForComparison(query);
+  const candidate = titleForComparison(title);
+  if (wanted.length < 4 || wanted.length > 80) return null;
+  const maximum = wanted.length >= 6 ? 2 : 1;
+  if (Math.abs(candidate.length - wanted.length) > maximum) return null;
+  const distance = editDistance(candidate, wanted);
+  return distance > 0 && distance <= maximum && distance / Math.max(candidate.length, wanted.length) <= 0.3
+    ? distance : null;
+}
+
+async function searchCloseTitles(query: string) {
+  const word = titleForComparison(query).split(" ").find((part) => part.length >= 4);
+  if (!word || query.length > 80) return [];
+  // A bounded candidate lookup, followed by full-title comparison. Never
+  // treat a shared word alone as evidence that a different title is a typo.
+  const candidates = await searchCachedBooks(word.slice(0, 2));
+  return candidates
+    .filter((book) => closeTitleDistance(book.title, query) !== null)
+    .sort((a, b) => closeTitleDistance(a.title, query)! - closeTitleDistance(b.title, query)!)
+    .slice(0, 5);
 }
 
 function scoreBook(book: SearchBook, query: string) {
@@ -124,7 +180,9 @@ function mapGoogleBook(item: any): SearchBook | null {
 
   const cover = rawCover
     ? String(rawCover).replace(/^http:/, "https:")
-    : null;
+    : isbn13 || isbn10
+      ? `https://covers.openlibrary.org/b/isbn/${isbn13 || isbn10}-L.jpg?default=false`
+      : null;
 
   return {
     id: `google-${item.id}`,
@@ -218,10 +276,6 @@ async function searchOpenLibrary(
             ? doc.author_name.slice(0, 3).join(", ")
             : "Unknown author";
 
-        const cover = doc.cover_i
-          ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg?default=false`
-          : null;
-
         const isbns = Array.isArray(doc.isbn) ? doc.isbn : [];
 
         const isbn13 =
@@ -233,6 +287,12 @@ async function searchOpenLibrary(
           isbns.find((value: string) =>
             /^\d{10}$/.test(String(value))
           ) || null;
+
+        const cover = doc.cover_i
+          ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg?default=false`
+          : isbn13 || isbn10
+            ? `https://covers.openlibrary.org/b/isbn/${isbn13 || isbn10}-L.jpg?default=false`
+            : null;
 
         const bestEdition = doc.editions?.docs?.[0];
 
@@ -410,6 +470,12 @@ export async function GET(request: NextRequest) {
       )
       .slice(0, 12);
 
+    const cleanQuery = normalizeText(query);
+    const hasStrongMatch = combinedBooks.some((book) =>
+      normalizeText(book.title).startsWith(cleanQuery) || normalizeText(book.author).includes(cleanQuery)
+    );
+    const suggestions = hasStrongMatch ? [] : await searchCloseTitles(query);
+
     /*
      * Save what we discovered so the next
      * person doesn't need the external search.
@@ -421,6 +487,7 @@ export async function GET(request: NextRequest) {
         books: ranked.map(
           ({ popularity, ...book }) => book
         ),
+        suggestions: suggestions.map(({ popularity, ...book }) => book),
       },
       {
         headers: {
