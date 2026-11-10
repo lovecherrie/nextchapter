@@ -18,6 +18,7 @@ export default function SearchPage() {
   const [books, setBooks] = useState<BookResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [error, setError] = useState("");
 
   async function searchBooks(event: FormEvent) {
     event.preventDefault();
@@ -26,16 +27,20 @@ export default function SearchPage() {
 
     setLoading(true);
     setSearched(true);
+    setError("");
 
     try {
       const response = await fetch(
         `/api/books/search?q=${encodeURIComponent(clean)}`,
         { cache: "no-store" }
       );
+      if (!response.ok) throw new Error("Book search failed");
       const data = await response.json();
+      if (data.error) throw new Error("Book search failed");
       setBooks(Array.isArray(data.books) ? data.books : []);
     } catch {
       setBooks([]);
+      setError("Book search is unavailable right now. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -92,6 +97,11 @@ export default function SearchPage() {
           </form>
 
           <div className="mt-7 space-y-3">
+            {error && (
+              <p role="alert" className="text-sm text-[var(--aepilog-cherry)]">
+                {error}
+              </p>
+            )}
             {books.map((book, index) => {
               const cover = book.cover || book.cover_url;
               return (
@@ -132,7 +142,7 @@ export default function SearchPage() {
               );
             })}
 
-            {!loading && searched && books.length === 0 && (
+            {!loading && !error && searched && books.length === 0 && (
               <div className="rounded-[22px] border border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] p-6 text-sm text-[var(--aepilog-muted)]">
                 No books found. Try a longer title or the author&apos;s name.
               </div>

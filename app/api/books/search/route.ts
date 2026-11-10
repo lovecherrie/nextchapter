@@ -388,53 +388,22 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    /*
-     * First ask Aepilog's own database.
-     */
-    const cachedBooks = await searchCachedBooks(query);
+    // Search every source so a partial cached match cannot hide better results.
+    // Each source handles failures independently, preserving cached results
+    // when either external provider is unavailable.
+    const [cachedBooks, googleBooks, openLibraryBooks] = await Promise.all([
+      searchCachedBooks(query),
+      searchGoogleBooks(query),
+      searchOpenLibrary(query),
+    ]);
 
-    const rankedCached = dedupeBooks(cachedBooks)
-      .sort(
-        (a, b) =>
-          scoreBook(b, query) - scoreBook(a, query)
-      )
-      .slice(0, 12);
-
-    /*
-     * If Aepilog already knows matching books,
-     * show those immediately.
-     */
-    if (rankedCached.length > 0) {
-      return NextResponse.json(
-        {
-          books: rankedCached.map(
-            ({ popularity, ...book }) => book
-          ),
-        },
-        {
-          headers: {
-            "Cache-Control": "no-store",
-          },
-        }
-      );
-    }
-
-    /*
-     * Nothing cached yet:
-     * search Google Books + Open Library.
-     */
-    const [googleBooks, openLibraryBooks] =
-      await Promise.all([
-        searchGoogleBooks(query),
-        searchOpenLibrary(query),
-      ]);
-
-    const externalBooks = dedupeBooks([
+    const combinedBooks = dedupeBooks([
+      ...cachedBooks,
       ...googleBooks,
       ...openLibraryBooks,
     ]);
 
-    const ranked = externalBooks
+    const ranked = combinedBooks
       .sort(
         (a, b) =>
           scoreBook(b, query) - scoreBook(a, query)
