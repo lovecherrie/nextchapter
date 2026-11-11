@@ -1095,7 +1095,7 @@ export default function ProfilePage() {
                 type="button"
                 onClick={closeTopBooksEditor}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xl leading-none text-stone-400 transition hover:bg-stone-100 hover:text-stone-700"
-                aria-label="Close"
+                aria-label="Close Top 4 editor"
               >
                 ×
               </button>
@@ -1280,7 +1280,7 @@ export default function ProfilePage() {
                 type="button"
                 onClick={closeEditProfile}
                 className="flex h-9 w-9 items-center justify-center rounded-full text-xl leading-none text-stone-400 transition hover:bg-stone-100 hover:text-stone-700"
-                aria-label="Close"
+                aria-label="Close profile editor"
               >
                 ×
               </button>

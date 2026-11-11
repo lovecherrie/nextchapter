@@ -1446,9 +1446,10 @@ export default function AepilogFindBooks() {
                                 book.id
                               )
                             }
-                            className="flex h-8 w-8 items-center justify-center rounded-full text-stone-400 transition hover:bg-white hover:text-stone-700"
+                            aria-label={`Remove ${book.title} from books you loved`}
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-stone-400 transition hover:bg-white hover:text-stone-700"
                           >
-                            Close
+                            <span aria-hidden="true" className="text-lg leading-none">×</span>
                           </button>
 
                         </div>
@@ -1643,9 +1644,10 @@ export default function AepilogFindBooks() {
                                 book.id
                               )
                             }
-                            className="flex h-8 w-8 items-center justify-center rounded-full text-stone-400 transition hover:bg-white hover:text-stone-700"
+                            aria-label={`Remove ${book.title} from books that weren't for you`}
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-stone-400 transition hover:bg-white hover:text-stone-700"
                           >
-                            Close
+                            <span aria-hidden="true" className="text-lg leading-none">×</span>
                           </button>
 
                         </div>
@@ -1950,9 +1952,10 @@ export default function AepilogFindBooks() {
                     false
                   )
                 }
+                aria-label="Close recommendations"
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-500 transition hover:bg-stone-100"
               >
-                Close
+                <span aria-hidden="true" className="text-xl leading-none">×</span>
               </button>
 
             </div>

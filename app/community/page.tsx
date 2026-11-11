@@ -1779,6 +1779,7 @@ export default function CommunityPage() {
 
               <button
                 onClick={closeCreateModal}
+                aria-label="Close discussion editor"
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f6eeea] text-xl"
               >
                 ×
@@ -1966,6 +1967,7 @@ export default function CommunityPage() {
               <button
                 type="button"
                 onClick={closeRateModal}
+                aria-label="Close rating editor"
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f6eeea] text-xl"
               >
                 ×
