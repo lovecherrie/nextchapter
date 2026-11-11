@@ -126,6 +126,7 @@ async function askGemini(prompt: string, signal?: AbortSignal): Promise<Recommen
         generationConfig: {
           temperature: 0.35,
           responseMimeType: "application/json",
+          maxOutputTokens: 4096,
           thinkingConfig: { thinkingLevel: "LOW" },
         },
       }),
@@ -168,6 +169,7 @@ async function askOpenRouter(prompt: string, signal?: AbortSignal): Promise<Reco
       body: JSON.stringify({
         model: "openrouter/free",
         reasoning: { effort: "low" },
+        max_tokens: 4096,
         messages: [
           {
             role: "system",

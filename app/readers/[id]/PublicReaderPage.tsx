@@ -108,7 +108,7 @@ export default function PublicReaderPage({ userId }: { userId: string }) {
         <section className="mt-7 rounded-[28px] border border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] p-5 sm:p-7">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div className="flex min-w-0 items-center gap-4">
-              <ReaderAvatar name={reader.display_name} large />
+              <ReaderAvatar name={reader.display_name} path={reader.avatar_path} large />
               <div className="min-w-0"><p className="text-xs font-bold uppercase tracking-widest text-[var(--aepilog-cherry-soft)]">aepilog reader</p><h1 className="aepilog-heading mt-2 break-words text-3xl font-medium sm:text-4xl">{reader.display_name}</h1></div>
             </div>
             <FollowButton reader={reader} viewerId={viewerId} following={following.has(userId)} onChange={(next) => changed(userId, next)} />

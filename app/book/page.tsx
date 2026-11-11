@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import SiteHeader from "../components/SiteHeader";
 import { ReaderName } from "../components/ReaderSocial";
+import BookShareButton from "../components/BookShareButton";
 import { supabase } from "@/lib/supabase";
 
 type Rating = {
@@ -1798,6 +1799,8 @@ function BookPageContent() {
                   by {bookAuthor}
                 </p>
               )}
+
+              <div className="mt-4"><BookShareButton book={{ title: bookTitle, author: bookAuthor, cover: enrichedCover || bookCover, href: `/book?${new URLSearchParams({ book: bookExternalId, title: bookTitle, author: bookAuthor, ...(enrichedCover || bookCover ? { cover: enrichedCover || bookCover } : {}) })}` }} rating={ratings.find((item) => item.user_id === guestUserId)?.overall_rating} readerName={guestUsername} /></div>
 
               <div className="mt-4 flex flex-wrap gap-2">
                 {bookMeta.publishedDate && (

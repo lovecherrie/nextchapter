@@ -4,11 +4,25 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { avatarUrl } from "@/lib/reader-photos";
+import { readerPortrait, rememberReaderPhoto } from "@/lib/reader-portraits";
 import { currentReaderId, getReader, readerHref, setReaderFollowing, updateReaderVisibility, validReaderId, type Reader } from "@/lib/readers";
 
 export function ReaderName({ userId, name, className = "" }: { userId: string; name: string; className?: string }) {
+  const [path, setPath] = useState<string | null>(null);
+  useEffect(() => {
+    if (!validReaderId(userId)) return;
+    let current = true;
+    void readerPortrait(userId).then((value) => { if (current) setPath(value); });
+    const changed = (event: Event) => {
+      const photo = (event as CustomEvent<{ userId: string; path: string | null }>).detail;
+      if (photo.userId === userId) { rememberReaderPhoto(userId, photo.path); setPath(photo.path); }
+    };
+    window.addEventListener("aepilog-photo-changed", changed);
+    return () => { current = false; window.removeEventListener("aepilog-photo-changed", changed); };
+  }, [userId]);
   return validReaderId(userId)
-    ? <a href={readerHref(userId)} className={`hover:underline ${className}`}>{name}</a>
+    ? <a href={readerHref(userId)} className={`inline-flex items-center gap-2 hover:underline ${className}`}><ReaderAvatar name={name} path={path} small />{name}</a>
     : <span className={className}>{name}</span>;
 }
 
@@ -26,9 +40,11 @@ export function useReaderViewer() {
   return viewerId;
 }
 
-export function ReaderAvatar({ name, large = false }: { name: string; large?: boolean }) {
-  return <div aria-hidden="true" className={`flex shrink-0 items-center justify-center rounded-full bg-[var(--aepilog-blush)] font-semibold text-[var(--aepilog-cherry)] ${large ? "h-20 w-20 text-3xl" : "h-12 w-12 text-lg"}`}>
-    {Array.from(name.trim())[0]?.toUpperCase() || "R"}
+export function ReaderAvatar({ name, path, large = false, small = false }: { name: string; path?: string | null; large?: boolean; small?: boolean }) {
+  const [failed, setFailed] = useState<string | null>(null);
+  const url = avatarUrl(path);
+  return <div aria-hidden="true" className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--aepilog-blush)] font-semibold text-[var(--aepilog-cherry)] ${large ? "h-20 w-20 text-3xl" : small ? "h-7 w-7 text-xs" : "h-12 w-12 text-lg"}`}>
+    {url && failed !== url ? <img src={url} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" onError={() => setFailed(url)} /> : Array.from(name.trim())[0]?.toUpperCase() || "R"}
   </div>;
 }
 
@@ -78,7 +94,7 @@ export function ReaderTile({ reader, viewerId, following, onFollowChange }: {
   return <article className="rounded-[22px] border border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] p-4 sm:p-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <a href={readerHref(reader.user_id)} className="flex min-w-0 flex-1 items-center gap-3">
-        <ReaderAvatar name={reader.display_name} />
+        <ReaderAvatar name={reader.display_name} path={reader.avatar_path} />
         <div className="min-w-0">
           <h2 className="aepilog-heading break-words text-xl font-medium text-[var(--aepilog-ink)]">{reader.display_name}</h2>
           <p className="mt-1 text-xs text-[var(--aepilog-muted)]">{reader.follower_count} {Number(reader.follower_count) === 1 ? "follower" : "followers"}</p>

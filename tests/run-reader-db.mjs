@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 
 // Always target this machine's local daemon, never a saved remote Docker context.
@@ -20,11 +20,12 @@ try {
     try { docker(['exec', container, 'pg_isready', '-U', 'postgres']); ready = true; break; } catch { await new Promise(resolve => setTimeout(resolve, 250)); }
   }
   if (!ready) throw new Error('Local PostgreSQL did not become ready');
-  const files = ['fixtures/reader-database.sql', '../supabase/migrations/202611110001_reader_profiles_and_follows.sql', '../supabase/migrations/202611110002_community_write_ownership.sql', 'sql/reader-security.sql'];
+  const migrations = readdirSync(new URL('../supabase/migrations/', import.meta.url)).filter(name => name.endsWith('.sql')).sort().map(name => `../supabase/migrations/${name}`);
+  const files = ['fixtures/reader-database.sql', ...migrations, 'sql/reader-security.sql', 'sql/reader-photos.sql'];
   for (const file of files) {
     const sql = readFileSync(new URL(file, import.meta.url), 'utf8');
     const output = docker(['exec', '-i', container, 'psql', '-U', 'postgres', '-v', 'ON_ERROR_STOP=1'], sql);
-    if (file.endsWith('reader-security.sql')) process.stdout.write(output);
+    if (file.startsWith('sql/')) process.stdout.write(output);
   }
 } finally {
   if (started) docker(['rm', '-f', container]);

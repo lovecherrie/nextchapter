@@ -1,7 +1,7 @@
 import { supabase } from "@/lib/supabase";
 
 export const READER_PAGE_SIZE = 20;
-export const READER_COLUMNS = "user_id,display_name,bio,is_public,show_activity,created_at,follower_count,following_count";
+export const READER_COLUMNS = "user_id,display_name,bio,is_public,show_activity,created_at,follower_count,following_count,avatar_path";
 export type Reader = {
   user_id: string;
   display_name: string;
@@ -11,6 +11,7 @@ export type Reader = {
   created_at: string;
   follower_count: number;
   following_count: number;
+  avatar_path: string | null;
 };
 export type ReaderBook = { id: string; external_id: string; title: string; author: string | null; cover_url: string | null };
 export type ReaderActivity = {

@@ -1479,10 +1479,6 @@ export default function CommunityPage() {
                 <div className="p-4 sm:p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f2dddd]">
-
-                      </div>
-
                       <div>
                         <ReaderName userId={post.user_id} name={post.username} className="font-bold text-[#5b4444]" />
 

@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import SiteHeader from "../components/SiteHeader";
 import { ReaderProfileSettings } from "../components/ReaderSocial";
+import ProfilePhotoEditor from "../components/ProfilePhotoEditor";
+import BookShareButton from "../components/BookShareButton";
 import { supabase } from "@/lib/supabase";
 
 type Book = {
@@ -688,9 +690,7 @@ export default function ProfilePage() {
         <section className="rounded-[32px] border border-stone-200 bg-[#fffdf8] p-6 shadow-sm md:p-8">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#EBCFD0] text-xl font-semibold text-[#8F2635]">
-                {username.slice(0, 1).toUpperCase()}
-              </div>
+              {userId && <ProfilePhotoEditor key={userId} userId={userId} name={username} />}
 
               <div>
                 <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#B65A65]">
@@ -958,14 +958,14 @@ export default function ProfilePage() {
           ) : (
             <div className="mt-5 grid gap-3">
               {ratings.map((rating) => (
+                <article key={rating.id} className="rounded-2xl border border-stone-200 bg-white p-4 transition hover:border-[#E6D8D4] hover:bg-[#FFFDF9]">
                 <a
-                  key={rating.id}
                   href={
                     rating.books
                       ? bookHref(rating.books)
                       : "#"
                   }
-                  className="flex items-center gap-4 rounded-2xl border border-stone-200 bg-white p-4 transition hover:border-[#E6D8D4] hover:bg-[#FFFDF9]"
+                  className="flex items-center gap-4"
                 >
                   <div className="h-20 w-14 shrink-0 overflow-hidden rounded-lg bg-[#eee8dc]">
                     {rating.books?.cover_url ? (
@@ -1002,6 +1002,8 @@ export default function ProfilePage() {
                     {Number(rating.overall_rating).toFixed(1)}
                   </div>
                 </a>
+                {rating.books && <div className="mt-3 flex justify-end"><BookShareButton book={{ title: rating.books.title, author: rating.books.author || "", cover: rating.books.cover_url, href: bookHref(rating.books) }} rating={Number(rating.overall_rating)} readerName={username} /></div>}
+                </article>
               ))}
             </div>
           )}

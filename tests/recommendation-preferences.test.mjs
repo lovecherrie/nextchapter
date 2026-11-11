@@ -134,7 +134,9 @@ test('a fast primary does not spend a free backup request',async()=>{
 test('both existing providers receive a bounded reasoning setting without changing the models', async () => {
  const primary = await requestRecommendations({});
  assert.equal(primary.providerBodies[0].generationConfig.thinkingConfig.thinkingLevel, 'LOW');
+ assert.equal(primary.providerBodies[0].generationConfig.maxOutputTokens, 4096);
  const backup = await requestRecommendations({}, {race:true,stall:true});
  assert.equal(backup.providerBodies[1].model, 'openrouter/free');
  assert.equal(backup.providerBodies[1].reasoning.effort, 'low');
+ assert.equal(backup.providerBodies[1].max_tokens, 4096);
 });
