@@ -1,6 +1,6 @@
 # Aepilog handover
 
-Updated 11 November 2026. Read `AGENTS.md` and the relevant installed Next.js documentation before coding. This document records project context and verified work; confirm the current Git status and deployment before proceeding.
+Updated 11 November 2026. Feature implementation deployed successfully from commit `d019768`. Read `AGENTS.md` and the relevant installed Next.js documentation before coding. This document records project context and verified work; confirm the current Git status and deployment before proceeding.
 
 ## Project and workflow
 
@@ -38,11 +38,11 @@ The third migration appends `avatar_path` to the `security_invoker` reader view,
 - `npm run test:db`: disposable local PostgreSQL tests for all migrations, reader privacy, activity ownership, avatar paths, cross-account writes, guest restrictions and removal. This command explicitly uses the local Docker socket and never targets production.
 - Production build succeeds. New photo/sharing modules pass ESLint with only image-element warnings. The repository has pre-existing lint errors; do not describe the full lint command as clean.
 - Isolated Playwright fixtures at 390px and 1440px verified photo preview/cancel, JPEG compression, save/reload, failed upload preservation, replacement cleanup, public profile display, removal, PNG dimensions/download, native-share invocation, copied links, rating opt-out, modal Escape/focus, and no horizontal overflow. Recommendation cancellation/retry/preferences and prior reader/follow/privacy flows also passed browser checks. Mock browser tests do not prove Safari/Instagram-specific behaviour or production authenticated uploads.
-- AI latency is still variable. Three production checks after reducing reasoning took 13.32s, 56.80s (another five), and 4.77s (philosophy/psychology). All returned five books; the second batch had no overlap with the first. These measurements preceded the added 4,096-token ceiling. Do not promise instant recommendations or claim the free provider's queueing is fixed.
+- Read-only live browser checks also passed: reader directory/search/profile, signed-out follow login, existing-book sharing, real cover fetch/fallback, mobile preview and 1080×1920 PNG download. No production test posts, ratings, accounts or photos were created.
+- AI latency is still variable. Final production checks after the reasoning/output limits took 8.34s, 8.67s (another five), and 7.39s (philosophy/psychology). All returned five distinct books; the second batch had no overlap with the first. An earlier check took 56.80s, so do not promise instant recommendations or claim the free provider's queueing is fixed.
 
 ## Deferred work
 
 - Integrate the owner's approved logo/Figma design.
 - Finalize broader reading-style/avoid options and a nonfiction-friendly rating redesign with the owner; those decisions were intentionally deferred.
 - Continue measuring recommendation latency before selecting a different model or adding paid services. No new paid AI service was authorized by this implementation.
-
