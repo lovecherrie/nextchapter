@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import SiteHeader from "../components/SiteHeader";
+import { ReaderName } from "../components/ReaderSocial";
 import { supabase } from "@/lib/supabase";
 
 type Rating = {
@@ -27,6 +28,7 @@ type Rating = {
 
 type DiscussionPost = {
   id: string;
+  user_id: string;
   username: string;
   content: string;
   contains_spoilers: boolean;
@@ -2385,14 +2387,7 @@ function BookPageContent() {
 
                         <div>
 
-                          <button
-                            type="button"
-                            className="font-semibold hover:underline"
-                          >
-                            {
-                              rating.username
-                            }
-                          </button>
+                          <ReaderName userId={rating.user_id} name={rating.username} className="font-semibold" />
 
                           <div className="mt-2 flex items-end gap-2">
 
@@ -2786,14 +2781,7 @@ function BookPageContent() {
 
                           <div>
 
-                            <button
-                              type="button"
-                              className="font-semibold hover:underline"
-                            >
-                              {
-                                post.username
-                              }
-                            </button>
+                            <ReaderName userId={post.user_id} name={post.username} className="font-semibold" />
 
                             <div className="mt-2">
 

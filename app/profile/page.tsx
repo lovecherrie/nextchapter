@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import SiteHeader from "../components/SiteHeader";
+import { ReaderProfileSettings } from "../components/ReaderSocial";
 import { supabase } from "@/lib/supabase";
 
 type Book = {
@@ -725,6 +726,8 @@ export default function ProfilePage() {
             </div>
           </div>
         </section>
+
+        {userId && <ReaderProfileSettings userId={userId} />}
 
         <section className="mt-6 rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 md:p-7">
           <div className="flex items-start justify-between gap-4">
