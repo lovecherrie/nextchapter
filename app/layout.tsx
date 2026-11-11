@@ -17,6 +17,7 @@ const fraunces = Fraunces({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.aepilog.com"),
+  verification: { google: "H1OwA9BcZoVaSySdQlWPvCcSLYYpsl62rZR8KW0iXGs" },
   title: { default: "aepilog — Discover books and track your reading", template: "%s | aepilog" },
   description:
     "A book community for discovering, logging, rating, and talking about what you read.",
