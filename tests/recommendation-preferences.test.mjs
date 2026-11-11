@@ -63,6 +63,7 @@ async function requestRecommendations(body, scenario = {}) {
   let backupCalls = 0;
   let primaryAborted = false;
   let capturedPrompt = '';
+  const providerBodies = [];
   const context = {
     exports: {}, URL, URLSearchParams, Response, AbortController, AbortSignal, setTimeout: (fn, ms) => setTimeout(fn, scenario.race && ms === 3000 ? 5 : ms), clearTimeout,
     process: { env: { GEMINI_API_KEY: 'test-fixture-only', ...(scenario.race ? { OPENROUTER_API_KEY: 'test-backup-only' } : {}) } },
@@ -77,6 +78,7 @@ async function requestRecommendations(body, scenario = {}) {
       throw new Error(`Unexpected dependency: ${name}`);
     },
     async fetch(url, options) {
+      if (url.includes('openrouter.ai') || url.includes('generativelanguage.googleapis.com')) providerBodies.push(JSON.parse(options.body));
       if (url.includes('openrouter.ai')) {
         backupCalls++;
         const recommendations = Array.from({ length: 7 }, (_, i) => ({ title: `Backup Book ${i + 1}`, author: 'Fixture Author', reason: 'Fixture reasoning.' }));
@@ -93,7 +95,7 @@ async function requestRecommendations(body, scenario = {}) {
   };
   vm.runInNewContext(compiled('../app/api/recommend/route.ts'), context);
   const response = await context.exports.POST(new Request('http://localhost/api/recommend', { method: 'POST', body: JSON.stringify(body) }));
-  return { prompt: capturedPrompt, response, data: await response.json(), backupCalls, primaryAborted };
+  return { prompt: capturedPrompt, response, data: await response.json(), backupCalls, primaryAborted, providerBodies };
 }
 
 test('the real recommendation route sends categories and priorities to the AI provider', async () => {
@@ -127,4 +129,12 @@ test('a stalled primary can be rescued by the existing backup without waiting fo
 test('a fast primary does not spend a free backup request',async()=>{
  const result = await requestRecommendations({}, {race:true});
  assert.equal(result.response.status,200);assert.equal(result.backupCalls,0);
+});
+
+test('both existing providers receive a bounded reasoning setting without changing the models', async () => {
+ const primary = await requestRecommendations({});
+ assert.equal(primary.providerBodies[0].generationConfig.thinkingConfig.thinkingLevel, 'LOW');
+ const backup = await requestRecommendations({}, {race:true,stall:true});
+ assert.equal(backup.providerBodies[1].model, 'openrouter/free');
+ assert.equal(backup.providerBodies[1].reasoning.effort, 'low');
 });

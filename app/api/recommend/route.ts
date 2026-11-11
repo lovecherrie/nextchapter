@@ -126,6 +126,7 @@ async function askGemini(prompt: string, signal?: AbortSignal): Promise<Recommen
         generationConfig: {
           temperature: 0.35,
           responseMimeType: "application/json",
+          thinkingConfig: { thinkingLevel: "LOW" },
         },
       }),
     },
@@ -166,6 +167,7 @@ async function askOpenRouter(prompt: string, signal?: AbortSignal): Promise<Reco
       },
       body: JSON.stringify({
         model: "openrouter/free",
+        reasoning: { effort: "low" },
         messages: [
           {
             role: "system",
@@ -204,28 +206,29 @@ async function askOpenRouter(prompt: string, signal?: AbortSignal): Promise<Reco
   return parseRecommendations(text);
 }
 
-async function generateCandidates(prompt: string) {
+async function generateCandidates(prompt: string, signal?: AbortSignal) {
   const primary = new AbortController();
   const backup = new AbortController();
   const validate = (books: Recommendation[]) => {
     if (books.length < 5) throw new Error("Too few usable recommendations");
     return books;
   };
-  if (!process.env.GEMINI_API_KEY) return validate(await askOpenRouter(prompt));
-  if (!process.env.OPENROUTER_API_KEY) return validate(await askGemini(prompt));
+  if (!process.env.GEMINI_API_KEY) return validate(await askOpenRouter(prompt, signal));
+  if (!process.env.OPENROUTER_API_KEY) return validate(await askGemini(prompt, signal));
 
   // Keep a slow but valid primary answer eligible. After three seconds the
   // existing free backup may compete, rather than waiting for primary failure.
   let releaseBackup: () => void = () => {};
   const gate = new Promise<void>((resolve) => { releaseBackup = resolve; });
   const timer = setTimeout(releaseBackup, 3000);
-  const first = askGemini(prompt, primary.signal).then(validate).catch((error) => {
+  const first = askGemini(prompt, signal ? AbortSignal.any([signal, primary.signal]) : primary.signal).then(validate).catch((error) => {
     releaseBackup();
     throw error;
   });
   const second = gate.then(() => {
     if (backup.signal.aborted) throw new Error("Backup canceled");
-    return askOpenRouter(prompt, backup.signal);
+    if (signal?.aborted) throw new Error("Request canceled");
+    return askOpenRouter(prompt, signal ? AbortSignal.any([signal, backup.signal]) : backup.signal);
   }).then(validate);
   try {
     return await Promise.any([first, second]);
@@ -512,7 +515,7 @@ Return ONLY valid JSON in this exact shape:
 }
 `;
 
-    const candidates = await generateCandidates(prompt);
+    const candidates = await generateCandidates(prompt, req.signal);
     const generatedAt = Date.now();
 
     // ----------------------------------

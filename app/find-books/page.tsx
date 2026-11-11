@@ -2,10 +2,13 @@
 
 import {
   useEffect,
+  useRef,
   useState,
 } from "react";
 import SiteHeader from "../components/SiteHeader";
 import { supabase } from "@/lib/supabase";
+import { fetchJsonWithTimeout } from "@/lib/fetch-json";
+import RecommendationProgress from "../components/RecommendationProgress";
 import {
   BOOK_CATEGORIES, normalizeCategories, normalizeMatters,
   toggleCategory, visibleMatters,
@@ -34,6 +37,8 @@ type SelectedBook = {
 };
 
 export default function AepilogFindBooks() {
+  const recommendationRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => recommendationRequest.current?.abort(), []);
   const [
     likedBooks,
     setLikedBooks,
@@ -1074,7 +1079,9 @@ export default function AepilogFindBooks() {
 
   const getRec =
     async () => {
-      if (loading) return;
+      if (recommendationRequest.current) return;
+      const controller = new AbortController();
+      recommendationRequest.current = controller;
       setRecommendationError("");
       setLoading(true);
 
@@ -1095,12 +1102,13 @@ export default function AepilogFindBooks() {
             )
             .join(", ");
 
-        const response =
-          await fetch(
+        const data =
+          await fetchJsonWithTimeout(
             "/api/recommend",
             {
               method:
                 "POST",
+              signal: controller.signal,
 
               headers: {
                 "Content-Type":
@@ -1132,20 +1140,11 @@ export default function AepilogFindBooks() {
                     rejectedRecommendations,
                   }
                 ),
-            }
+            },
+            75000
           );
 
-        const data =
-          await response.json();
-
-        if (
-          !response.ok
-        ) {
-          throw new Error(
-            data.error ||
-              "Connection Error"
-          );
-        }
+        if (controller.signal.aborted) return;
 
         if (
           !data.recommendations ||
@@ -1181,10 +1180,14 @@ export default function AepilogFindBooks() {
           true
         );
       } catch (error) {
+        if (controller.signal.aborted) return;
         console.error("Recommendation request failed:", error);
         setRecommendationError("We couldn't find your next books right now. Please try again. Your choices are still saved.");
       } finally {
-        setLoading(false);
+        if (recommendationRequest.current === controller) {
+          recommendationRequest.current = null;
+          setLoading(false);
+        }
       }
     };
 
@@ -1884,6 +1887,8 @@ export default function AepilogFindBooks() {
 
           {/* GET RECOMMENDATIONS */}
 
+          {loading && !showResults && <RecommendationProgress onCancel={() => recommendationRequest.current?.abort()} />}
+
           {recommendationError && !showResults && (
             <p role="alert" className="text-sm text-[var(--aepilog-cherry)]">{recommendationError}</p>
           )}
@@ -2111,6 +2116,7 @@ export default function AepilogFindBooks() {
             {/* ANOTHER 5 */}
 
             <div className="sticky bottom-0 border-t border-stone-200 bg-[#fffdf9]/95 p-5 backdrop-blur">
+              {loading && <div className="mb-3"><RecommendationProgress onCancel={() => recommendationRequest.current?.abort()} /></div>}
               {recommendationError && (
                 <p role="alert" className="mb-3 text-sm text-[var(--aepilog-cherry)]">{recommendationError}</p>
               )}
