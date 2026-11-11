@@ -30,7 +30,7 @@ const googleItem = { volumeInfo: {
   imageLinks: { thumbnail: 'http://example.com/google-cover.jpg' }, pageCount: 300, publisher: 'Fixture Publisher',
 } };
 const libraryDoc = { key: '/works/OL1W', title: 'No Exit', author_name: ['Taylor Adams'], cover_i: 12345, isbn: ['123456789X'], first_publish_year: 2017 };
-async function bookDetails({ title = 'No Exit', google = [googleItem], library = [libraryDoc], googleUnavailable = false } = {}) {
+async function bookDetails({ title = 'No Exit', google = [googleItem], library = [libraryDoc], googleUnavailable = false, topics = false } = {}) {
   const calls = [];
   const context = {
     exports: {}, URLSearchParams, AbortController, setTimeout, clearTimeout,
@@ -47,7 +47,7 @@ async function bookDetails({ title = 'No Exit', google = [googleItem], library =
     },
   };
   vm.runInNewContext(compile('../app/api/book/details/route.ts'), context);
-  const response = await context.exports.GET({ nextUrl: new URL(`http://localhost/api/book/details?title=${encodeURIComponent(title)}&author=Taylor%20Adams`) });
+  const response = await context.exports.GET({ nextUrl: new URL(`http://localhost/api/book/details?title=${encodeURIComponent(title)}&author=Taylor%20Adams${topics ? '&topics=1' : ''}`) });
   return { response, data: await response.json(), calls };
 }
 
@@ -72,4 +72,12 @@ test('book details reject missing titles without querying providers', async () =
   const { response, calls } = await bookDetails({ title: '' });
   assert.equal(response.status, 400);
   assert.equal(calls.length, 0);
+});
+
+test('genre-only lookup merges catalog subjects and skips work descriptions', async () => {
+ const {data,calls,response}=await bookDetails({topics:true,google:[{volumeInfo:{...googleItem.volumeInfo,categories:['Fiction']}}],library:[{...libraryDoc,subject:['Thrillers','Suspense','Mystery']}]});
+ assert.equal(response.status,200);assert.deepEqual(data.categories,['Fiction','Thrillers','Suspense','Mystery']);assert.equal(calls.length,2);assert.equal('description' in data,false);
+});
+test('genre-only lookup does not use a different author’s same-title book',async()=>{
+ const {response}=await bookDetails({topics:true,google:[],library:[{...libraryDoc,author_name:['Wrong Author'],subject:['Romance']}]});assert.equal(response.status,503);
 });

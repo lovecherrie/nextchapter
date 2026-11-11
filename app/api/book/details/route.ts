@@ -210,7 +210,8 @@ async function getGoogleDetails(
 
 async function getOpenLibraryDetails(
   title: string,
-  author: string
+  author: string,
+  topicsOnly = false
 ) {
   const searchUrl =
     "https://openlibrary.org/search.json?" +
@@ -279,10 +280,13 @@ async function getOpenLibraryDetails(
   const doc =
     match.doc;
 
+  if (topicsOnly && (titleScore(doc.title || "", title) < 60 || !authorLooksCompatible((doc.author_name || []).join(", "), author))) return null;
+
   let description:
     string | null = null;
 
   if (
+    !topicsOnly &&
     typeof doc.key === "string" &&
     doc.key.startsWith(
       "/works/"
@@ -335,7 +339,7 @@ async function getOpenLibraryDetails(
         : null,
     categories:
       Array.isArray(doc.subject)
-        ? doc.subject.slice(0, 4)
+        ? doc.subject.slice(0, topicsOnly ? 80 : 4)
         : [],
     publisher: null,
     cover:
@@ -360,6 +364,7 @@ async function getOpenLibraryDetails(
 export async function GET(
   request: NextRequest
 ) {
+  const topicsOnly = request.nextUrl.searchParams.get("topics") === "1";
   const title =
     request.nextUrl.searchParams
       .get("title")
@@ -392,7 +397,8 @@ export async function GET(
         ),
         getOpenLibraryDetails(
           title,
-          author
+          author,
+          topicsOnly
         ),
       ]);
 
@@ -407,6 +413,11 @@ export async function GET(
       "fulfilled"
         ? openLibraryResult.value
         : null;
+
+    if (topicsOnly) {
+      if (!google && !openLibrary) return NextResponse.json({ error: "Book genres unavailable" }, { status: 503 });
+      return NextResponse.json({ categories: [...new Set([...(google?.categories || []), ...(openLibrary?.categories || [])].filter((value): value is string => typeof value === "string"))] }, { headers: { "Cache-Control": "public, max-age=3600" } });
+    }
 
     const description =
       google?.description ||

@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import SiteHeader from "../components/SiteHeader";
 import { ReaderName } from "../components/ReaderSocial";
 import { supabase } from "../../lib/supabase";
+import { COMMUNITY_GENRES, bookTopicKey, browseText, matchesCommunityGenre } from "@/lib/community-browse";
+import { useBookTopics } from "../components/useBookTopics";
 
 type Book = {
   id: string;
@@ -50,7 +52,7 @@ type DiscussionPost = {
   comments: Comment[];
 };
 
-type Filter = "top" | "newest" | "spoiler-free";
+type Filter = "top" | "newest";
 
 function timeAgo(dateString: string) {
   const date = new Date(dateString);
@@ -209,6 +211,13 @@ function HeartIcon({ filled }: { filled: boolean }) {
 export default function CommunityPage() {
   const [posts, setPosts] = useState<DiscussionPost[]>([]);
   const [filter, setFilter] = useState<Filter>("top");
+  const [browseOpen, setBrowseOpen] = useState(false);
+  const [genre, setGenre] = useState("");
+  const [authorQuery, setAuthorQuery] = useState("");
+  const [spoilerFree, setSpoilerFree] = useState(false);
+  const activeFilters = Number(!!genre) + Number(!!authorQuery.trim()) + Number(spoilerFree);
+  const topicBooks = useMemo(() => posts.flatMap((post) => post.books && browseText(post.books.author || "").includes(browseText(authorQuery)) ? [post.books] : []), [posts, authorQuery]);
+  const bookTopics = useBookTopics(topicBooks, !!genre);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -932,11 +941,14 @@ export default function CommunityPage() {
   const filteredPosts = useMemo(() => {
     let result = [...posts];
 
-    if (filter === "spoiler-free") {
+    if (spoilerFree) {
       result = result.filter(
         (post) => !post.contains_spoilers
       );
     }
+
+    if (authorQuery.trim()) result = result.filter((post) => browseText(post.books?.author || "").includes(browseText(authorQuery)));
+    if (genre) result = result.filter((post) => post.books && matchesCommunityGenre(genre, bookTopics.topics[bookTopicKey(post.books)] || []));
 
     if (filter === "top") {
       result.sort((a, b) => {
@@ -968,12 +980,12 @@ export default function CommunityPage() {
     }
 
     return result;
-  }, [posts, filter]);
+  }, [posts, filter, spoilerFree, authorQuery, genre, bookTopics.topics]);
 
   const featuredPost = useMemo(() => {
-    if (posts.length === 0) return null;
+    if (filteredPosts.length === 0) return null;
 
-    return [...posts].sort((a, b) => {
+    return [...filteredPosts].sort((a, b) => {
       const scoreA =
         a.discussion_likes.length + a.comments.length * 2;
       const scoreB =
@@ -988,11 +1000,11 @@ export default function CommunityPage() {
 
       return scoreB - scoreA;
     })[0];
-  }, [posts]);
+  }, [filteredPosts]);
 
   const totalComments = useMemo(
-    () => posts.reduce((total, post) => total + post.comments.length, 0),
-    [posts]
+    () => filteredPosts.reduce((total, post) => total + post.comments.length, 0),
+    [filteredPosts]
   );
 
   function renderComment(
@@ -1227,25 +1239,25 @@ export default function CommunityPage() {
         <div className="mb-5 grid gap-4 lg:grid-cols-[1fr_280px]">
           <div className="rounded-[20px] border border-[#e6d8d4] bg-[#fffdf9] p-4 shadow-sm sm:rounded-[24px] sm:p-6">
             <div className="inline-flex rounded-full bg-[#f6e8e6] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#8f2635] sm:text-xs">
-              Community spotlight
+              Community
             </div>
 
             <div className="mt-3 flex items-start justify-between gap-4">
               <div>
                 <h1 className="font-aepilog-serif text-[28px] font-medium leading-[1.08] text-[#3a2b2b] sm:text-4xl">
-                  What readers are talking about
+                  Book discussions
                 </h1>
 
                 <p className="mt-1.5 hidden max-w-2xl text-sm leading-5 text-[#756866] sm:block">
-                  See the conversations getting the most attention across aepilog.
+                  Browse posts about books.
                 </p>
               </div>
 
               {!loading && !error && (
                 <div className="hidden shrink-0 items-center gap-2 md:flex">
                   <div className="rounded-full border border-[#eaded9] bg-[#fbf5f1] px-3 py-1.5 text-xs font-semibold text-[#756866]">
-                    <span className="text-[#8f2635]">{posts.length}</span>{" "}
-                    {posts.length === 1 ? "discussion" : "discussions"}
+                    <span className="text-[#8f2635]">{filteredPosts.length}</span>{" "}
+                    {filteredPosts.length === 1 ? "discussion" : "discussions"}
                   </div>
                   <div className="rounded-full border border-[#eaded9] bg-[#fbf5f1] px-3 py-1.5 text-xs font-semibold text-[#756866]">
                     <span className="text-[#8f2635]">{totalComments}</span>{" "}
@@ -1292,9 +1304,9 @@ export default function CommunityPage() {
                   </div>
                 </div>
               </a>
-            ) : !loading && !error ? (
+            ) : !loading && !error && !activeFilters ? (
               <div className="mt-6 rounded-2xl border border-dashed border-[#e4d7d2] bg-[#fcf7f3] p-5 text-sm leading-6 text-[#756866]">
-                The first discussion will appear here once someone starts talking about a book.
+                {activeFilters ? "No matching discussions." : "No discussions yet."}
               </div>
             ) : null}
           </div>
@@ -1306,7 +1318,7 @@ export default function CommunityPage() {
               </h2>
 
               <p className="mt-1.5 hidden text-sm leading-5 text-[#f0d7d9] lg:block">
-                Share a theory, question, reaction, or unpopular opinion.
+                Post about a book.
               </p>
 
               <button
@@ -1320,11 +1332,11 @@ export default function CommunityPage() {
 
             <div className="flex h-full min-h-[132px] flex-col rounded-[22px] border border-[#8f2635] bg-[#fffdf9] p-4 text-[#8f2635] shadow-sm sm:min-h-0 sm:p-5 lg:block lg:h-auto">
               <h2 className="font-aepilog-serif text-[18px] font-medium leading-tight sm:text-xl">
-                Rate & remember
+                Rate a book
               </h2>
 
               <p className="mt-1.5 hidden text-sm leading-5 text-[#756866] lg:block">
-                Keep track of what you’ve read and what you thought.
+                Add your rating.
               </p>
 
               <button
@@ -1341,18 +1353,16 @@ export default function CommunityPage() {
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="font-aepilog-serif text-2xl font-medium text-[#3a2b2b] sm:text-2xl">
-              Community discussions
+              Discussions
             </h2>
 
-            <p className="mt-0.5 text-xs text-[#756866] sm:text-sm">
-              Jump into conversations from across aepilog.
-            </p>
           </div>
 
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
             <div className="grid w-full grid-cols-3 rounded-full border border-[#e4d7d2] bg-[#fffdf9] p-1 shadow-sm sm:flex sm:w-auto sm:flex-none">
               <button
                 onClick={() => setFilter("top")}
+                aria-pressed={filter === "top"}
                 className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold sm:px-4 sm:py-2 sm:text-sm ${
                   filter === "top"
                     ? "bg-[#8f2635] text-white"
@@ -1364,6 +1374,7 @@ export default function CommunityPage() {
 
               <button
                 onClick={() => setFilter("newest")}
+                aria-pressed={filter === "newest"}
                 className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold sm:px-4 sm:py-2 sm:text-sm ${
                   filter === "newest"
                     ? "bg-[#8f2635] text-white"
@@ -1373,25 +1384,34 @@ export default function CommunityPage() {
                 Newest
               </button>
 
-              <button
-                onClick={() =>
-                  setFilter("spoiler-free")
-                }
-                className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold sm:px-4 sm:py-2 sm:text-sm ${
-                  filter === "spoiler-free"
-                    ? "bg-[#8f2635] text-white"
-                    : "text-[#756866]"
-                }`}
-              >
-                Spoiler-free
+              <button type="button" onClick={() => setBrowseOpen((value) => !value)} aria-expanded={browseOpen} aria-controls="community-filters" className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold sm:px-4 sm:py-2 sm:text-sm ${browseOpen || activeFilters ? "bg-[#f6e8e6] text-[#8f2635]" : "text-[#756866]"}`}>
+                Filters{activeFilters ? ` (${activeFilters})` : ""}
               </button>
             </div>
           </div>
         </div>
 
+        {browseOpen && <div id="community-filters" className="mb-4 rounded-2xl border border-[#e6d8d4] bg-[#fffdf9] p-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="text-xs font-semibold text-[#756866]">Genre
+              <select aria-label="Genre" value={genre} onChange={(event) => setGenre(event.target.value)} className="mt-2 block w-full rounded-xl border border-[#e6d8d4] bg-white px-3 py-3 text-sm text-[#3a2b2b]">
+                <option value="">All genres</option>{Object.keys(COMMUNITY_GENRES).map((value) => <option key={value}>{value}</option>)}
+              </select>
+            </label>
+            <label className="text-xs font-semibold text-[#756866]">Author
+              <input type="search" value={authorQuery} onChange={(event) => setAuthorQuery(event.target.value)} placeholder="Any author" list="community-authors" className="mt-2 block w-full rounded-xl border border-[#e6d8d4] bg-white px-3 py-3 text-sm text-[#3a2b2b]" />
+              <datalist id="community-authors">{[...new Set(posts.map((post) => post.books?.author).filter(Boolean))].map((author) => <option key={author} value={author!} />)}</datalist>
+            </label>
+          </div>
+          <label className="mt-4 flex items-center gap-2 text-sm text-[#756866]"><input type="checkbox" checked={spoilerFree} onChange={(event) => setSpoilerFree(event.target.checked)} className="accent-[#8f2635]" />Spoiler-free only</label>
+        </div>}
+        {activeFilters > 0 && <div className="mb-4 flex flex-wrap items-center gap-3 text-xs text-[#756866]"><span>{[genre, authorQuery.trim(), spoilerFree ? "Spoiler-free" : ""].filter(Boolean).join(" · ")}</span><button type="button" onClick={() => { setGenre(""); setAuthorQuery(""); setSpoilerFree(false); }} className="py-2 font-semibold text-[#8f2635] underline">Clear filters</button></div>}
+        {!!genre && bookTopics.loading && <p role="status" className="mb-4 text-xs text-[#756866]">Checking book genres…</p>}
+        {!!genre && !bookTopics.loading && (bookTopics.failed || topicBooks.some((book) => !bookTopics.topics[bookTopicKey(book)]?.length)) && <p className="mb-4 text-xs leading-5 text-[#756866]">Some books have no genre information yet.{bookTopics.failed && <> <button type="button" onClick={bookTopics.retry} className="text-[#8f2635] underline">Try again</button></>}</p>}
+
         {loading && (
           <div className="rounded-[28px] border border-[#e6d8d4] bg-[#fffdf9] px-6 py-16 text-center">
-            Opening the reading room...
+            Loading discussions...
           </div>
         )}
 
@@ -1403,11 +1423,12 @@ export default function CommunityPage() {
 
         {!loading &&
           !error &&
+          !(genre && bookTopics.loading) &&
           filteredPosts.length === 0 && (
             <div className="rounded-[28px] border border-dashed border-[#dfcfca] bg-[#fffdf9] px-6 py-16 text-center">
               <div className="text-5xl"></div>
               <h3 className="font-aepilog-serif mt-5 text-xl font-medium sm:text-xl">
-                It&apos;s a little quiet in here.
+                {activeFilters ? "No discussions match these filters." : "No discussions yet."}
               </h3>
             </div>
           )}
@@ -1744,12 +1765,7 @@ export default function CommunityPage() {
         </div>
 
         <div className="mt-6 rounded-[20px] border border-[#e6d8d4] bg-[#fffdf9] px-4 py-3 text-center text-xs text-[#756866] sm:text-sm">
-          Posting as{" "}
-          <span className="font-bold">
-            {guestUsername ||
-              "temporary Bookworm"}
-          </span>
-          . Profiles are coming later.
+          {guestUsername ? <>Posting as <a href="/profile" className="font-semibold text-[#8f2635]">{guestUsername}</a>.</> : <a href="/auth" onClick={() => sessionStorage.setItem("nextchapter_return_after_auth", window.location.href)} className="font-semibold text-[#8f2635]">Sign in to post</a>}
         </div>
       </section>
 
@@ -1985,7 +2001,7 @@ export default function CommunityPage() {
                   setSelectedBook(null);
                   setBookQuery(event.target.value);
                 }}
-               
+
                 placeholder="Search for a book..."
                 className="w-full rounded-2xl border border-[#e2d4cf] bg-white px-4 py-3.5 outline-none focus:border-[#b65a65]"
               />

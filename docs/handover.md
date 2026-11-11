@@ -36,7 +36,7 @@ The third migration appends `avatar_path` to the `security_invoker` reader view,
 
 ## Verification and known limits
 
-- `npm test`: 72 application tests, including provider fallback/config, upload/save failure ordering, URL allowlisting, oversized cover responses and existing product regressions.
+- `npm test`: 77 application tests, including provider fallback/config, upload/save failure ordering, URL allowlisting, oversized cover responses and existing product regressions.
 - `npm run test:db`: disposable local PostgreSQL tests for all migrations, reader privacy, activity ownership, avatar paths, cross-account writes, guest restrictions and removal. This command explicitly uses the local Docker socket and never targets production.
 - Production build succeeds. New photo/sharing modules pass ESLint with only image-element warnings. The repository has pre-existing lint errors; do not describe the full lint command as clean.
 - Isolated Playwright fixtures at 390px and 1440px verified photo preview/cancel, JPEG compression, save/reload, failed upload preservation, replacement cleanup, public profile display, removal, PNG dimensions/download, native-share invocation, copied links, rating opt-out, modal Escape/focus, and no horizontal overflow. Recommendation cancellation/retry/preferences and prior reader/follow/privacy flows also passed browser checks. Mock browser tests do not prove Safari/Instagram-specific behaviour or production authenticated uploads.
@@ -48,3 +48,11 @@ The third migration appends `avatar_path` to the `security_invoker` reader view,
 - Integrate the owner's approved logo/Figma design.
 - Finalize broader reading-style/avoid options and a nonfiction-friendly rating redesign with the owner; those decisions were intentionally deferred.
 - Continue measuring recommendation latency before selecting a different model or adding paid services. No new paid AI service was authorized by this implementation.
+
+## Community browsing update
+
+The owner preferred the previous Community layout. The redesign in `be49f92` was reverted by `d2edfb3`; do not reintroduce its slogan-style copy. Keep labels plain. The original cream/burgundy layout is retained with optional collapsed Filters beside Top/Newest. All discussions show by default, with no onboarding prompts, persisted filter choices, or automatic personalisation.
+
+Optional filters support author text across books, catalogue-based genres, and a separate spoiler-free checkbox. Clear filters restores the full feed. Genre metadata is fetched only after a genre is selected, using a three-request concurrency limit and a bounded one-hour in-memory cache. The topics-only variant of `/api/book/details` combines Google Books categories and Open Library subjects and skips work-description fetching. Missing catalogue genres are acknowledged rather than guessed. Existing book-details responses remain unchanged when `topics=1` is absent. No database migration or AI classification was added.
+
+Browser fixtures at 390px/1440px verified the default full feed, zero automatic genre requests, author/genre/spoiler combinations, sorting while filtered, collapsed controls, clearing, and refresh restoring defaults. Catalogue checks included Book Lovers, Fourth Wing, and No Exit. Future personalised feeds based on Find Books history are explicitly deferred.
