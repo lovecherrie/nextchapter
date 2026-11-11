@@ -207,7 +207,8 @@ function mapGoogleBook(item: any): SearchBook | null {
 }
 
 async function fetchGoogleBooks(
-  searchQuery: string
+  searchQuery: string,
+  onFailure: () => void = () => {}
 ): Promise<SearchBook[]> {
   try {
     const url =
@@ -224,7 +225,7 @@ async function fetchGoogleBooks(
       signal: AbortSignal.timeout(3000),
     });
 
-    if (!response.ok) return [];
+    if (!response.ok) { onFailure(); return []; }
 
     const data = await response.json();
 
@@ -232,17 +233,19 @@ async function fetchGoogleBooks(
       .map(mapGoogleBook)
       .filter(Boolean) as SearchBook[];
   } catch (error) {
+    onFailure();
     console.error("Google Books search failed:", error);
     return [];
   }
 }
 
 async function searchGoogleBooks(
-  query: string
+  query: string,
+  onFailure: () => void = () => {}
 ): Promise<SearchBook[]> {
   const [broad, titleFocused] = await Promise.all([
-    fetchGoogleBooks(query),
-    fetchGoogleBooks(`intitle:${query}`),
+    fetchGoogleBooks(query, onFailure),
+    fetchGoogleBooks(`intitle:${query}`, onFailure),
   ]);
 
   return dedupeBooks([...broad, ...titleFocused]);
@@ -250,7 +253,8 @@ async function searchGoogleBooks(
 
 async function searchOpenLibrary(
   query: string,
-  limit = 20
+  limit = 20,
+  onFailure: () => void = () => {}
 ): Promise<SearchBook[]> {
   try {
     const url =
@@ -268,7 +272,7 @@ async function searchOpenLibrary(
       signal: AbortSignal.timeout(3000),
     });
 
-    if (!response.ok) return [];
+    if (!response.ok) { onFailure(); return []; }
 
     const data = await response.json();
 
@@ -335,6 +339,7 @@ async function searchOpenLibrary(
       })
       .filter(Boolean) as SearchBook[];
   } catch (error) {
+    onFailure();
     console.error("Open Library search failed:", error);
     return [];
   }
@@ -357,12 +362,14 @@ async function searchCachedBooks(
         .from("books")
         .select("id, external_id, title, author, cover_url")
         .ilike("title", `%${clean}%`)
+        .abortSignal(AbortSignal.timeout(2500))
         .limit(20),
 
       supabase
         .from("books")
         .select("id, external_id, title, author, cover_url")
         .ilike("author", `%${clean}%`)
+        .abortSignal(AbortSignal.timeout(2500))
         .limit(20),
     ]);
 
@@ -430,7 +437,7 @@ async function saveBooksToCache(books: SearchBook[]) {
       .upsert(rows, {
         onConflict: "external_id",
         ignoreDuplicates: true,
-      });
+      }).abortSignal(AbortSignal.timeout(1200));
 
     if (error) {
       console.error("Book cache save failed:", error);
@@ -446,6 +453,9 @@ async function saveBooksToCache(books: SearchBook[]) {
 |--------------------------------------------------------------------------
 */
 
+// Cache complete merged results, never a partial database-only match or an empty failure.
+const recentSearches = new Map<string, { expires: number; payload: { books: Omit<SearchBook, "popularity">[]; suggestions: Omit<SearchBook, "popularity">[] } }>();
+
 export async function GET(request: NextRequest) {
   const query =
     request.nextUrl.searchParams.get("q")?.trim() || "";
@@ -454,14 +464,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ books: [] });
   }
 
+  const key = query.toLowerCase().replace(/\s+/g, " ");
+  const recent = recentSearches.get(key);
+  if (recent && recent.expires > Date.now()) return NextResponse.json(recent.payload, { headers: { "Cache-Control": "no-store" } });
+
   try {
     // Search every source so a partial cached match cannot hide better results.
     // Each source handles failures independently, preserving cached results
     // when either external provider is unavailable.
+    let googleFailures = 0;
+    let openLibraryFailed = false;
     const [cachedBooks, googleBooks, openLibraryBooks] = await Promise.all([
       searchCachedBooks(query),
-      searchGoogleBooks(query),
-      searchOpenLibrary(query),
+      searchGoogleBooks(query, () => { googleFailures++; }),
+      searchOpenLibrary(query, 20, () => { openLibraryFailed = true; }),
     ]);
 
     const combinedBooks = dedupeBooks([
@@ -483,19 +499,26 @@ export async function GET(request: NextRequest) {
     );
     const suggestions = hasStrongMatch ? [] : await searchCloseTitles(query);
 
+    if (!ranked.length && !suggestions.length && googleFailures === 2 && openLibraryFailed) {
+      return NextResponse.json({ books: [], error: "Book search is temporarily unavailable. Please try again." }, { status: 503 });
+    }
+
     /*
      * Save what we discovered so the next
      * person doesn't need the external search.
      */
     await saveBooksToCache(ranked);
 
+    const payload = {
+      books: ranked.map(({ popularity, ...book }) => book),
+      suggestions: suggestions.map(({ popularity, ...book }) => book),
+    };
+    if (payload.books.length || payload.suggestions.length) {
+      if (recentSearches.size >= 100) recentSearches.delete(recentSearches.keys().next().value!);
+      recentSearches.set(key, { expires: Date.now() + 30000, payload });
+    }
     return NextResponse.json(
-      {
-        books: ranked.map(
-          ({ popularity, ...book }) => book
-        ),
-        suggestions: suggestions.map(({ popularity, ...book }) => book),
-      },
+      payload,
       {
         headers: {
           "Cache-Control": "no-store",

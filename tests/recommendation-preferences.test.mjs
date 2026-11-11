@@ -67,6 +67,11 @@ async function requestRecommendations(body) {
     console: { log() {}, error() {} },
     require(name) {
       if (name === '@/lib/recommendation-preferences') return preferences;
+      if (name === '@/lib/fetch-json') {
+        const helper = { ...context, exports: {} };
+        vm.runInNewContext(compiled('../lib/fetch-json.ts'), helper);
+        return helper.exports;
+      }
       throw new Error(`Unexpected dependency: ${name}`);
     },
     async fetch(url, options) {

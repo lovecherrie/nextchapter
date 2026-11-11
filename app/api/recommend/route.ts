@@ -1,3 +1,4 @@
+import { fetchJsonWithTimeout } from "@/lib/fetch-json";
 import { recommendationPreferencePrompt } from "@/lib/recommendation-preferences";
 
 type Recommendation = {
@@ -99,24 +100,6 @@ function parseRecommendations(rawText: string): Recommendation[] {
     }));
 }
 
-async function fetchWithTimeout(
-  url: string,
-  options: RequestInit = {},
-  timeoutMs = 5000
-) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    return await fetch(url, {
-      ...options,
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
 async function askGemini(prompt: string): Promise<Recommendation[]> {
   const apiKey = process.env.GEMINI_API_KEY;
 
@@ -124,7 +107,7 @@ async function askGemini(prompt: string): Promise<Recommendation[]> {
     throw new Error("GEMINI_API_KEY is missing.");
   }
 
-  const response = await fetchWithTimeout(
+  const data = await fetchJsonWithTimeout(
     "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
     {
       method: "POST",
@@ -148,14 +131,7 @@ async function askGemini(prompt: string): Promise<Recommendation[]> {
     12000
   );
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `Gemini failed (${response.status}): ${errorText.slice(0, 500)}`
-    );
-  }
 
-  const data = await response.json();
   const text =
     data?.candidates?.[0]?.content?.parts
       ?.map((part: any) => part?.text || "")
@@ -175,7 +151,7 @@ async function askOpenRouter(prompt: string): Promise<Recommendation[]> {
     throw new Error("OPENROUTER_API_KEY is missing.");
   }
 
-  const response = await fetchWithTimeout(
+  const data = await fetchJsonWithTimeout(
     "https://openrouter.ai/api/v1/chat/completions",
     {
       method: "POST",
@@ -188,6 +164,7 @@ async function askOpenRouter(prompt: string): Promise<Recommendation[]> {
       },
       body: JSON.stringify({
         model: "openrouter/free",
+        provider: { sort: "latency" },
         messages: [
           {
             role: "system",
@@ -202,17 +179,10 @@ async function askOpenRouter(prompt: string): Promise<Recommendation[]> {
         temperature: 0.35,
       }),
     },
-    12000
+    60000
   );
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `OpenRouter failed (${response.status}): ${errorText.slice(0, 500)}`
-    );
-  }
 
-  const data = await response.json();
   const content = data?.choices?.[0]?.message?.content;
 
   const text =
@@ -305,21 +275,21 @@ async function getBookEvidence(
   });
 
   const [googleResult, openLibraryResult] = await Promise.allSettled([
-    fetchWithTimeout(
+    fetchJsonWithTimeout(
       `https://www.googleapis.com/books/v1/volumes?q=${googleQuery}&maxResults=10`,
       { next: { revalidate: 86400 } as any },
       2500
     ),
-    fetchWithTimeout(
+    fetchJsonWithTimeout(
       `https://openlibrary.org/search.json?${openLibraryQuery.toString()}`,
       { next: { revalidate: 86400 } as any },
       2500
     ),
   ]);
 
-  if (googleResult.status === "fulfilled" && googleResult.value.ok) {
+  if (googleResult.status === "fulfilled") {
     try {
-      const googleData = await googleResult.value.json();
+      const googleData = googleResult.value;
 
       for (const item of googleData?.items || []) {
         const info = item?.volumeInfo || {};
@@ -360,11 +330,10 @@ async function getBookEvidence(
   }
 
   if (
-    openLibraryResult.status === "fulfilled" &&
-    openLibraryResult.value.ok
+    openLibraryResult.status === "fulfilled"
   ) {
     try {
-      const openLibraryData = await openLibraryResult.value.json();
+      const openLibraryData = openLibraryResult.value;
 
       const match = (openLibraryData?.docs || []).find((book: any) => {
         const openTitle = book?.title || "";
@@ -414,6 +383,7 @@ async function getBookEvidence(
 }
 
 export async function POST(req: Request) {
+  const startedAt = Date.now();
   try {
     if (!process.env.GEMINI_API_KEY && !process.env.OPENROUTER_API_KEY) {
       return Response.json(
@@ -557,6 +527,7 @@ Return ONLY valid JSON in this exact shape:
 `;
 
     const candidates = await generateCandidates(prompt);
+    const generatedAt = Date.now();
 
     // ----------------------------------
     // HARD FILTERS
@@ -684,7 +655,7 @@ Return ONLY valid JSON in this exact shape:
 
     return Response.json({
       recommendations: finalFive,
-    });
+    }, { headers: { "Server-Timing": `ai;dur=${generatedAt - startedAt}, book_details;dur=${Date.now() - generatedAt}` } });
   } catch (error: any) {
     console.error("Recommendation error:", error);
 

@@ -16,9 +16,16 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "aepilog",
+  metadataBase: new URL("https://www.aepilog.com"),
+  title: { default: "aepilog — Discover books and track your reading", template: "%s | aepilog" },
   description:
     "A book community for discovering, logging, rating, and talking about what you read.",
+  openGraph: {
+    siteName: "aepilog",
+    title: "aepilog — Discover books and track your reading",
+    description: "Discover your next book, track your reading, and connect with other readers on aepilog.",
+    type: "website",
+  },
 };
 
 export default function RootLayout({

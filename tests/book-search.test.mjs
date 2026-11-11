@@ -11,19 +11,25 @@ const source = ts.transpileModule(
   { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }
 ).outputText;
 
-function setup({ cached = [], google = [], openLibraryCandidates = [], providerFailure = false, cacheFailure = false } = {}) {
+function setup({ cached = [], google = [], openLibraryCandidates = [], providerFailure = false, cacheFailure = false, stallCache = false, stallSave = false } = {}) {
   const calls = { providers: 0, writes: [] };
   const database = {
-    select() { return this; },
+    select() { return this; }, abortSignal(signal) { this.signal = signal; return this; },
     ilike(column, pattern) { this.column = column; this.term = pattern.slice(1, -1).toLowerCase(); return this; },
     limit() {
+      if (stallCache) {
+        const signal = this.signal;
+        return new Promise(resolve => signal.addEventListener('abort', () => resolve({ data: null, error: { message: 'Timed out' } }), { once: true }));
+      }
       const data = cached.filter((book) => String(book[this.column] || '').toLowerCase().includes(this.term));
       return Promise.resolve({ data: cacheFailure ? null : data, error: cacheFailure ? { message: 'Cache unavailable' } : null });
     },
-    upsert(rows) { calls.writes.push(...rows); return Promise.resolve({ error: null }); }
+    upsert(rows) { calls.writes.push(...rows); return { abortSignal: (signal) => stallSave
+      ? new Promise(resolve => signal.addEventListener('abort', () => resolve({ error: { message: 'Timed out' } }), { once: true }))
+      : Promise.resolve({ error: null }) }; }
   };
   const context = {
-    exports: {}, console: { error() {} }, URL, URLSearchParams, AbortSignal,
+    exports: {}, console: { error() {} }, URL, URLSearchParams, AbortSignal: { timeout: ms => AbortSignal.timeout(stallCache || stallSave ? Math.min(ms, 10) : ms) },
     require(name) {
       if (name === 'next/server') return { NextResponse: { json: (body) => ({ json: async () => body }) } };
       if (name === '@/lib/supabase') return { supabase: { from: () => database } };
@@ -161,4 +167,35 @@ test('an unrelated provider candidate is never shown as a spelling suggestion', 
 test('cached spelling suggestions survive an Open Library outage', async () => {
   const app = setup({ cached: [noExit], providerFailure: true });
   assert.equal((await app.search('no exir')).suggestions[0].title, 'No Exit');
+});
+
+test('repeat searches reuse a complete merged response without new provider calls',async()=>{
+ const app=setup({cached:[cached],google:[exact]});
+ const first=await app.search('Harry Potter');const calls=app.calls.providers;
+ const second=await app.search('Harry Potter');
+ assert.deepEqual(second,first);assert.equal(app.calls.providers,calls);assert.equal(second.books.length,2);
+});
+
+test('empty results are not retained when a later provider request can succeed',async()=>{
+ const google=[];const app=setup({google});
+ assert.equal((await app.search('Harry Potter')).books.length,0);
+ google.push(exact);
+ assert.equal((await app.search('Harry Potter')).books[0].title,'Harry Potter');
+});
+
+test('provider outages without cached matches return an error rather than false no-results',async()=>{
+ const app=setup({providerFailure:true});
+ const result=await app.search('Harry Potter');
+ assert.match(result.error,/temporarily unavailable/);
+ assert.equal(result.books.length,0);
+});
+
+
+test('a stalled database lookup does not prevent external results',{timeout:1000},async()=>{
+ const app=setup({google:[exact],stallCache:true});
+ assert.equal((await app.search('Harry Potter')).books[0].title,'Harry Potter');
+});
+test('a stalled cache write does not hold back discovered books',{timeout:1000},async()=>{
+ const app=setup({google:[exact],stallSave:true});
+ assert.equal((await app.search('Harry Potter')).books[0].title,'Harry Potter');
 });
