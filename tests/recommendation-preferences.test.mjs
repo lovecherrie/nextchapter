@@ -59,11 +59,13 @@ test('saved choices migrate old labels and discard invalid or excessive values',
   assert.deepEqual(plain(preferences.normalizeMatters([null, {}, 'Depth', 'Depth'])), ['Depth']);
 });
 
-async function requestRecommendations(body) {
+async function requestRecommendations(body, scenario = {}) {
+  let backupCalls = 0;
+  let primaryAborted = false;
   let capturedPrompt = '';
   const context = {
-    exports: {}, URL, URLSearchParams, Response, AbortController, setTimeout, clearTimeout,
-    process: { env: { GEMINI_API_KEY: 'test-fixture-only' } },
+    exports: {}, URL, URLSearchParams, Response, AbortController, AbortSignal, setTimeout: (fn, ms) => setTimeout(fn, scenario.race && ms === 3000 ? 5 : ms), clearTimeout,
+    process: { env: { GEMINI_API_KEY: 'test-fixture-only', ...(scenario.race ? { OPENROUTER_API_KEY: 'test-backup-only' } : {}) } },
     console: { log() {}, error() {} },
     require(name) {
       if (name === '@/lib/recommendation-preferences') return preferences;
@@ -75,7 +77,13 @@ async function requestRecommendations(body) {
       throw new Error(`Unexpected dependency: ${name}`);
     },
     async fetch(url, options) {
+      if (url.includes('openrouter.ai')) {
+        backupCalls++;
+        const recommendations = Array.from({ length: 7 }, (_, i) => ({ title: `Backup Book ${i + 1}`, author: 'Fixture Author', reason: 'Fixture reasoning.' }));
+        return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ recommendations }) } }] }) };
+      }
       if (url.includes('generativelanguage.googleapis.com')) {
+        if (scenario.stall) return { ok: true, json: () => new Promise((_resolve, reject) => options.signal.addEventListener('abort', () => { primaryAborted = true; reject(new Error('Aborted primary')); }, { once: true })) };
         capturedPrompt = JSON.parse(options.body).contents[0].parts[0].text;
         const recommendations = Array.from({ length: 7 }, (_, i) => ({ title: `Fixture Book ${i + 1}`, author: 'Fixture Author', reason: 'Fixture reasoning.' }));
         return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ recommendations }) }] } }] }) };
@@ -85,7 +93,7 @@ async function requestRecommendations(body) {
   };
   vm.runInNewContext(compiled('../app/api/recommend/route.ts'), context);
   const response = await context.exports.POST(new Request('http://localhost/api/recommend', { method: 'POST', body: JSON.stringify(body) }));
-  return { prompt: capturedPrompt, response, data: await response.json() };
+  return { prompt: capturedPrompt, response, data: await response.json(), backupCalls, primaryAborted };
 }
 
 test('the real recommendation route sends categories and priorities to the AI provider', async () => {
@@ -108,4 +116,15 @@ test('Anything and empty categories request no category preference, including no
     assert.match(prompt, /No category preference\. Fiction and nonfiction are both welcome/);
     assert.match(prompt, /Human behaviour/);
   }
+});
+
+
+test('a stalled primary can be rescued by the existing backup without waiting for its timeout',{timeout:1000},async()=>{
+ const result = await requestRecommendations({}, {race:true,stall:true});
+ assert.equal(result.response.status,200);assert.equal(result.data.recommendations.length,5);
+ assert.equal(result.backupCalls,1);assert.equal(result.primaryAborted,true);
+});
+test('a fast primary does not spend a free backup request',async()=>{
+ const result = await requestRecommendations({}, {race:true});
+ assert.equal(result.response.status,200);assert.equal(result.backupCalls,0);
 });

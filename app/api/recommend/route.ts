@@ -100,7 +100,7 @@ function parseRecommendations(rawText: string): Recommendation[] {
     }));
 }
 
-async function askGemini(prompt: string): Promise<Recommendation[]> {
+async function askGemini(prompt: string, signal?: AbortSignal): Promise<Recommendation[]> {
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
@@ -111,6 +111,7 @@ async function askGemini(prompt: string): Promise<Recommendation[]> {
     "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
     {
       method: "POST",
+      signal,
       headers: {
         "Content-Type": "application/json",
         "x-goog-api-key": apiKey,
@@ -128,7 +129,7 @@ async function askGemini(prompt: string): Promise<Recommendation[]> {
         },
       }),
     },
-    12000
+    60000
   );
 
 
@@ -144,7 +145,7 @@ async function askGemini(prompt: string): Promise<Recommendation[]> {
   return parseRecommendations(text);
 }
 
-async function askOpenRouter(prompt: string): Promise<Recommendation[]> {
+async function askOpenRouter(prompt: string, signal?: AbortSignal): Promise<Recommendation[]> {
   const apiKey = process.env.OPENROUTER_API_KEY;
 
   if (!apiKey) {
@@ -155,6 +156,7 @@ async function askOpenRouter(prompt: string): Promise<Recommendation[]> {
     "https://openrouter.ai/api/v1/chat/completions",
     {
       method: "POST",
+      signal,
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
@@ -164,7 +166,6 @@ async function askOpenRouter(prompt: string): Promise<Recommendation[]> {
       },
       body: JSON.stringify({
         model: "openrouter/free",
-        provider: { sort: "latency" },
         messages: [
           {
             role: "system",
@@ -204,51 +205,36 @@ async function askOpenRouter(prompt: string): Promise<Recommendation[]> {
 }
 
 async function generateCandidates(prompt: string) {
-  let geminiError: unknown = null;
+  const primary = new AbortController();
+  const backup = new AbortController();
+  const validate = (books: Recommendation[]) => {
+    if (books.length < 5) throw new Error("Too few usable recommendations");
+    return books;
+  };
+  if (!process.env.GEMINI_API_KEY) return validate(await askOpenRouter(prompt));
+  if (!process.env.OPENROUTER_API_KEY) return validate(await askGemini(prompt));
 
-  if (process.env.GEMINI_API_KEY) {
-    try {
-      const recommendations = await askGemini(prompt);
-
-      if (recommendations.length >= 5) {
-        console.log("Recommendation provider: Gemini");
-        return recommendations;
-      }
-
-      throw new Error(
-        `Gemini returned only ${recommendations.length} usable recommendations.`
-      );
-    } catch (error) {
-      geminiError = error;
-      console.error("Gemini recommendation attempt failed:", error);
-    }
+  // Keep a slow but valid primary answer eligible. After three seconds the
+  // existing free backup may compete, rather than waiting for primary failure.
+  let releaseBackup: () => void = () => {};
+  const gate = new Promise<void>((resolve) => { releaseBackup = resolve; });
+  const timer = setTimeout(releaseBackup, 3000);
+  const first = askGemini(prompt, primary.signal).then(validate).catch((error) => {
+    releaseBackup();
+    throw error;
+  });
+  const second = gate.then(() => {
+    if (backup.signal.aborted) throw new Error("Backup canceled");
+    return askOpenRouter(prompt, backup.signal);
+  }).then(validate);
+  try {
+    return await Promise.any([first, second]);
+  } catch {
+    throw new Error("Recommendation providers are unavailable right now. Please try again.");
+  } finally {
+    clearTimeout(timer);
+    primary.abort(); backup.abort(); releaseBackup();
   }
-
-  if (process.env.OPENROUTER_API_KEY) {
-    try {
-      const recommendations = await askOpenRouter(prompt);
-
-      if (recommendations.length >= 5) {
-        console.log("Recommendation provider: OpenRouter");
-        return recommendations;
-      }
-
-      throw new Error(
-        `OpenRouter returned only ${recommendations.length} usable recommendations.`
-      );
-    } catch (error) {
-      console.error("OpenRouter recommendation attempt failed:", error);
-      throw error;
-    }
-  }
-
-  if (geminiError) {
-    throw geminiError;
-  }
-
-  throw new Error(
-    "No recommendation AI is configured. Add GEMINI_API_KEY or OPENROUTER_API_KEY."
-  );
 }
 
 function logPopularity(value: unknown, multiplier: number) {
