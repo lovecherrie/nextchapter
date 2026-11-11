@@ -278,13 +278,12 @@ export default function CommunityPage() {
       const { data } = await supabase.auth.getUser();
       const authUser = data.user;
 
-      if (authUser) {
+      if (authUser && !authUser.is_anonymous) {
         const username =
           typeof authUser.user_metadata?.username === "string" &&
           authUser.user_metadata.username.trim()
             ? authUser.user_metadata.username.trim()
-            : localStorage.getItem("nextchapter_guest_username") ||
-              "Bookworm";
+            : "Reader";
 
         localStorage.setItem("nextchapter_guest_id", authUser.id);
         localStorage.setItem("nextchapter_guest_username", username);

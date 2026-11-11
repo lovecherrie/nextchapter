@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import SiteHeader from "../components/SiteHeader";
 import { supabase } from "@/lib/supabase";
+import { safeAuthReturn } from "@/lib/auth-redirect";
 
 type AuthMode = "login" | "signup";
 
@@ -17,10 +18,27 @@ export default function AuthPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
+  function returnAfterLogin() {
+    const destination = safeAuthReturn(
+      sessionStorage.getItem("nextchapter_return_after_auth"),
+      window.location.origin
+    );
+    sessionStorage.removeItem("nextchapter_return_after_auth");
+    router.push(destination);
+    router.refresh();
+  }
+
   useEffect(() => {
     async function checkSession() {
       const { data } = await supabase.auth.getUser();
-      if (data.user) router.replace("/profile");
+      if (data.user && !data.user.is_anonymous) {
+        const destination = safeAuthReturn(
+          sessionStorage.getItem("nextchapter_return_after_auth"),
+          window.location.origin
+        );
+        sessionStorage.removeItem("nextchapter_return_after_auth");
+        router.replace(destination);
+      }
     }
     checkSession();
   }, [router]);
@@ -76,8 +94,7 @@ export default function AuthPage() {
         localStorage.setItem("nextchapter_guest_username", cleanUsername);
 
         if (data.session) {
-          router.push("/profile");
-          router.refresh();
+          returnAfterLogin();
           return;
         }
 
@@ -107,8 +124,7 @@ export default function AuthPage() {
           );
         }
 
-        router.push("/profile");
-        router.refresh();
+        returnAfterLogin();
       }
     } catch (authError: any) {
       console.error("Auth error:", authError);

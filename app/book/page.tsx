@@ -55,11 +55,12 @@ function BookPageContent() {
 
   const bookExternalId =
     searchParams.get("book") ||
-    "test-book";
+    searchParams.get("id") ||
+    "";
 
   const bookTitle =
     searchParams.get("title") ||
-    "Test Book";
+    "";
 
   const bookAuthor =
     searchParams.get("author") ||
@@ -374,6 +375,10 @@ function BookPageContent() {
 
     const loadBookDetails =
       async () => {
+        if (!bookTitle) {
+          setDescriptionLoading(false);
+          return;
+        }
         setDescriptionLoading(
           true
         );
@@ -381,7 +386,7 @@ function BookPageContent() {
         try {
           const response =
             await fetch(
-              `/api/books/details?title=${encodeURIComponent(
+              `/api/book/details?title=${encodeURIComponent(
                 bookTitle
               )}&author=${encodeURIComponent(
                 bookAuthor
@@ -392,6 +397,7 @@ function BookPageContent() {
               }
             );
 
+          if (!response.ok) throw new Error("Book details request failed");
           const data =
             await response.json();
 
@@ -479,13 +485,12 @@ function BookPageContent() {
       const { data } = await supabase.auth.getUser();
       const authUser = data.user;
 
-      if (authUser) {
+      if (authUser && !authUser.is_anonymous) {
         const username =
           typeof authUser.user_metadata?.username === "string" &&
           authUser.user_metadata.username.trim()
             ? authUser.user_metadata.username.trim()
-            : localStorage.getItem("nextchapter_guest_username") ||
-              "Bookworm";
+            : "Reader";
 
         localStorage.setItem("nextchapter_guest_id", authUser.id);
         localStorage.setItem("nextchapter_guest_username", username);
@@ -522,6 +527,10 @@ function BookPageContent() {
 
     const setupBook =
       async () => {
+        if (!bookExternalId || !bookTitle) {
+          setLoading(false);
+          return;
+        }
         setLoading(true);
 
         const {
@@ -706,7 +715,7 @@ function BookPageContent() {
           await supabase.auth.getUser();
 
         if (
-          !authData.user
+          !authData.user || authData.user.is_anonymous
         ) {
           if (
             !cancelled
@@ -782,12 +791,8 @@ function BookPageContent() {
         } =
           await supabase.auth.getUser();
 
-        if (authError) {
-          throw authError;
-        }
-
         if (
-          !authData.user
+          !authData.user || authData.user.is_anonymous
         ) {
           sessionStorage.setItem(
             "nextchapter_return_after_auth",
@@ -799,6 +804,7 @@ function BookPageContent() {
 
           return;
         }
+        if (authError) throw authError;
 
         if (isWantToRead) {
           const {
@@ -1725,6 +1731,18 @@ function BookPageContent() {
         setEndingRating,
     },
   ];
+
+  if (!bookExternalId || !bookTitle) {
+    return (
+      <main className="min-h-screen bg-[var(--aepilog-cream)] text-stone-900">
+        <SiteHeader />
+        <div className="mx-auto max-w-5xl px-5 py-12">
+          <h1 className="aepilog-heading text-3xl">Choose a book first</h1>
+          <a href="/search" className="mt-4 inline-block font-semibold text-[var(--aepilog-cherry)]">Search for a book</a>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[var(--aepilog-cream)] text-stone-900">

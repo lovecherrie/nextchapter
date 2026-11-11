@@ -80,6 +80,7 @@ export default function AepilogFindBooks() {
 
   const [categories, setCategories] = useState<string[]>([]);
   const [mattersExpanded, setMattersExpanded] = useState(false);
+  const [recommendationError, setRecommendationError] = useState("");
 
   const [
     matters,
@@ -814,7 +815,7 @@ export default function AepilogFindBooks() {
             .trim() === normalizedAuthor
       );
 
-      return authorMatch || existingByTitle[0];
+      if (authorMatch) return authorMatch;
     }
 
     const {
@@ -865,11 +866,13 @@ export default function AepilogFindBooks() {
           "id, external_id, title, author, cover_url"
         )
         .ilike("title", book.title.trim())
-        .limit(1)
-        .maybeSingle();
+        .limit(10);
 
       if (!retryByTitleError && retryByTitle) {
-        return retryByTitle;
+        const match = retryByTitle.find((candidate) =>
+          String(candidate.author || "").toLowerCase().trim() === book.author.toLowerCase().trim()
+        );
+        if (match) return match;
       }
 
       throw createError;
@@ -887,7 +890,7 @@ export default function AepilogFindBooks() {
 
     if (
       authError ||
-      !authData.user
+      !authData.user || authData.user.is_anonymous
     ) {
       return;
     }
@@ -955,18 +958,13 @@ export default function AepilogFindBooks() {
       } =
         await supabase.auth.getUser();
 
-      if (authError) {
-        throw authError;
-      }
-
-      if (!authData.user) {
-        alert(
-          "Log in or create an account to save books to Want to Read."
-        );
+      if (!authData.user || authData.user.is_anonymous) {
+        sessionStorage.setItem("nextchapter_return_after_auth", window.location.href);
         window.location.href =
           "/auth";
         return;
       }
+      if (authError) throw authError;
 
       const databaseBook =
         await ensureDatabaseBook(
@@ -1076,6 +1074,8 @@ export default function AepilogFindBooks() {
 
   const getRec =
     async () => {
+      if (loading) return;
+      setRecommendationError("");
       setLoading(true);
 
       try {
@@ -1180,13 +1180,9 @@ export default function AepilogFindBooks() {
         setShowResults(
           true
         );
-      } catch (
-        error: any
-      ) {
-        alert(
-          "AI is sleepy: " +
-            error.message
-        );
+      } catch (error) {
+        console.error("Recommendation request failed:", error);
+        setRecommendationError("We couldn't find your next books right now. Please try again. Your choices are still saved.");
       } finally {
         setLoading(false);
       }
@@ -1888,6 +1884,10 @@ export default function AepilogFindBooks() {
 
           {/* GET RECOMMENDATIONS */}
 
+          {recommendationError && !showResults && (
+            <p role="alert" className="text-sm text-[var(--aepilog-cherry)]">{recommendationError}</p>
+          )}
+
           <button
             type="button"
             onClick={
@@ -2111,6 +2111,9 @@ export default function AepilogFindBooks() {
             {/* ANOTHER 5 */}
 
             <div className="sticky bottom-0 border-t border-stone-200 bg-[#fffdf9]/95 p-5 backdrop-blur">
+              {recommendationError && (
+                <p role="alert" className="mb-3 text-sm text-[var(--aepilog-cherry)]">{recommendationError}</p>
+              )}
 
               <button
                 type="button"

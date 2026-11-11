@@ -339,20 +339,20 @@ async function getOpenLibraryDetails(
         : [],
     publisher: null,
     cover:
-      match.cover_i
-        ? `https://covers.openlibrary.org/b/id/${match.cover_i}-L.jpg?default=false`
+      doc.cover_i
+        ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg?default=false`
         : null,
     isbn13:
-      Array.isArray(match.isbn)
-        ? match.isbn.find((value: string) => /^\d{13}$/.test(String(value))) || null
+      Array.isArray(doc.isbn)
+        ? doc.isbn.find((value: string) => /^\d{13}$/.test(String(value))) || null
         : null,
     isbn10:
-      Array.isArray(match.isbn)
-        ? match.isbn.find((value: string) => /^\d{10}$/.test(String(value))) || null
+      Array.isArray(doc.isbn)
+        ? doc.isbn.find((value: string) => /^\d{9}[\dX]$/.test(String(value))) || null
         : null,
     workId:
-      typeof match.key === "string"
-        ? match.key.replace(/^\/works\//, "")
+      typeof doc.key === "string"
+        ? doc.key.replace(/^\/works\//, "")
         : null,
   };
 }
@@ -415,6 +415,7 @@ export async function GET(
 
     return NextResponse.json({
       description,
+      cover: google?.cover || openLibrary?.cover || null,
       publishedDate:
         google?.publishedDate ||
         openLibrary?.publishedDate ||

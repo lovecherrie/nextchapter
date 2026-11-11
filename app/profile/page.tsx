@@ -155,13 +155,6 @@ export default function ProfilePage() {
     setLoading(true);
     setError("");
 
-    const savedGuestId =
-      localStorage.getItem("nextchapter_guest_id") || "";
-    const savedUsername =
-      localStorage.getItem("nextchapter_guest_username") || "";
-    const savedBio =
-      localStorage.getItem("nextchapter_profile_bio") || "";
-
     try {
       const { data } =
         await supabase.auth.getUser();
@@ -183,51 +176,13 @@ export default function ProfilePage() {
         typeof authUser.user_metadata?.username === "string" &&
         authUser.user_metadata.username.trim()
           ? authUser.user_metadata.username.trim()
-          : savedUsername || "Reader";
+          : "Reader";
+      const accountBio = typeof authUser.user_metadata?.bio === "string"
+        ? authUser.user_metadata.bio
+        : localStorage.getItem(`nextchapter_profile_bio:${authUser.id}`) || "";
 
-      // Move activity created before signup from the temporary guest id
-      // to the real Supabase account id.
-      if (savedGuestId && savedGuestId !== authUser.id) {
-        const migrationResults = await Promise.all([
-          supabase
-            .from("ratings")
-            .update({
-              user_id: authUser.id,
-              username: accountUsername,
-            })
-            .eq("user_id", savedGuestId),
-          supabase
-            .from("discussion_posts")
-            .update({
-              user_id: authUser.id,
-              username: accountUsername,
-            })
-            .eq("user_id", savedGuestId),
-          supabase
-            .from("comments")
-            .update({
-              user_id: authUser.id,
-              username: accountUsername,
-            })
-            .eq("user_id", savedGuestId),
-          supabase
-            .from("discussion_likes")
-            .update({ user_id: authUser.id })
-            .eq("user_id", savedGuestId),
-        ]);
-
-        const migrationError = migrationResults.find(
-          (result) => result.error
-        )?.error;
-
-        if (migrationError) {
-          console.error(
-            "Guest activity migration error:",
-            migrationError
-          );
-        }
-      }
-
+      // Browser identity keys are compatibility caches, not proof of ownership.
+      // Loading a profile must never reassign another identity's activity.
       // The rest of NextChapter already reads these localStorage keys.
       // Reusing them means new ratings/posts/comments/likes automatically
       // use the logged-in account id without changing those pages yet.
@@ -242,9 +197,9 @@ export default function ProfilePage() {
 
       setUserId(authUser.id);
       setUsername(accountUsername);
-      setBio(savedBio);
+      setBio(accountBio);
       setDraftUsername(accountUsername);
-      setDraftBio(savedBio);
+      setDraftBio(accountBio);
 
       await loadProfile(authUser.id);
     } catch (initializeError) {
@@ -649,7 +604,7 @@ export default function ProfilePage() {
             .update({ username: cleanUsername })
             .eq("user_id", userId),
           supabase.auth.updateUser({
-            data: { username: cleanUsername },
+            data: { username: cleanUsername, bio: cleanBio },
           }),
         ]);
 
@@ -662,6 +617,11 @@ export default function ProfilePage() {
         if (updateError) {
           throw updateError;
         }
+      } else {
+        const { error: updateError } = await supabase.auth.updateUser({
+          data: { username: cleanUsername, bio: cleanBio },
+        });
+        if (updateError) throw updateError;
       }
 
       localStorage.setItem(
@@ -669,7 +629,7 @@ export default function ProfilePage() {
         cleanUsername
       );
       localStorage.setItem(
-        "nextchapter_profile_bio",
+        `nextchapter_profile_bio:${userId}`,
         cleanBio
       );
 
@@ -715,6 +675,7 @@ export default function ProfilePage() {
 
     localStorage.removeItem("nextchapter_guest_id");
     localStorage.removeItem("nextchapter_guest_username");
+    localStorage.removeItem(`nextchapter_profile_bio:${userId}`);
     window.location.href = "/auth";
   }
 
