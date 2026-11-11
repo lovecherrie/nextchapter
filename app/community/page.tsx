@@ -209,7 +209,6 @@ function HeartIcon({ filled }: { filled: boolean }) {
 export default function CommunityPage() {
   const [posts, setPosts] = useState<DiscussionPost[]>([]);
   const [filter, setFilter] = useState<Filter>("top");
-  const [expandedTexts, setExpandedTexts] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -971,6 +970,31 @@ export default function CommunityPage() {
     return result;
   }, [posts, filter]);
 
+  const featuredPost = useMemo(() => {
+    if (posts.length === 0) return null;
+
+    return [...posts].sort((a, b) => {
+      const scoreA =
+        a.discussion_likes.length + a.comments.length * 2;
+      const scoreB =
+        b.discussion_likes.length + b.comments.length * 2;
+
+      if (scoreB === scoreA) {
+        return (
+          new Date(b.created_at).getTime() -
+          new Date(a.created_at).getTime()
+        );
+      }
+
+      return scoreB - scoreA;
+    })[0];
+  }, [posts]);
+
+  const totalComments = useMemo(
+    () => posts.reduce((total, post) => total + post.comments.length, 0),
+    [posts]
+  );
+
   function renderComment(
     comment: Comment,
     post: DiscussionPost,
@@ -1199,35 +1223,136 @@ export default function CommunityPage() {
     <main className="min-h-screen overflow-x-hidden bg-[#faf6ef] text-[#2d2625]">
       <SiteHeader active="community" />
 
-      <section className="mx-auto max-w-3xl px-4 pb-12 pt-7 sm:px-6 sm:pt-12">
-        <div className="mb-6 sm:mb-8">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#a05a62] sm:text-xs">The reading room</p>
-          <h1 className="aepilog-heading mt-3 text-[38px] leading-[1.08] text-[#3a2b2b] sm:text-[54px]">
-            Finished the book?<br /><span className="text-[#8f2635]">Let’s talk.</span>
-          </h1>
-          <p className="mt-3 max-w-md text-sm leading-6 text-[#756866]">The ending. The characters. The part you can’t stop thinking about.</p>
-        </div>
+      <section className="mx-auto max-w-6xl px-4 py-5 sm:px-5 sm:py-7">
+        <div className="mb-5 grid gap-4 lg:grid-cols-[1fr_280px]">
+          <div className="rounded-[20px] border border-[#e6d8d4] bg-[#fffdf9] p-4 shadow-sm sm:rounded-[24px] sm:p-6">
+            <div className="inline-flex rounded-full bg-[#f6e8e6] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#8f2635] sm:text-xs">
+              Community spotlight
+            </div>
 
-        <div className="mb-7 rounded-[24px] border border-[#e6d8d4] bg-[#fffdf9] p-4 sm:p-5">
-          <button type="button" onClick={openCreateModal} aria-label="Start a discussion" className="group flex w-full items-center gap-3 rounded-2xl text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#8f2635]">
-            <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f6e8e6] text-xl text-[#8f2635]">＋</span>
-            <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-[#4f4140] sm:text-base">What did you just finish?</span><span className="mt-0.5 block text-xs leading-5 text-[#948583]">A quick reaction, a theory, an unpopular opinion…</span></span>
-            <span aria-hidden="true" className="text-xl text-[#8f2635] transition group-hover:translate-x-1">→</span>
-          </button>
-          <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#eee2de] pt-3">
-            <p className="text-[11px] leading-5 text-[#948583]">A few words can start a whole conversation.</p>
-            <button type="button" onClick={openRateModal} className="shrink-0 rounded-full border border-[#e6d8d4] px-3 py-2 text-xs font-semibold text-[#8f2635] transition hover:bg-[#f6e8e6]">Rate a book</button>
+            <div className="mt-3 flex items-start justify-between gap-4">
+              <div>
+                <h1 className="font-aepilog-serif text-[28px] font-medium leading-[1.08] text-[#3a2b2b] sm:text-4xl">
+                  What readers are talking about
+                </h1>
+
+                <p className="mt-1.5 hidden max-w-2xl text-sm leading-5 text-[#756866] sm:block">
+                  See the conversations getting the most attention across aepilog.
+                </p>
+              </div>
+
+              {!loading && !error && (
+                <div className="hidden shrink-0 items-center gap-2 md:flex">
+                  <div className="rounded-full border border-[#eaded9] bg-[#fbf5f1] px-3 py-1.5 text-xs font-semibold text-[#756866]">
+                    <span className="text-[#8f2635]">{posts.length}</span>{" "}
+                    {posts.length === 1 ? "discussion" : "discussions"}
+                  </div>
+                  <div className="rounded-full border border-[#eaded9] bg-[#fbf5f1] px-3 py-1.5 text-xs font-semibold text-[#756866]">
+                    <span className="text-[#8f2635]">{totalComments}</span>{" "}
+                    {totalComments === 1 ? "comment" : "comments"}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {!loading && !error && featuredPost?.books ? (
+              <a
+                href={`#post-${featuredPost.id}`}
+                className="mt-4 flex items-center gap-3 rounded-2xl border border-[#eaded9] bg-[#fbf5f1] p-3 transition hover:border-[#c99ba0] hover:bg-[#f8efeb]"
+              >
+                {featuredPost.books.cover_url ? (
+                  <img
+                    src={featuredPost.books.cover_url}
+                    alt={featuredPost.books.title}
+                    className="h-20 w-14 shrink-0 rounded-lg object-cover shadow-sm"
+                  />
+                ) : (
+                  <div className="flex h-20 w-14 shrink-0 items-center justify-center rounded-lg bg-[#eee2de] text-xs font-bold text-[#756866]">
+                    Book
+                  </div>
+                )}
+
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-bold uppercase tracking-[0.12em] text-[#a05a62]">
+                    Most active discussion
+                  </div>
+                  <div className="font-aepilog-serif mt-0.5 truncate text-base font-semibold text-[#3a2b2b] sm:text-lg">
+                    {featuredPost.books.title}
+                  </div>
+                  <div className="text-sm text-[#756866]">
+                    {featuredPost.books.author}
+                  </div>
+                  <p className="mt-1.5 line-clamp-1 text-sm leading-5 text-[#655554] sm:line-clamp-2">
+                    {featuredPost.contains_spoilers
+                      ? "This discussion contains spoilers."
+                      : featuredPost.content}
+                  </p>
+                  <div className="mt-2 text-xs font-semibold text-[#8f2635]">
+                    {featuredPost.discussion_likes.length} likes · {featuredPost.comments.length} {featuredPost.comments.length === 1 ? "comment" : "comments"} · View discussion
+                  </div>
+                </div>
+              </a>
+            ) : !loading && !error ? (
+              <div className="mt-6 rounded-2xl border border-dashed border-[#e4d7d2] bg-[#fcf7f3] p-5 text-sm leading-6 text-[#756866]">
+                The first discussion will appear here once someone starts talking about a book.
+              </div>
+            ) : null}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
+            <div className="rounded-[22px] border border-[#e6d8d4] bg-[#8f2635] p-4 text-[#fffdf9] shadow-sm sm:p-5">
+              <h2 className="font-aepilog-serif text-[18px] font-medium leading-tight sm:text-xl">
+                Start a discussion
+              </h2>
+
+              <p className="mt-1.5 hidden text-sm leading-5 text-[#f0d7d9] lg:block">
+                Share a theory, question, reaction, or unpopular opinion.
+              </p>
+
+              <button
+                type="button"
+                onClick={openCreateModal}
+                className="mt-3 inline-flex rounded-full bg-[#fffdf9] px-3 py-2 text-[11px] font-bold text-[#8f2635] sm:px-4 sm:text-sm"
+              >
+                + Create post
+              </button>
+            </div>
+
+            <div className="flex h-full min-h-[132px] flex-col rounded-[22px] border border-[#8f2635] bg-[#fffdf9] p-4 text-[#8f2635] shadow-sm sm:min-h-0 sm:p-5 lg:block lg:h-auto">
+              <h2 className="font-aepilog-serif text-[18px] font-medium leading-tight sm:text-xl">
+                Rate & remember
+              </h2>
+
+              <p className="mt-1.5 hidden text-sm leading-5 text-[#756866] lg:block">
+                Keep track of what you’ve read and what you thought.
+              </p>
+
+              <button
+                type="button"
+                onClick={openRateModal}
+                className="mt-auto inline-flex w-fit rounded-full bg-[#8f2635] px-3 py-2 text-[11px] font-bold text-[#fffdf9] sm:px-4 sm:text-sm lg:mt-3"
+              >
+                Add a rating
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="aepilog-heading text-2xl text-[#3a2b2b]">Between the pages</h2>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="font-aepilog-serif text-2xl font-medium text-[#3a2b2b] sm:text-2xl">
+              Community discussions
+            </h2>
+
+            <p className="mt-0.5 text-xs text-[#756866] sm:text-sm">
+              Jump into conversations from across aepilog.
+            </p>
+          </div>
 
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
             <div className="grid w-full grid-cols-3 rounded-full border border-[#e4d7d2] bg-[#fffdf9] p-1 shadow-sm sm:flex sm:w-auto sm:flex-none">
               <button
                 onClick={() => setFilter("top")}
-                aria-pressed={filter === "top"}
                 className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold sm:px-4 sm:py-2 sm:text-sm ${
                   filter === "top"
                     ? "bg-[#8f2635] text-white"
@@ -1239,7 +1364,6 @@ export default function CommunityPage() {
 
               <button
                 onClick={() => setFilter("newest")}
-                aria-pressed={filter === "newest"}
                 className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold sm:px-4 sm:py-2 sm:text-sm ${
                   filter === "newest"
                     ? "bg-[#8f2635] text-white"
@@ -1253,7 +1377,6 @@ export default function CommunityPage() {
                 onClick={() =>
                   setFilter("spoiler-free")
                 }
-                aria-pressed={filter === "spoiler-free"}
                 className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold sm:px-4 sm:py-2 sm:text-sm ${
                   filter === "spoiler-free"
                     ? "bg-[#8f2635] text-white"
@@ -1324,20 +1447,24 @@ export default function CommunityPage() {
                         <img
                           src={book.cover_url}
                           alt={book.title}
-                          className="h-12 w-8 shrink-0 rounded-md object-cover"
+                          className="h-14 w-10 rounded-md object-cover"
                         />
                       ) : (
-                        <div aria-hidden="true" className="flex h-12 w-8 shrink-0 items-center justify-center rounded-md bg-[#eee2de] text-[#a05a62]">
-                          <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5"><path d="M6 3h12v18H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Zm0 0v14m-3 1a3 3 0 0 1 3-1h12M9 7h6m-6 4h5" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" /></svg>
+                        <div className="flex h-14 w-10 items-center justify-center rounded-md bg-[#eee2de]">
+                          Book
                         </div>
                       )}
 
                       <div>
-                        <div className="aepilog-heading text-lg leading-6 text-[#3a2b2b]">
+                        <div className="text-xs font-bold uppercase tracking-[0.12em] text-[#a05a62]">
+                          Discussing
+                        </div>
+
+                        <div className="font-aepilog-serif font-semibold text-[#3a2b2b]">
                           {book.title}
                         </div>
 
-                        <div className="mt-0.5 text-xs text-[#756866]">
+                        <div className="text-sm text-[#756866]">
                           {book.author}
                         </div>
                       </div>
@@ -1485,22 +1612,18 @@ export default function CommunityPage() {
                       )}
                     </button>
                   ) : (
-                    <div className="mt-4">
-                    <p className={`whitespace-pre-wrap break-words text-base leading-7 text-[#4f4140] ${post.content.length > 220 && !expandedTexts.includes(post.id) ? "line-clamp-4" : ""}`}>
+                    <p className="mt-4 whitespace-pre-wrap text-[15px] leading-6 text-[#4f4140]">
                       {post.content}
                     </p>
-                    {post.content.length > 220 && <button type="button" aria-expanded={expandedTexts.includes(post.id)} onClick={() => setExpandedTexts((current) => current.includes(post.id) ? current.filter((id) => id !== post.id) : [...current, post.id])} className="mt-2 py-1 text-xs font-semibold text-[#8f2635]">{expandedTexts.includes(post.id) ? "Show less" : "Read more"}</button>}
-                    </div>
                   )}
 
                   <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[#eee2de] pt-3">
                     <button
                       onClick={() => toggleLike(post)}
-                      aria-label={`${likedByMe ? "Unlike" : "Like"} discussion by ${post.username}`}
                       disabled={
                         likingPost === post.id
                       }
-                      className={`inline-flex min-h-10 items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold sm:px-4 ${
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold sm:px-4 sm:py-2 sm:text-sm ${
                         likedByMe
                           ? "bg-[#f0d7d9] text-[#7b1f2d]"
                           : "bg-[#f7eeea] text-[#756866]"
@@ -1514,12 +1637,12 @@ export default function CommunityPage() {
                       onClick={() =>
                         toggleComments(post.id)
                       }
-                      aria-expanded={expanded}
-                      aria-label={`Reply to discussion by ${post.username}`}
-                      className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[#f7eeea] px-3 py-2 text-sm font-semibold text-[#756866] sm:px-4"
+                      className="rounded-full bg-[#f7eeea] px-3 py-1.5 text-xs font-bold text-[#756866] sm:px-4 sm:py-2 sm:text-sm"
                     >
-                      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4"><path d="M20 11.5a8 8 0 0 1-8 8 9 9 0 0 1-3.5-.7L4 20l1.2-4.5A8 8 0 1 1 20 11.5Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" /></svg>
-                      Reply {post.comments.length > 0 && <span className="text-[#a05a62]">{post.comments.length}</span>}
+                       {post.comments.length}{" "}
+                      {post.comments.length === 1
+                        ? "comment"
+                        : "comments"}
                     </button>
 
                     {book && (
@@ -1621,7 +1744,12 @@ export default function CommunityPage() {
         </div>
 
         <div className="mt-6 rounded-[20px] border border-[#e6d8d4] bg-[#fffdf9] px-4 py-3 text-center text-xs text-[#756866] sm:text-sm">
-          {guestUsername ? <>Posting as <a href="/profile" className="font-semibold text-[#8f2635] hover:underline">{guestUsername}</a></> : "A reading room for every last-page feeling."}
+          Posting as{" "}
+          <span className="font-bold">
+            {guestUsername ||
+              "temporary Bookworm"}
+          </span>
+          . Profiles are coming later.
         </div>
       </section>
 
