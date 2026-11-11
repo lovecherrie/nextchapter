@@ -55,12 +55,28 @@ function setup({ cached = [], google = [], openLibraryCandidates = [], providerF
 const cached = { id: 'uuid', external_id: 'google-cached', title: 'Harry Potter Companion', author: 'A Reader', cover_url: null };
 const exact = { id: 'exact', volumeInfo: { title: 'Harry Potter', authors: ['J. K. Rowling'] } };
 
+test('original series volumes rank above coloring and activity editions without excluding manga or children’s fiction', async () => {
+ const google = ['One Piece Coloring Book', 'One Piece Activity Book for Kids', 'One Piece, Vol. 1', 'One Piece, Vol. 2', 'One Piece Adventure for Young Readers'].map((title,i)=>({id:`book-${i}`,volumeInfo:{title,authors:[i<2?'Companion Publisher':'Eiichiro Oda']}}));
+ const {books}=await setup({google}).search('one piece');
+ assert.equal(books[0].title,'One Piece, Vol. 1');
+ assert.ok(books.findIndex(b=>b.title.includes('Young Readers'))<books.findIndex(b=>b.title.includes('Coloring')));
+ assert.ok(books.some(b=>b.title.includes('Coloring')));
+});
+test('explicit coloring-book searches retain relevant coloring editions',async()=>{
+ const {books}=await setup({google:[{id:'color',volumeInfo:{title:'One Piece Coloring Book',authors:['Publisher']}},{id:'original',volumeInfo:{title:'One Piece, Vol. 1',authors:['Eiichiro Oda']}}]}).search('one piece coloring');
+ assert.equal(books[0].title,'One Piece Coloring Book');
+});
+test('author searches prioritize books by that author over titles mentioning their name',async()=>{
+ const {books}=await setup({google:[{id:'about',volumeInfo:{title:'Freida McFadden Biography',authors:['Someone Else']}},{id:'novel',volumeInfo:{title:'The Housemaid',authors:['Freida McFadden']}}]}).search('Freida McFadden');
+ assert.equal(books[0].title,'The Housemaid');
+});
+
 test('an exact provider match is found even when a partial match is cached', async () => {
   const app = setup({ cached: [cached], google: [exact] });
   const { books } = await app.search('Harry Potter');
   assert.equal(books[0].title, 'Harry Potter');
   assert.equal(books.length, 2);
-  assert.equal(app.calls.providers, 3);
+  assert.equal(app.calls.providers, 4);
   assert.equal(app.calls.writes.length, 1);
 });
 test('provider outages preserve cached books', async () => {

@@ -5,7 +5,7 @@ export const BOOK_CATEGORIES = [
   "Self-Help & Personal Growth", "History", "Business & Economics",
   "Science & Technology", "Society & Culture", "Politics & Current Affairs",
   "Religion & Spirituality", "Health & Wellness", "True Crime",
-  "Nature & Environment", "Travel", "Art & Creativity", "Anything",
+  "Nature & Environment", "Travel", "Art & Creativity", "Manga & Graphic Novels", "Anything",
 ] as const;
 
 export const MATTER_OPTIONS = [
@@ -45,6 +45,7 @@ const CATEGORY_PRIORITIES: Record<string, readonly string[]> = {
   "Nature & Environment": ["New perspectives", "Beautiful writing", "Clear explanations", "Big ideas", "Atmosphere"],
   "Travel": ["Atmosphere", "New perspectives", "Beautiful writing", "Practical advice", "Human behaviour"],
   "Art & Creativity": ["New perspectives", "Practical advice", "Beautiful writing", "Big ideas", "Depth"],
+  "Manga & Graphic Novels": ["Characters", "Emotional impact", "Fast pace", "Atmosphere", "Twists"],
 };
 
 const OLD_MATTERS: Record<string, string> = {
@@ -103,6 +104,7 @@ HOW TO USE THESE PREFERENCES
 - Treat selected categories as interests, not an intersection. Books may match different selected interests across the five recommendations; do not require every book to fit every category.
 - When several categories are selected, reflect the range where it fits the reader, rather than forcing an unlikely hybrid genre.
 - Anything means no category preference, not a genre and not a request for arbitrary books. Use their other taste signals.
+- Manga and graphic novels are valid reading recommendations. When that interest is selected, recommend published manga/graphic novels with the correct creator, not anime episodes, colouring books, or activity merchandise. For ongoing series, recommend the first volume unless the reader specifies where they are in the series.
 - Philosophy, psychology, practical nonfiction, history, science, essays, memoir, and other nonfiction are fully valid recommendations. Do not assume every reader wants fiction.
 - Apply the selected priorities to the kind of book: ideas, human behaviour, clear explanations, depth, practical usefulness, and the quality of arguments matter for nonfiction. Do not force plot twists, romance, or an ending onto nonfiction unless the reader's choices make those relevant.
 - Explain recommendations using the reader's selected interests and priorities, not only broad genre similarity.`;

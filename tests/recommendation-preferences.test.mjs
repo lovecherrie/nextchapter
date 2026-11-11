@@ -59,6 +59,14 @@ test('saved choices migrate old labels and discard invalid or excessive values',
   assert.deepEqual(plain(preferences.normalizeMatters([null, {}, 'Depth', 'Depth'])), ['Depth']);
 });
 
+test('manga remains selectable near the end and reaches the recommendation instructions', () => {
+ assert.equal(preferences.BOOK_CATEGORIES.at(-2), 'Manga & Graphic Novels');
+ assert.deepEqual(plain(preferences.normalizeCategories(['Manga & Graphic Novels'])), ['Manga & Graphic Novels']);
+ const prompt = preferences.recommendationPreferencePrompt(['Manga & Graphic Novels'], ['Characters']);
+ assert.match(prompt, /Manga & Graphic Novels/);
+ assert.match(prompt, /recommend the first volume/);
+});
+
 async function requestRecommendations(body, scenario = {}) {
   let backupCalls = 0;
   let primaryAborted = false;

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import SiteHeader from "../components/SiteHeader";
 import { ReaderName } from "../components/ReaderSocial";
 import { supabase } from "../../lib/supabase";
@@ -1225,9 +1224,6 @@ export default function CommunityPage() {
       <SiteHeader active="community" />
 
       <section className="mx-auto max-w-6xl px-4 py-5 sm:px-5 sm:py-7">
-        <div className="mb-4 flex justify-end">
-          <Link href="/readers" className="rounded-full border border-[#e6d8d4] bg-[#fffdf9] px-4 py-2 text-sm font-semibold text-[#8f2635] transition hover:bg-[#f6e8e6]">Find readers</Link>
-        </div>
         <div className="mb-5 grid gap-4 lg:grid-cols-[1fr_280px]">
           <div className="rounded-[20px] border border-[#e6d8d4] bg-[#fffdf9] p-4 shadow-sm sm:rounded-[24px] sm:p-6">
             <div className="inline-flex rounded-full bg-[#f6e8e6] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#8f2635] sm:text-xs">

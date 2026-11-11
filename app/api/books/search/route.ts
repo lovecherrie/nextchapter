@@ -144,7 +144,15 @@ function scoreBook(book: SearchBook, query: string) {
     score += 2500;
   }
 
-  if (author.includes(q)) score += 800;
+  if (author === q) score += 24000;
+  else if (author.includes(q)) score += 18000;
+  else if (queryWords.length >= 2 && queryWords.every((word) => author.split(" ").includes(word))) score += 16000;
+
+  // Keep companion merchandise available for explicit searches, while giving
+  // original works priority for general title/author searches. Children's
+  // fiction, manga and illustrated editions are not penalized.
+  const supplements = /\b(colou?ring|activity|workbook|workbooks|tracing|puzzle|puzzles|summary|summaries|study guide)\b/;
+  if (supplements.test(title) && !supplements.test(q)) score -= 40000;
 
   score += Math.min(book.popularity, 5000) / 50;
 
@@ -243,12 +251,13 @@ async function searchGoogleBooks(
   query: string,
   onFailure: () => void = () => {}
 ): Promise<SearchBook[]> {
-  const [broad, titleFocused] = await Promise.all([
+  const [broad, titleFocused, authorFocused] = await Promise.all([
     fetchGoogleBooks(query, onFailure),
     fetchGoogleBooks(`intitle:${query}`, onFailure),
+    fetchGoogleBooks(`inauthor:"${query.replace(/"/g, "")}"`, onFailure),
   ]);
 
-  return dedupeBooks([...broad, ...titleFocused]);
+  return dedupeBooks([...broad, ...titleFocused, ...authorFocused]);
 }
 
 async function searchOpenLibrary(
@@ -499,7 +508,7 @@ export async function GET(request: NextRequest) {
     );
     const suggestions = hasStrongMatch ? [] : await searchCloseTitles(query);
 
-    if (!ranked.length && !suggestions.length && googleFailures === 2 && openLibraryFailed) {
+    if (!ranked.length && !suggestions.length && googleFailures === 3 && openLibraryFailed) {
       return NextResponse.json({ books: [], error: "Book search is temporarily unavailable. Please try again." }, { status: 503 });
     }
 

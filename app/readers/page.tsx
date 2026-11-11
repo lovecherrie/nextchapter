@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import SiteHeader from "../components/SiteHeader";
+import SearchTabs from "../components/SearchTabs";
 import { ReaderTile, useReaderViewer } from "../components/ReaderSocial";
 import { followedReaders, getReader, READER_PAGE_SIZE, searchReaders, type Reader } from "@/lib/readers";
 
@@ -44,11 +45,11 @@ export default function ReadersPage() {
   }
 
   return <main className="min-h-screen overflow-x-hidden bg-[var(--aepilog-cream)] text-[var(--aepilog-ink)]">
-    <SiteHeader active="community" />
+    <SiteHeader active="search" />
     <div className="mx-auto max-w-5xl px-4 py-7 sm:px-5 sm:py-12">
-      <a href="/community" className="text-sm font-semibold text-[var(--aepilog-cherry)]">Back to community</a>
       <h1 className="aepilog-heading mt-5 text-4xl font-medium sm:text-5xl">Find your people</h1>
       <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--aepilog-muted)]">Discover readers, explore what they share, and follow the people whose reading lives interest you.</p>
+      <SearchTabs active="people" />
       <label htmlFor="reader-search" className="mt-7 block text-sm font-semibold">Search readers</label>
       <input id="reader-search" type="search" placeholder="Search by display name..." value={query}
         onChange={(event) => { setQuery(event.target.value); setOffset(0); setReaders([]); setLoading(true); }}

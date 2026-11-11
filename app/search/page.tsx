@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import SiteHeader from "../components/SiteHeader";
+import SearchTabs from "../components/SearchTabs";
 
 type BookResult = {
   id?: string;
@@ -138,11 +139,13 @@ export default function SearchPage() {
             Explore aepilog
           </div>
           <h1 className="aepilog-heading mt-2 text-4xl font-medium sm:text-5xl">
-            Search for a book
+            Search aepilog
           </h1>
           <p className="mt-3 text-sm leading-6 text-[var(--aepilog-muted)] sm:text-base">
             Find a book to see ratings, reviews, and what readers are discussing.
           </p>
+
+          <SearchTabs active="books" />
 
           <form onSubmit={searchBooks} className="mt-7 flex gap-2">
             <input
