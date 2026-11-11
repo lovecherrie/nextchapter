@@ -7,6 +7,7 @@ type TopicBook = { title: string; author: string | null };
 const cache = new Map<string, { until: number; subjects: string[] }>();
 
 export function useBookTopics(books: TopicBook[], enabled: boolean) {
+  const requestKey = JSON.stringify([...new Map(books.map((book) => [bookTopicKey(book), { title: book.title, author: book.author }])).values()].sort((a, b) => bookTopicKey(a).localeCompare(bookTopicKey(b))));
   const [topics, setTopics] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -18,7 +19,7 @@ export function useBookTopics(books: TopicBook[], enabled: boolean) {
     void (async () => {
       setLoading(true); setFailed(false);
       const result: Record<string, string[]> = {};
-      const queue = [...new Map(books.map((book) => [bookTopicKey(book), book])).values()];
+      const queue: TopicBook[] = JSON.parse(requestKey);
       let index = 0, failures = false;
       await Promise.all(Array.from({ length: Math.min(3, queue.length) }, async () => {
         while (index < queue.length && !controller.signal.aborted) {
@@ -38,6 +39,6 @@ export function useBookTopics(books: TopicBook[], enabled: boolean) {
       if (current) { setTopics(result); setFailed(failures); setLoading(false); }
     })();
     return () => { current = false; controller.abort(); };
-  }, [books, enabled, retry]);
+  }, [requestKey, enabled, retry]);
   return { topics, loading, failed, retry: () => setRetry((value) => value + 1) };
 }

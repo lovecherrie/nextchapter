@@ -26,22 +26,27 @@ Updated 11 November 2026. Feature implementation deployed successfully from comm
 
 ## Supabase migration state
 
-All three checked-in migrations have already been applied to production. Do not reapply them blindly:
+All four checked-in migrations have already been applied to production. Do not reapply them blindly:
 
 1. `202611110001_reader_profiles_and_follows.sql`
 2. `202611110002_community_write_ownership.sql`
 3. `20261111064426_reader_profile_photos.sql`
+4. `20261111171827_book_polls_and_reply_books.sql`
 
 The third migration appends `avatar_path` to the `security_invoker` reader view, adds an own-folder path constraint and creates the photo bucket/policies. The existing account sync trigger preserves the photo path and privacy settings. Production schema/API checks confirmed these changes without creating production test accounts or photos. Supabase's pre-existing disabled leaked-password-protection advisory remains; no new security advisory appeared after the photo migration.
 
 ## Verification and known limits
 
-- `npm test`: 77 application tests, including provider fallback/config, upload/save failure ordering, URL allowlisting, oversized cover responses and existing product regressions.
+- `npm test`: 80 application tests, including provider fallback/config, upload/save failure ordering, URL allowlisting, oversized cover responses and existing product regressions.
 - `npm run test:db`: disposable local PostgreSQL tests for all migrations, reader privacy, activity ownership, avatar paths, cross-account writes, guest restrictions and removal. This command explicitly uses the local Docker socket and never targets production.
 - Production build succeeds. New photo/sharing modules pass ESLint with only image-element warnings. The repository has pre-existing lint errors; do not describe the full lint command as clean.
 - Isolated Playwright fixtures at 390px and 1440px verified photo preview/cancel, JPEG compression, save/reload, failed upload preservation, replacement cleanup, public profile display, removal, PNG dimensions/download, native-share invocation, copied links, rating opt-out, modal Escape/focus, and no horizontal overflow. Recommendation cancellation/retry/preferences and prior reader/follow/privacy flows also passed browser checks. Mock browser tests do not prove Safari/Instagram-specific behaviour or production authenticated uploads.
 - Read-only live browser checks also passed: reader directory/search/profile, signed-out follow login, existing-book sharing, real cover fetch/fallback, mobile preview and 1080×1920 PNG download. No production test posts, ratings, accounts or photos were created.
 - AI latency is still variable. Final production checks after the reasoning/output limits took 8.34s, 8.67s (another five), and 7.39s (philosophy/psychology). All returned five distinct books; the second batch had no overlap with the first. An earlier check took 56.80s, so do not promise instant recommendations or claim the free provider's queueing is fixed.
+
+## Book polls and replies
+
+The owner chose book-versus-book polls and book cards in replies. Top remains based on engagement without a weekly window; votes now join likes and replies in that score. The existing Community layout and optional filters are retained. See `book-polls.md` for schema, behaviour, privacy and verification. The application test count is now 80; the disposable database suite includes poll and attachment security tests.
 
 ## Deferred work
 

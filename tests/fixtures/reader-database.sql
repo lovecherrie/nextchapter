@@ -17,6 +17,9 @@ create table public.ratings(id uuid primary key default gen_random_uuid(),user_i
 create table public.discussion_posts(id uuid primary key default gen_random_uuid(),user_id text not null,content text);
 create table public.comments(id uuid primary key default gen_random_uuid(),user_id text not null,content text);
 create table public.discussion_likes(id uuid primary key default gen_random_uuid(),user_id text not null);
+create table public.books(id uuid primary key default gen_random_uuid(),external_id text unique,title text not null,author text,cover_url text);
+alter table public.discussion_posts add column book_id uuid references public.books(id),add column username text,add column contains_spoilers boolean default false,add column created_at timestamptz default now();
+alter table public.comments add column post_id uuid references public.discussion_posts(id) on delete cascade;
 alter table public.ratings enable row level security;
 alter table public.discussion_posts enable row level security;
 alter table public.comments enable row level security;

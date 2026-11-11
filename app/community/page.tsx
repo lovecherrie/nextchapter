@@ -1,11 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import SiteHeader from "../components/SiteHeader";
 import { ReaderName } from "../components/ReaderSocial";
 import { supabase } from "../../lib/supabase";
 import { COMMUNITY_GENRES, bookTopicKey, browseText, matchesCommunityGenre } from "@/lib/community-browse";
 import { useBookTopics } from "../components/useBookTopics";
+import { ensureCommunityBook, type BookChoice, type AttachedBook } from "@/lib/community-books";
+import { POLL_FIELDS, pollFromPost, pollTotal, discussionEngagement, type BookPoll } from "@/lib/book-polls";
+import AttachedBookCard from "../components/AttachedBookCard";
+import BookPollComposer from "../components/BookPollComposer";
+import BookPollCard from "../components/BookPollCard";
+import ReplyBookPicker from "../components/ReplyBookPicker";
 
 type Book = {
   id: string;
@@ -37,6 +43,7 @@ type Comment = {
   parent_comment_id: string | null;
   created_at: string;
   updated_at: string;
+  recommended_book?: AttachedBook | null;
 };
 
 type DiscussionPost = {
@@ -50,6 +57,7 @@ type DiscussionPost = {
   books: Book | null;
   discussion_likes: Like[];
   comments: Comment[];
+  book_polls?: BookPoll | BookPoll[] | null;
 };
 
 type Filter = "top" | "newest";
@@ -211,19 +219,49 @@ function HeartIcon({ filled }: { filled: boolean }) {
 export default function CommunityPage() {
   const [posts, setPosts] = useState<DiscussionPost[]>([]);
   const [filter, setFilter] = useState<Filter>("top");
+  const [postType, setPostType] = useState<"post" | "poll">("post");
+  const [pollBusy, setPollBusy] = useState(false);
+  const [myPollVotes, setMyPollVotes] = useState<Record<string, string>>({});
+  const [commentBooks, setCommentBooks] = useState<Record<string, BookChoice | null>>({});
+  const [bookPickers, setBookPickers] = useState<Record<string, boolean>>({});
+  const [replyBook, setReplyBook] = useState<BookChoice | null>(null);
+  const [replyPicker, setReplyPicker] = useState(false);
+  const [commentErrors, setCommentErrors] = useState<Record<string, string>>({});
   const [browseOpen, setBrowseOpen] = useState(false);
   const [genre, setGenre] = useState("");
   const [authorQuery, setAuthorQuery] = useState("");
   const [spoilerFree, setSpoilerFree] = useState(false);
   const activeFilters = Number(!!genre) + Number(!!authorQuery.trim()) + Number(spoilerFree);
-  const topicBooks = useMemo(() => posts.flatMap((post) => post.books && browseText(post.books.author || "").includes(browseText(authorQuery)) ? [post.books] : []), [posts, authorQuery]);
+  const topicBooks = useMemo(() => posts.flatMap((post) => {
+    const poll = pollFromPost(post.book_polls);
+    return (poll ? [poll.left_book, poll.right_book] : [post.books]).filter((book): book is Book => !!book && browseText(book.author || "").includes(browseText(authorQuery)));
+  }), [posts, authorQuery]);
   const bookTopics = useBookTopics(topicBooks, !!genre);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const openedAnchor = useRef("");
+  useEffect(() => {
+    if (loading) return;
+    const id = window.location.hash.slice(1);
+    if (!/^post-[0-9a-f-]{36}$/i.test(id) || openedAnchor.current === id) return;
+    const post = document.getElementById(id);
+    if (post) { openedAnchor.current = id; requestAnimationFrame(() => post.scrollIntoView({ block: "start" })); }
+  }, [loading, posts.length]);
 
   const [guestUserId, setGuestUserId] = useState("");
   const [guestUsername, setGuestUsername] = useState("");
+  const pollIds = posts.flatMap((post) => pollFromPost(post.book_polls)?.post_id || []).sort().join(",");
+  useEffect(() => {
+    if (!guestUserId || !pollIds) return;
+    let current = true;
+    const controller = new AbortController();
+    void (async () => {
+      const { data, error } = await supabase.from("book_poll_votes").select("poll_id,choice").eq("user_id", guestUserId).in("poll_id", pollIds.split(",")).abortSignal(controller.signal);
+      if (current && !error) setMyPollVotes((previous) => ({ ...Object.fromEntries((data || []).map((row) => [row.poll_id, row.choice])), ...previous }));
+    })();
+    return () => { current = false; controller.abort(); };
+  }, [guestUserId, pollIds]);
 
   const [revealedSpoilers, setRevealedSpoilers] = useState<string[]>([]);
   const [revealedCommentSpoilers, setRevealedCommentSpoilers] =
@@ -382,6 +420,7 @@ export default function CommunityPage() {
           author,
           cover_url
         ),
+        book_polls (${POLL_FIELDS}),
         discussion_likes (
           id,
           user_id
@@ -395,7 +434,8 @@ export default function CommunityPage() {
           contains_spoilers,
           parent_comment_id,
           created_at,
-          updated_at
+          updated_at,
+          recommended_book:books!comments_recommended_book_id_fkey(id,external_id,title,author,cover_url)
         )
       `)
       .order("created_at", { ascending: false });
@@ -444,53 +484,7 @@ export default function CommunityPage() {
   }
 
   async function findOrCreateBook(searchBook: SearchBook) {
-    const { data: existingBook, error: existingError } =
-      await supabase
-        .from("books")
-        .select("id, external_id, title, author, cover_url")
-        .eq("external_id", searchBook.external_id)
-        .maybeSingle();
-
-    if (existingError) {
-      throw existingError;
-    }
-
-    if (existingBook) {
-      return existingBook as Book;
-    }
-
-    const { data: insertedBook, error: insertError } =
-      await supabase
-        .from("books")
-        .insert({
-          external_id: searchBook.external_id,
-          title: searchBook.title,
-          author: searchBook.author,
-          cover_url: searchBook.cover_url,
-        })
-        .select("id, external_id, title, author, cover_url")
-        .single();
-
-    if (!insertError && insertedBook) {
-      return insertedBook as Book;
-    }
-
-    if ((insertError as any)?.code === "23505") {
-      const { data: duplicateBook, error: duplicateError } =
-        await supabase
-          .from("books")
-          .select("id, external_id, title, author, cover_url")
-          .eq("external_id", searchBook.external_id)
-          .single();
-
-      if (duplicateError) {
-        throw duplicateError;
-      }
-
-      return duplicateBook as Book;
-    }
-
-    throw insertError;
+    return ensureCommunityBook(searchBook);
   }
 
   function requireAccount() {
@@ -508,6 +502,7 @@ export default function CommunityPage() {
 
   function openCreateModal() {
     if (!requireAccount()) return;
+    setPostType("post");
     setCreateOpen(true);
   }
 
@@ -583,7 +578,7 @@ export default function CommunityPage() {
   }
 
   function closeCreateModal() {
-    if (posting) return;
+    if (posting || pollBusy) return;
 
     setCreateOpen(false);
     setBookQuery("");
@@ -682,114 +677,36 @@ export default function CommunityPage() {
     );
   }
 
+  async function publishComment(postId: string, parentId: string | null, text: string, choice: BookChoice | null, spoiler: boolean) {
+    if (!requireAccount() || postingComment) return false;
+    const content = text.trim() || choice?.title || "";
+    if (!content) return false;
+    const key = parentId || postId;
+    setPostingComment(key); setCommentErrors((current) => ({ ...current, [key]: "" }));
+    try {
+      const book = choice ? await findOrCreateBook(choice) : null;
+      const { data, error } = await supabase.from("comments").insert({
+        post_id: postId, user_id: guestUserId, username: guestUsername, content,
+        contains_spoilers: spoiler, parent_comment_id: parentId, recommended_book_id: book?.id || null,
+      }).select("id,post_id,user_id,username,content,contains_spoilers,parent_comment_id,created_at,updated_at,recommended_book:books!comments_recommended_book_id_fkey(id,external_id,title,author,cover_url)").single();
+      if (error) throw error;
+      setPosts((current) => current.map((post) => post.id === postId ? { ...post, comments: [...post.comments, data as unknown as Comment] } : post));
+      return true;
+    } catch { setCommentErrors((current) => ({ ...current, [key]: "Could not post this reply. Your draft is still here. Please try again." })); return false; }
+    finally { setPostingComment(null); }
+  }
+
   async function addComment(postId: string) {
-    if (!requireAccount()) return;
-
-    const content = commentDrafts[postId]?.trim();
-
-    if (!content) return;
-
-    setPostingComment(postId);
-
-    const { data, error } = await supabase
-      .from("comments")
-      .insert({
-        post_id: postId,
-        user_id: guestUserId,
-        username: guestUsername,
-        content,
-        contains_spoilers: commentSpoilers[postId] || false,
-        parent_comment_id: null,
-      })
-      .select(`
-        id,
-        post_id,
-        user_id,
-        username,
-        content,
-        contains_spoilers,
-        parent_comment_id,
-        created_at,
-        updated_at
-      `)
-      .single();
-
-    if (!error && data) {
-      setPosts((current) =>
-        current.map((post) =>
-          post.id === postId
-            ? {
-                ...post,
-                comments: [...post.comments, data as Comment],
-              }
-            : post
-        )
-      );
-
-      setCommentDrafts((current) => ({
-        ...current,
-        [postId]: "",
-      }));
-
-      setCommentSpoilers((current) => ({
-        ...current,
-        [postId]: false,
-      }));
-    }
-
-    setPostingComment(null);
+    if (!await publishComment(postId, null, commentDrafts[postId] || "", commentBooks[postId] || null, commentSpoilers[postId] || false)) return;
+    setCommentDrafts((current) => ({ ...current, [postId]: "" }));
+    setCommentSpoilers((current) => ({ ...current, [postId]: false }));
+    setCommentBooks((current) => ({ ...current, [postId]: null }));
+    setBookPickers((current) => ({ ...current, [postId]: false }));
   }
 
   async function addReply(postId: string, parentCommentId: string) {
-    if (!requireAccount()) return;
-
-    const content = replyText.trim();
-
-    if (!content) return;
-
-    setPostingComment(parentCommentId);
-
-    const { data, error } = await supabase
-      .from("comments")
-      .insert({
-        post_id: postId,
-        user_id: guestUserId,
-        username: guestUsername,
-        content,
-        contains_spoilers: replySpoiler,
-        parent_comment_id: parentCommentId,
-      })
-      .select(`
-        id,
-        post_id,
-        user_id,
-        username,
-        content,
-        contains_spoilers,
-        parent_comment_id,
-        created_at,
-        updated_at
-      `)
-      .single();
-
-    if (!error && data) {
-      setPosts((current) =>
-        current.map((post) =>
-          post.id === postId
-            ? {
-                ...post,
-                comments: [...post.comments, data as Comment],
-              }
-            : post
-        )
-      );
-
-      setReplyText("");
-      setReplySpoiler(false);
-      setReplyingTo(null);
-    }
-
-    setPostingComment(null);
+    if (!await publishComment(postId, parentCommentId, replyText, replyBook, replySpoiler)) return;
+    setReplyText(""); setReplySpoiler(false); setReplyingTo(null); setReplyBook(null); setReplyPicker(false);
   }
 
   async function saveEditedComment(comment: Comment) {
@@ -865,7 +782,7 @@ export default function CommunityPage() {
 
     const { error } = await supabase
       .from("discussion_posts")
-      .update({
+      .update(pollFromPost(post.book_polls) ? { contains_spoilers: editingPostSpoiler, updated_at: new Date().toISOString() } : {
         content,
         contains_spoilers: editingPostSpoiler,
         updated_at: new Date().toISOString(),
@@ -947,18 +864,19 @@ export default function CommunityPage() {
       );
     }
 
-    if (authorQuery.trim()) result = result.filter((post) => browseText(post.books?.author || "").includes(browseText(authorQuery)));
-    if (genre) result = result.filter((post) => post.books && matchesCommunityGenre(genre, bookTopics.topics[bookTopicKey(post.books)] || []));
+    result = result.filter((post) => {
+      const poll = pollFromPost(post.book_polls);
+      const books = (poll ? [poll.left_book, poll.right_book] : [post.books]).filter((book): book is Book => !!book);
+      return books.some((book) => (!authorQuery.trim() || browseText(book.author || "").includes(browseText(authorQuery))) && (!genre || matchesCommunityGenre(genre, bookTopics.topics[bookTopicKey(book)] || []))) || (!genre && !authorQuery.trim() && !books.length);
+    });
 
     if (filter === "top") {
       result.sort((a, b) => {
         const scoreA =
-          a.discussion_likes.length +
-          a.comments.length * 2;
+          discussionEngagement(a);
 
         const scoreB =
-          b.discussion_likes.length +
-          b.comments.length * 2;
+          discussionEngagement(b);
 
         if (scoreB === scoreA) {
           return (
@@ -987,9 +905,9 @@ export default function CommunityPage() {
 
     return [...filteredPosts].sort((a, b) => {
       const scoreA =
-        a.discussion_likes.length + a.comments.length * 2;
+        discussionEngagement(a);
       const scoreB =
-        b.discussion_likes.length + b.comments.length * 2;
+        discussionEngagement(b);
 
       if (scoreB === scoreA) {
         return (
@@ -1006,6 +924,8 @@ export default function CommunityPage() {
     () => filteredPosts.reduce((total, post) => total + post.comments.length, 0),
     [filteredPosts]
   );
+  const featuredBook = featuredPost?.contains_spoilers && pollFromPost(featuredPost.book_polls) ? null : featuredPost?.books;
+  const featuredPoll = featuredPost ? pollFromPost(featuredPost.book_polls) : null;
 
   function renderComment(
     comment: Comment,
@@ -1146,11 +1066,13 @@ export default function CommunityPage() {
               </span>
             )}
           </button>
-        ) : (
+        ) : comment.recommended_book?.title === comment.content ? null : (
           <p className="mt-3 whitespace-pre-wrap text-[15px] leading-6 text-[#4f4140]">
             {comment.content}
           </p>
         )}
+
+        {comment.recommended_book && (!comment.contains_spoilers || revealed) && <AttachedBookCard book={comment.recommended_book} />}
 
         {!isReply && (
           <button
@@ -1165,6 +1087,7 @@ export default function CommunityPage() {
               );
               setReplyText("");
               setReplySpoiler(false);
+              setReplyBook(null); setReplyPicker(false);
             }}
             className="mt-3 text-xs font-bold text-[#8f2635] hover:underline"
           >
@@ -1184,6 +1107,8 @@ export default function CommunityPage() {
               className="w-full resize-none bg-transparent text-sm outline-none placeholder:text-[#aa9b98]"
             />
 
+            <ReplyBookPicker open={replyPicker} onOpenChange={setReplyPicker} value={replyBook} onChange={setReplyBook} disabled={postingComment === comment.id} />
+            {commentErrors[comment.id] && <p role="alert" className="mt-2 text-xs text-[#8f2635]">{commentErrors[comment.id]}</p>}
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
               <label className="flex items-center gap-2 text-xs text-[#756866]">
                 <input
@@ -1203,7 +1128,7 @@ export default function CommunityPage() {
                   addReply(post.id, comment.id)
                 }
                 disabled={
-                  !replyText.trim() ||
+                  (!replyText.trim() && !replyBook) ||
                   postingComment === comment.id
                 }
                 className="rounded-full bg-[#8f2635] px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
@@ -1272,10 +1197,10 @@ export default function CommunityPage() {
                 href={`#post-${featuredPost.id}`}
                 className="mt-4 flex items-center gap-3 rounded-2xl border border-[#eaded9] bg-[#fbf5f1] p-3 transition hover:border-[#c99ba0] hover:bg-[#f8efeb]"
               >
-                {featuredPost.books.cover_url ? (
+                {featuredBook?.cover_url ? (
                   <img
-                    src={featuredPost.books.cover_url}
-                    alt={featuredPost.books.title}
+                    src={featuredBook.cover_url}
+                    alt={featuredBook.title}
                     className="h-20 w-14 shrink-0 rounded-lg object-cover shadow-sm"
                   />
                 ) : (
@@ -1286,13 +1211,13 @@ export default function CommunityPage() {
 
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-bold uppercase tracking-[0.12em] text-[#a05a62]">
-                    Most active discussion
+                    Most active {featuredPoll ? "poll" : "discussion"}
                   </div>
                   <div className="font-aepilog-serif mt-0.5 truncate text-base font-semibold text-[#3a2b2b] sm:text-lg">
-                    {featuredPost.books.title}
+                    {featuredPoll && !featuredPost.contains_spoilers ? `${featuredPoll.left_book?.title || "Book"} vs ${featuredPoll.right_book?.title || "book"}` : featuredBook?.title || "Book vs book"}
                   </div>
                   <div className="text-sm text-[#756866]">
-                    {featuredPost.books.author}
+                    {featuredPoll ? "Book vs book" : featuredBook?.author}
                   </div>
                   <p className="mt-1.5 line-clamp-1 text-sm leading-5 text-[#655554] sm:line-clamp-2">
                     {featuredPost.contains_spoilers
@@ -1300,7 +1225,7 @@ export default function CommunityPage() {
                       : featuredPost.content}
                   </p>
                   <div className="mt-2 text-xs font-semibold text-[#8f2635]">
-                    {featuredPost.discussion_likes.length} likes · {featuredPost.comments.length} {featuredPost.comments.length === 1 ? "comment" : "comments"} · View discussion
+                    {featuredPost.discussion_likes.length} likes · {featuredPost.comments.length} {featuredPost.comments.length === 1 ? "comment" : "comments"}{pollFromPost(featuredPost.book_polls) && <> · {pollTotal(pollFromPost(featuredPost.book_polls))} votes</>} · View discussion
                   </div>
                 </div>
               </a>
@@ -1436,6 +1361,7 @@ export default function CommunityPage() {
         <div className="space-y-4">
           {filteredPosts.map((post) => {
             const book = post.books;
+            const poll = pollFromPost(post.book_polls);
 
             const likedByMe =
               post.discussion_likes.some(
@@ -1456,9 +1382,9 @@ export default function CommunityPage() {
               <article
                 id={`post-${post.id}`}
                 key={post.id}
-                className="scroll-mt-20 overflow-hidden rounded-[22px] border border-[#e6d8d4] bg-[#fffdf9] shadow-sm sm:rounded-[24px]"
+                className="scroll-mt-36 overflow-hidden rounded-[22px] border border-[#e6d8d4] bg-[#fffdf9] shadow-sm sm:scroll-mt-28 sm:rounded-[24px]"
               >
-                {book && (
+                {book && !poll && (
                   <div className="border-b border-[#eee2de] bg-[#fdf9f5] px-4 py-3 sm:px-5">
                     <a
                       href={makeBookUrl(book)}
@@ -1536,7 +1462,7 @@ export default function CommunityPage() {
                               }}
                               className="block w-full px-4 py-2.5 text-left text-sm font-semibold text-[#76585a] hover:bg-[#faf3ef]"
                             >
-                              Edit
+                              {poll ? "Edit spoiler setting" : "Edit"}
                             </button>
 
                             <button
@@ -1556,6 +1482,7 @@ export default function CommunityPage() {
                     <div className="mt-5 rounded-2xl border border-[#e4d7d2] bg-[#fcf7f3] p-4">
                       <textarea
                         value={editingPostText}
+                        readOnly={!!poll}
                         onChange={(event) =>
                           setEditingPostText(
                             event.target.value.slice(0, 1000)
@@ -1564,6 +1491,7 @@ export default function CommunityPage() {
                         rows={5}
                         className="w-full resize-none rounded-xl border border-[#e4d7d2] bg-white px-4 py-3 outline-none focus:border-[#b65a65]"
                       />
+                      {poll && <p className="mt-2 text-xs text-[#756866]">Poll questions and books are fixed after posting.</p>}
 
                       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                         <label className="flex items-center gap-2 text-xs text-[#756866]">
@@ -1638,6 +1566,8 @@ export default function CommunityPage() {
                     </p>
                   )}
 
+                  {poll && (!post.contains_spoilers || revealedSpoilers.includes(post.id)) && <BookPollCard poll={poll} choice={myPollVotes[post.id] || null} onChoice={(choice) => setMyPollVotes((current) => ({ ...current, [post.id]: choice }))} onUpdate={(updated) => setPosts((current) => current.map((item) => item.id === post.id ? { ...item, book_polls: updated } : item))} />}
+
                   <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[#eee2de] pt-3">
                     <button
                       onClick={() => toggleLike(post)}
@@ -1666,7 +1596,7 @@ export default function CommunityPage() {
                         : "comments"}
                     </button>
 
-                    {book && (
+                    {book && !poll && (
                       <a
                         href={makeBookUrl(book)}
                         className="ml-auto text-xs font-bold text-[#76585a] sm:text-sm"
@@ -1697,6 +1627,8 @@ export default function CommunityPage() {
                           className="w-full resize-none rounded-2xl border border-[#e4d7d2] bg-white px-4 py-3 outline-none focus:border-[#b65a65]"
                         />
 
+                        <ReplyBookPicker open={bookPickers[post.id] || false} onOpenChange={(open) => setBookPickers((current) => ({ ...current, [post.id]: open }))} value={commentBooks[post.id] || null} onChange={(value) => setCommentBooks((current) => ({ ...current, [post.id]: value }))} disabled={postingComment === post.id} />
+                        {commentErrors[post.id] && <p role="alert" className="mt-2 text-xs text-[#8f2635]">{commentErrors[post.id]}</p>}
                         <div className="mt-3 flex items-center justify-between gap-3">
                           <label className="flex items-center gap-2 text-xs text-[#756866]">
                             <input
@@ -1726,9 +1658,9 @@ export default function CommunityPage() {
                               addComment(post.id)
                             }
                             disabled={
-                              !commentDrafts[
+                              (!commentDrafts[
                                 post.id
-                              ]?.trim() ||
+                              ]?.trim() && !commentBooks[post.id]) ||
                               postingComment ===
                                 post.id
                             }
@@ -1789,7 +1721,7 @@ export default function CommunityPage() {
                 </div>
 
                 <h2 className="font-aepilog-serif mt-1 text-2xl font-bold text-[#3a2b2b]">
-                  What&apos;s on your mind?
+                  {postType === "poll" ? "Book vs book" : "New discussion"}
                 </h2>
               </div>
 
@@ -1802,6 +1734,9 @@ export default function CommunityPage() {
               </button>
             </div>
 
+            <div className="flex gap-2 px-5 pt-4 sm:px-7">{(["post", "poll"] as const).map((type) => <button key={type} type="button" disabled={posting || pollBusy} aria-pressed={postType === type} onClick={() => setPostType(type)} className={`rounded-full px-4 py-2 text-sm font-semibold ${postType === type ? "bg-[#8f2635] text-white" : "border border-[#e6d8d4] text-[#8f2635]"}`}>{type === "post" ? "Discussion" : "Book vs book"}</button>)}</div>
+            <div hidden={postType !== "poll"}><BookPollComposer onBusy={setPollBusy} onPosted={() => { setCreateOpen(false); setDiscussionText(""); setSelectedBook(null); setBookQuery(""); setContainsSpoilers(false); setFilter("newest"); void loadPosts(); }} /></div>
+            <div hidden={postType !== "post"}>
             <div className="space-y-6 p-7">
               <div>
                 <label className="mb-2 block text-sm font-bold">
@@ -1950,6 +1885,7 @@ export default function CommunityPage() {
                     : "Post discussion"}
                 </button>
               </div>
+            </div>
             </div>
           </div>
         </div>

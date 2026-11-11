@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import SiteHeader from "../components/SiteHeader";
 import { ReaderName } from "../components/ReaderSocial";
 import BookShareButton from "../components/BookShareButton";
+import AttachedBookCard from "../components/AttachedBookCard";
+import type { AttachedBook } from "@/lib/community-books";
 import { supabase } from "@/lib/supabase";
 
 type Rating = {
@@ -37,6 +39,7 @@ type DiscussionPost = {
   likes: number;
   comments: number;
   likedByMe: boolean;
+  book_polls?: { post_id: string } | { post_id: string }[] | null;
 };
 
 type Comment = {
@@ -46,6 +49,7 @@ type Comment = {
   contains_spoilers: boolean;
   created_at: string;
   parent_comment_id: string | null;
+  recommended_book?: AttachedBook | null;
 };
 
 type RatingValue =
@@ -1001,18 +1005,12 @@ function BookPageContent() {
         return;
       }
 
-      const {
-        data: postRows,
-        error,
-      } = await supabase
-        .from(
-          "discussion_posts"
-        )
-        .select("*")
-        .eq(
-          "book_id",
-          databaseBookId
-        );
+      const relatedPolls = await supabase.from("book_polls").select("post_id").eq("right_book_id", databaseBookId);
+      if (relatedPolls.error) { console.error("Could not load related polls", relatedPolls.error); return; }
+      const pollIds = (relatedPolls.data || []).map((poll) => poll.post_id);
+      let discussionRequest = supabase.from("discussion_posts").select("*,book_polls(post_id)");
+      discussionRequest = pollIds.length ? discussionRequest.or(`book_id.eq.${databaseBookId},id.in.(${pollIds.join(",")})`) : discussionRequest.eq("book_id", databaseBookId);
+      const { data: postRows, error } = await discussionRequest;
 
       if (error) {
         console.error(
@@ -1387,7 +1385,7 @@ function BookPageContent() {
         error,
       } = await supabase
         .from("comments")
-        .select("*")
+        .select("*,recommended_book:books!comments_recommended_book_id_fkey(id,external_id,title,author,cover_url)")
         .eq(
           "post_id",
           postId
@@ -2820,6 +2818,8 @@ function BookPageContent() {
                           )}
                         </div>
 
+                        {post.book_polls && (!Array.isArray(post.book_polls) || post.book_polls.length > 0) && <a href={`/community#post-${post.id}`} className="mt-4 inline-block rounded-full border border-[#e6d8d4] px-4 py-2 text-sm font-semibold text-[#8f2635]">View book poll →</a>}
+
                         <div className="mt-5 flex items-center gap-5 border-t border-stone-100 pt-4">
 
                           <button
@@ -2927,6 +2927,8 @@ function BookPageContent() {
                                           )}
                                         </div>
 
+                                        {comment.recommended_book && (!comment.contains_spoilers || revealedSpoilers.includes(`comment-${comment.id}`)) && <AttachedBookCard book={comment.recommended_book} />}
+
                                         <button
                                           type="button"
                                           onClick={() =>
@@ -2995,6 +2997,7 @@ function BookPageContent() {
                                                 reply.contains_spoilers
                                               )}
                                             </div>
+                                            {reply.recommended_book && (!reply.contains_spoilers || revealedSpoilers.includes(`reply-${reply.id}`)) && <AttachedBookCard book={reply.recommended_book} />}
 
                                           </div>
                                         )

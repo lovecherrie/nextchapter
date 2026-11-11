@@ -21,7 +21,7 @@ try {
   }
   if (!ready) throw new Error('Local PostgreSQL did not become ready');
   const migrations = readdirSync(new URL('../supabase/migrations/', import.meta.url)).filter(name => name.endsWith('.sql')).sort().map(name => `../supabase/migrations/${name}`);
-  const files = ['fixtures/reader-database.sql', ...migrations, 'sql/reader-security.sql', 'sql/reader-photos.sql'];
+  const files = ['fixtures/reader-database.sql', ...migrations, 'sql/reader-security.sql', 'sql/reader-photos.sql', 'sql/book-polls.sql'];
   for (const file of files) {
     const sql = readFileSync(new URL(file, import.meta.url), 'utf8');
     const output = docker(['exec', '-i', container, 'psql', '-U', 'postgres', '-v', 'ON_ERROR_STOP=1'], sql);
