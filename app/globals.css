@@ -15,6 +15,13 @@
 
 html {
   background: var(--aepilog-cream);
+  /* Keep centered content in place as pages and editors become scrollable. */
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+@supports not (scrollbar-gutter: stable) {
+  html { overflow-y: scroll; }
 }
 
 body {
