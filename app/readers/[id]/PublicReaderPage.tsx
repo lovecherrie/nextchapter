@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import SiteHeader from "../../components/SiteHeader";
 import { FollowButton, ReaderAvatar, ReaderTile, useReaderViewer } from "../../components/ReaderSocial";
-import { followedReaders, getReader, readerActivity, readerConnections, READER_PAGE_SIZE, type Reader, type ReaderActivity, type ReaderBook } from "@/lib/readers";
+import { followedReaders, getReader, readerActivity, readerConnections, readerTopBooks, READER_PAGE_SIZE, type Reader, type ReaderActivity, type ReaderBook, type ReaderTopBook } from "@/lib/readers";
 
 function bookHref(book: ReaderBook) {
   return `/book?${new URLSearchParams({ book: book.external_id || book.id, title: book.title, author: book.author || "", ...(book.cover_url ? { cover: book.cover_url } : {}) })}`;
@@ -40,6 +40,16 @@ export default function PublicReaderPage({ userId }: { userId: string }) {
   const [hasMore, setHasMore] = useState(false);
   const [panelLoading, setPanelLoading] = useState(true);
   const [panelError, setPanelError] = useState("");
+  const [shelf, setShelf] = useState<{ readerId: string; books: ReaderTopBook[]; error: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!reader || reader.show_top_books === false) { setShelf(null); return; }
+    const controller = new AbortController(); let current = true;
+    void readerTopBooks(reader, controller.signal).then((books) => {
+      if (current) setShelf({ readerId: reader.user_id, books, error: false });
+    }).catch(() => { if (current) setShelf({ readerId: reader.user_id, books: [], error: true }); });
+    return () => { current = false; controller.abort(); };
+  }, [reader, retry]);
 
   useEffect(() => {
     if (viewerId === undefined) return;
@@ -120,6 +130,19 @@ export default function PublicReaderPage({ userId }: { userId: string }) {
             <button type="button" onClick={() => selectPanel("following")} className="text-[var(--aepilog-muted)]"><strong className="text-[var(--aepilog-ink)]">{reader.following_count}</strong> following</button>
           </div>
         </section>
+        {reader.show_top_books !== false && shelf?.readerId === reader.user_id && (shelf.books.length > 0 || shelf.error) && <section aria-label="Top 4 books" className="mt-6 rounded-[28px] border border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] p-5 sm:p-7">
+          <h2 className="aepilog-heading text-2xl">Top 4</h2>
+          {shelf.error ? <p className="mt-3 text-sm text-[var(--aepilog-muted)]">Could not load this shelf. <button type="button" className="underline" onClick={() => setRetry((value) => value + 1)}>Try again</button></p> : <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {shelf.books.map((item) => item.books && <Link key={item.id} href={bookHref(item.books)} className="min-w-0">
+              <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-[var(--aepilog-blush-light)]">
+                {item.books.cover_url ? <img src={item.books.cover_url} alt={item.books.title} className="h-full w-full object-cover" loading="lazy" /> : <div className="flex h-full items-center justify-center p-3 text-center text-sm">{item.books.title}</div>}
+                <span className="absolute left-2 top-2 rounded-full bg-[var(--aepilog-paper)] px-2 py-1 text-xs font-semibold">#{item.position}</span>
+              </div>
+              <p className="mt-2 truncate text-sm font-semibold">{item.books.title}</p>
+              <p className="mt-1 truncate text-xs text-[var(--aepilog-muted)]">{item.books.author}</p>
+            </Link>)}
+          </div>}
+        </section>}
         <div role="tablist" aria-label="Reader profile sections" className="mt-6 flex flex-wrap gap-2">
           {(["activity", "followers", "following"] as const).map((tab) => <button key={tab} id={`reader-tab-${tab}`} type="button" role="tab" aria-selected={panel === tab} aria-controls="reader-profile-panel" onClick={() => selectPanel(tab)} className={`rounded-full px-4 py-2.5 text-sm font-semibold capitalize ${panel === tab ? "bg-[var(--aepilog-cherry)] text-white" : "border border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] text-[var(--aepilog-muted)]"}`}>{tab}</button>)}
         </div>

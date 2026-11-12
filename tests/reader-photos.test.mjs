@@ -21,7 +21,7 @@ function fixture({ signedIn=true, uploadError=false, profileError=false }={}) {
    return {eq:()=>({select:()=>({single:async()=>result})})};
   }}),
  };
- const context={exports:{},Blob,crypto:{randomUUID:()=>uuid},window:{dispatchEvent:()=>{}},CustomEvent:class{},require:name=>name==='@/lib/supabase'?{supabase}:{validReaderId:value=>/^[a-f0-9-]{36}$/i.test(value)}};
+ const context={exports:{},Blob,crypto:{randomUUID:()=>uuid},window:{dispatchEvent:()=>{}},CustomEvent:class{},require:name=>name==='@/lib/supabase'?{supabase}:name==='./account-cache'?{readAccountCache:()=>undefined,writeAccountCache:()=>{}}:{validReaderId:value=>/^[a-f0-9-]{36}$/i.test(value)}};
  vm.runInNewContext(code,context);return{api:context.exports,calls};
 }
 test('avatar paths cannot introduce remote URLs or another account folder',()=>{

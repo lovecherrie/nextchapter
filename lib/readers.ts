@@ -1,13 +1,16 @@
 import { supabase } from "@/lib/supabase";
+import type { User } from "@supabase/supabase-js";
+import { readAccountCache, syncAccountCache, writeAccountCache } from "./account-cache";
 
 export const READER_PAGE_SIZE = 20;
-export const READER_COLUMNS = "user_id,display_name,bio,is_public,show_activity,created_at,follower_count,following_count,avatar_path";
+export const READER_COLUMNS = "user_id,display_name,bio,is_public,show_activity,created_at,follower_count,following_count,avatar_path,show_top_books";
 export type Reader = {
   user_id: string;
   display_name: string;
   bio: string;
   is_public: boolean;
   show_activity: boolean;
+  show_top_books: boolean;
   created_at: string;
   follower_count: number;
   following_count: number;
@@ -30,9 +33,18 @@ export function validReaderId(value: string) {
 export function readerHref(id: string) { return `/readers/${encodeURIComponent(id)}`; }
 export function escapedReaderSearch(value: string) { return value.trim().slice(0, 80).replace(/[\\%_]/g, "\\$&"); }
 
-export async function currentReaderId() {
+export async function accountUser() {
+  const cached = readAccountCache<User>("user");
+  if (cached) return cached;
   const { data } = await supabase.auth.getUser();
-  return data.user && !data.user.is_anonymous ? data.user.id : null;
+  const user = data.user && !data.user.is_anonymous ? data.user : null;
+  syncAccountCache(user?.id || null);
+  if (user) writeAccountCache("user", user.id, user);
+  return user;
+}
+
+export async function currentReaderId() {
+  return (await accountUser())?.id || null;
 }
 
 export async function searchReaders(query: string, offset = 0, signal?: AbortSignal) {
@@ -47,11 +59,26 @@ export async function searchReaders(query: string, offset = 0, signal?: AbortSig
 
 export async function getReader(id: string, signal?: AbortSignal) {
   if (!validReaderId(id)) return null;
+  const own = readAccountCache<User>("user")?.id === id;
+  const cached = own && !signal ? readAccountCache<Reader>("reader") : undefined;
+  if (cached) return cached;
   let request = supabase.from("reader_cards").select(READER_COLUMNS).eq("user_id", id);
   if (signal) request = request.abortSignal(signal);
   const { data, error } = await request.maybeSingle();
   if (error) throw error;
+  if (own && data) writeAccountCache("reader", id, data);
   return data as Reader | null;
+}
+
+export type ReaderTopBook = { id: string; position: number; books: ReaderBook | null };
+export async function readerTopBooks(reader: Reader, signal?: AbortSignal) {
+  if (reader.show_top_books === false) return [];
+  let request = supabase.from("profile_top_books").select("id,position,books(id,external_id,title,author,cover_url)")
+    .eq("user_id", reader.user_id).order("position").limit(4);
+  if (signal) request = request.abortSignal(signal);
+  const { data, error } = await request;
+  if (error) throw error;
+  return (data || []) as unknown as ReaderTopBook[];
 }
 
 export async function followedReaders(viewerId: string | null, targetIds: string[], signal?: AbortSignal) {
@@ -108,10 +135,12 @@ export async function readerActivity(reader: Reader, signal?: AbortSignal) {
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 30) as unknown as ReaderActivity[];
 }
 
-export async function updateReaderVisibility(userId: string, isPublic: boolean, showActivity: boolean) {
+export async function updateReaderVisibility(userId: string, isPublic: boolean, showActivity: boolean, showTopBooks: boolean) {
   const { data, error } = await supabase.from("reader_profiles")
-    .update({ is_public: isPublic, show_activity: showActivity }).eq("user_id", userId)
+    .update({ is_public: isPublic, show_activity: showActivity, show_top_books: showTopBooks }).eq("user_id", userId)
     .select("user_id").single();
   if (error) throw error;
   if (!data) throw new Error("Reader profile unavailable");
+  const reader = readAccountCache<Reader>("reader");
+  if (reader?.user_id === userId) writeAccountCache("reader", userId, { ...reader, is_public: isPublic, show_activity: showActivity, show_top_books: showTopBooks });
 }

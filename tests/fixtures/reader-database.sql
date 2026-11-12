@@ -39,3 +39,16 @@ create function storage.foldername(name text) returns text[] language sql immuta
 alter table storage.objects enable row level security;
 grant usage on schema storage to anon,authenticated;
 grant select,insert,update,delete on storage.objects to anon,authenticated;
+
+-- Original Top 4 table/policies, present before the public-shelf migration.
+create table public.profile_top_books (
+ id uuid primary key default gen_random_uuid(),user_id uuid not null references auth.users(id) on delete cascade,
+ book_id uuid not null references public.books(id) on delete cascade,position smallint not null check(position between 1 and 4),
+ created_at timestamptz default now(),updated_at timestamptz default now(),unique(user_id,position),unique(user_id,book_id)
+);
+alter table public.profile_top_books enable row level security;
+grant all on public.profile_top_books to anon,authenticated;
+create policy "Top books are viewable by everyone" on public.profile_top_books for select using(true);
+create policy "Users can add their own top books" on public.profile_top_books for insert with check(auth.uid()=user_id);
+create policy "Users can delete their own top books" on public.profile_top_books for delete using(auth.uid()=user_id);
+create policy "Users can update their own top books" on public.profile_top_books for update using(auth.uid()=user_id) with check(auth.uid()=user_id);

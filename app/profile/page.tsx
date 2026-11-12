@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import type { User } from "@supabase/supabase-js";
 import SiteHeader from "../components/SiteHeader";
-import { readerHref } from "@/lib/readers";
+import { accountUser, readerHref } from "@/lib/readers";
+import { readAccountCache, writeAccountCache } from "@/lib/account-cache";
 import ProfilePhotoEditor from "../components/ProfilePhotoEditor";
 import BookShareButton from "../components/BookShareButton";
 import { supabase } from "@/lib/supabase";
@@ -88,15 +91,18 @@ function bookHref(book: Book) {
 }
 
 export default function ProfilePage() {
-  const [userId, setUserId] = useState("");
-  const [username, setUsername] = useState("");
-  const [ratings, setRatings] = useState<Rating[]>([]);
-  const [posts, setPosts] = useState<DiscussionPost[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cachedUser = readAccountCache<User>("user");
+  const cached = readAccountCache<{ userId: string; ratings: Rating[]; posts: DiscussionPost[]; topBooks: TopBook[]; wantToRead: WantToReadItem[] }>("profile");
+  const snapshot = cached?.userId === cachedUser?.id ? cached : undefined;
+  const [userId, setUserId] = useState(cachedUser?.id || "");
+  const [username, setUsername] = useState(typeof cachedUser?.user_metadata?.username === "string" ? cachedUser.user_metadata.username : "");
+  const [ratings, setRatings] = useState<Rating[]>(snapshot?.ratings || []);
+  const [posts, setPosts] = useState<DiscussionPost[]>(snapshot?.posts || []);
+  const [loading, setLoading] = useState(!snapshot);
   const [error, setError] = useState("");
 
-  const [topBooks, setTopBooks] = useState<TopBook[]>([]);
-  const [wantToRead, setWantToRead] = useState<WantToReadItem[]>([]);
+  const [topBooks, setTopBooks] = useState<TopBook[]>(snapshot?.topBooks || []);
+  const [wantToRead, setWantToRead] = useState<WantToReadItem[]>(snapshot?.wantToRead || []);
   const [topBooksOpen, setTopBooksOpen] = useState(false);
   const [draftTopBooks, setDraftTopBooks] = useState<(DraftTopBook | null)[]>([
     null,
@@ -111,7 +117,7 @@ export default function ProfilePage() {
   const [savingTopBooks, setSavingTopBooks] = useState(false);
   const [topBooksError, setTopBooksError] = useState("");
 
-  const [bio, setBio] = useState("");
+  const [bio, setBio] = useState(typeof cachedUser?.user_metadata?.bio === "string" ? cachedUser.user_metadata.bio : "");
   const [editOpen, setEditOpen] = useState(false);
   const [draftUsername, setDraftUsername] = useState("");
   const [draftBio, setDraftBio] = useState("");
@@ -121,6 +127,10 @@ export default function ProfilePage() {
   useEffect(() => {
     initializeProfile();
   }, []);
+
+  useEffect(() => {
+    if (userId && !loading && !error) writeAccountCache("profile", userId, { userId, ratings, posts, topBooks, wantToRead });
+  }, [userId, loading, error, ratings, posts, topBooks, wantToRead]);
 
   useEffect(() => {
     if (!topBooksOpen || topBookQuery.trim().length < 2) {
@@ -155,14 +165,11 @@ export default function ProfilePage() {
   }, [topBookQuery, topBooksOpen]);
 
   async function initializeProfile() {
-    setLoading(true);
+    setLoading(!snapshot);
     setError("");
 
     try {
-      const { data } =
-        await supabase.auth.getUser();
-
-      const authUser = data.user;
+      const authUser = await accountUser();
 
       if (!authUser || authUser.is_anonymous) {
         if (authUser?.is_anonymous) {
@@ -204,7 +211,10 @@ export default function ProfilePage() {
       setDraftUsername(accountUsername);
       setDraftBio(accountBio);
 
-      await loadProfile(authUser.id);
+      const recent = readAccountCache<typeof cached>("profile");
+      if (recent?.userId === authUser.id) {
+        setRatings(recent.ratings); setPosts(recent.posts); setTopBooks(recent.topBooks); setWantToRead(recent.wantToRead); setLoading(false);
+      } else await loadProfile(authUser.id);
     } catch (initializeError) {
       console.error(
         "Profile initialization error:",
@@ -704,15 +714,15 @@ export default function ProfilePage() {
                 <p className="mt-1 max-w-xl text-sm leading-6 text-stone-500">
                   {bio || "Your reading life on aepilog."}
                 </p>
-                {userId && <a href={readerHref(userId)} className="mt-2 inline-block text-sm font-semibold underline underline-offset-4">View public profile</a>}
+                {userId && <Link href={readerHref(userId)} className="mt-2 inline-block text-sm font-semibold underline underline-offset-4">View public profile</Link>}
               </div>
             </div>
 
             <div className="flex flex-wrap gap-2 self-start">
-              <a href="/settings" aria-label="Settings" title="Settings" className="aepilog-pressable inline-flex items-center gap-2 rounded-xl border border-[#E6D8D4] bg-[#fffdf8] px-3 py-2 text-sm font-semibold">
+              <Link href="/settings" aria-label="Settings" title="Settings" className="aepilog-pressable inline-flex items-center gap-2 rounded-xl border border-[#E6D8D4] bg-[#fffdf8] px-3 py-2 text-sm font-semibold">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true" className="h-4 w-4"><path strokeLinejoin="round" d="m9.5 3-.6 2.2-2 .9-2-.7-2.5 4.2 1.6 1.6v2l-1.6 1.6L4.9 19l2-.7 2 .9.6 2.2h5l.6-2.2 2-.9 2 .7 2.5-4.2-1.6-1.6v-2l1.6-1.6L19.1 5l-2 .7-2-.9L14.5 3z"/><circle cx="12" cy="12" r="3"/></svg>
                 Settings
-              </a>
+              </Link>
               <button
                 type="button"
                 onClick={openEditProfile}

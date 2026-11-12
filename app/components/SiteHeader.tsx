@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 type SiteHeaderProps = {
   active?: "find" | "community" | "search" | "profile";
 };
@@ -64,15 +66,15 @@ export default function SiteHeader({
     <header className="sticky top-0 z-40 border-b border-[var(--aepilog-border)] bg-[rgba(255,253,249,0.95)] backdrop-blur">
       <div className="mx-auto max-w-6xl px-4 py-3 sm:flex sm:items-center sm:justify-between sm:gap-6 sm:px-5 sm:py-6">
         <div className="flex items-center justify-between sm:contents">
-        <a
+        <Link
           href="/"
           className="aepilog-wordmark shrink-0 text-[31px] leading-none text-[var(--aepilog-ink)] transition hover:text-[var(--aepilog-cherry)] sm:text-[42px]"
         >
           aepilog
-        </a>
+        </Link>
 
           <div className="flex items-center gap-2 sm:hidden">
-            <a
+            <Link
               href="/search"
               aria-label="Search"
               title="Search"
@@ -84,9 +86,9 @@ export default function SiteHeader({
               }`}
             >
               <SearchIcon />
-            </a>
+            </Link>
 
-            <a
+            <Link
               href="/profile"
               aria-label="Profile"
               title="Profile"
@@ -98,13 +100,13 @@ export default function SiteHeader({
               }`}
             >
               <ProfileIcon />
-            </a>
+            </Link>
           </div>
         </div>
 
         <div className="mt-3 flex items-center sm:mt-0 sm:gap-8">
           <nav className="grid w-full grid-cols-2 items-center border-t border-[var(--aepilog-border)] pt-2 sm:flex sm:w-auto sm:gap-7 sm:border-0 sm:pt-0">
-            <a
+            <Link
               href="/"
               className={`${navClass} ${
                 active === "community"
@@ -113,9 +115,9 @@ export default function SiteHeader({
               }`}
             >
               Community
-            </a>
+            </Link>
 
-            <a
+            <Link
               href="/find-books"
               className={`${navClass} ${
                 active === "find"
@@ -124,9 +126,9 @@ export default function SiteHeader({
               }`}
             >
               Find Books
-            </a>
+            </Link>
 
-            <a
+            <Link
               href="/search"
               className={`hidden sm:block ${navClass} ${
                 active === "search"
@@ -135,12 +137,12 @@ export default function SiteHeader({
               }`}
             >
               Search
-            </a>
+            </Link>
           </nav>
 
           <div className="hidden h-6 w-px bg-[var(--aepilog-border)] sm:block" />
 
-          <a
+          <Link
             href="/profile"
             aria-label="Profile"
             title="Profile"
@@ -152,7 +154,7 @@ export default function SiteHeader({
             }`}
           >
             <ProfileIcon />
-          </a>
+          </Link>
         </div>
       </div>
     </header>

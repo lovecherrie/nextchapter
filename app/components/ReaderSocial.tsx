@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { avatarUrl } from "@/lib/reader-photos";
 import { readerPortrait, rememberReaderPhoto } from "@/lib/reader-portraits";
+import type { User } from "@supabase/supabase-js";
+import { readAccountCache } from "@/lib/account-cache";
 import { currentReaderId, getReader, readerHref, setReaderFollowing, updateReaderVisibility, validReaderId, type Reader } from "@/lib/readers";
 
 export function ReaderName({ userId, name, className = "" }: { userId: string; name: string; className?: string }) {
@@ -26,7 +28,7 @@ export function ReaderName({ userId, name, className = "" }: { userId: string; n
 }
 
 export function useReaderViewer() {
-  const [viewerId, setViewerId] = useState<string | null | undefined>(undefined);
+  const [viewerId, setViewerId] = useState<string | null | undefined>(() => readAccountCache<User>("user")?.id);
   useEffect(() => {
     let current = true;
     void currentReaderId().then((id) => { if (current) setViewerId(id); }).catch(() => { if (current) setViewerId(null); });
@@ -106,10 +108,13 @@ export function ReaderTile({ reader, viewerId, following, onFollowChange }: {
 }
 
 export function ReaderProfileSettings({ userId }: { userId: string }) {
-  const [reader, setReader] = useState<Reader | null>(null);
-  const [isPublic, setIsPublic] = useState(true);
-  const [showActivity, setShowActivity] = useState(true);
-  const [loading, setLoading] = useState(true);
+  const cached = readAccountCache<Reader>("reader");
+  const ownCached = cached?.user_id === userId ? cached : undefined;
+  const [reader, setReader] = useState<Reader | null>(ownCached || null);
+  const [isPublic, setIsPublic] = useState(ownCached?.is_public ?? true);
+  const [showActivity, setShowActivity] = useState(ownCached?.show_activity ?? true);
+  const [showTopBooks, setShowTopBooks] = useState(ownCached?.show_top_books ?? true);
+  const [loading, setLoading] = useState(!ownCached);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -118,7 +123,7 @@ export function ReaderProfileSettings({ userId }: { userId: string }) {
     void getReader(userId).then((profile) => {
       if (!current) return;
       setReader(profile);
-      if (profile) { setIsPublic(profile.is_public); setShowActivity(profile.show_activity); }
+      if (profile) { setIsPublic(profile.is_public); setShowActivity(profile.show_activity); setShowTopBooks(profile.show_top_books !== false); }
     }).catch(() => { if (current) setError("Your public reader profile is unavailable right now. Please try again later."); })
       .finally(() => { if (current) setLoading(false); });
     return () => { current = false; };
@@ -127,7 +132,7 @@ export function ReaderProfileSettings({ userId }: { userId: string }) {
   async function save() {
     if (saving) return;
     setSaving(true); setSaved(false); setError("");
-    try { await updateReaderVisibility(userId, isPublic, showActivity); setSaved(true); }
+    try { await updateReaderVisibility(userId, isPublic, showActivity, showTopBooks); setSaved(true); }
     catch { setError("Could not save your visibility choices. Please try again."); }
     finally { setSaving(false); }
   }
@@ -136,6 +141,7 @@ export function ReaderProfileSettings({ userId }: { userId: string }) {
     {loading ? <p className="mt-4 text-sm text-[var(--aepilog-muted)]">Loading visibility choices...</p> : reader ? <>
       <p className="mt-2 text-sm leading-6 text-[var(--aepilog-muted)]">Choose what appears on your public reader profile. Your email and Want to Read list stay private.</p>
       <label className="mt-5 flex items-start gap-3 text-sm"><input type="checkbox" checked={isPublic} onChange={(event) => { setIsPublic(event.target.checked); setSaved(false); }} className="mt-1 accent-[#8f2635]" />Let other readers find and follow me</label>
+      <label className="mt-3 flex items-start gap-3 text-sm"><input type="checkbox" checked={showTopBooks} onChange={(event) => { setShowTopBooks(event.target.checked); setSaved(false); }} className="mt-1 accent-[#8f2635]" />Show my Top 4 on my public profile</label>
       <label className="mt-3 flex items-start gap-3 text-sm"><input type="checkbox" checked={showActivity} onChange={(event) => { setShowActivity(event.target.checked); setSaved(false); }} className="mt-1 accent-[#8f2635]" />Show my ratings and discussions on my reader profile</label>
       <p className="mt-2 text-xs leading-5 text-[var(--aepilog-muted)]">Posts and ratings you share on book and community pages remain visible there.</p>
       <div className="mt-5 flex flex-wrap items-center gap-4">

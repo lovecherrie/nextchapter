@@ -1,4 +1,6 @@
 import { supabase } from "@/lib/supabase";
+import { readAccountCache, writeAccountCache } from "./account-cache";
+import type { Reader } from "./readers";
 import { validReaderId } from "@/lib/readers";
 
 export const AVATAR_BUCKET = "reader-avatars";
@@ -57,5 +59,7 @@ export async function saveReaderPhoto(userId: string, blob: Blob | null, oldPath
     await bucket.remove([oldPath]).catch(() => {});
   }
   window.dispatchEvent(new CustomEvent("aepilog-photo-changed", { detail: { userId, path } }));
+  const cached = readAccountCache<Reader>("reader");
+  if (cached?.user_id === userId) writeAccountCache("reader", userId, { ...cached, avatar_path: path });
   return path;
 }

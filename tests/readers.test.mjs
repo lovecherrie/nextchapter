@@ -14,7 +14,7 @@ function fixture(resolve=()=>({data:[],error:null}),user=null){
  }
  for(const method of ['select','eq','ilike','order','range','limit','abortSignal','in','insert','delete','update'])Query.prototype[method]=function(...args){this.steps.push({method,args});return this};
  for(const method of ['single','maybeSingle'])Query.prototype[method]=function(...args){this.steps.push({method,args});return Promise.resolve(resolve(this))};
- const context={exports:{},Set,console,require(name){if(name==='@/lib/supabase')return {supabase:{from:table=>new Query(table),auth:{getUser:async()=>({data:{user}})}}};throw Error(name)}};
+ const context={exports:{},Set,console,require(name){if(name==='./account-cache')return {readAccountCache:()=>undefined,syncAccountCache:()=>{},writeAccountCache:()=>{}};if(name==='@/lib/supabase')return {supabase:{from:table=>new Query(table),auth:{getUser:async()=>({data:{user}})}}};throw Error(name)}};
  vm.runInNewContext(code,context);
  return {api:context.exports,calls};
 }
@@ -73,6 +73,11 @@ test('followers lists resolve public reader cards in the relationship order',asy
  assert.deepEqual(plain(step(calls[1],'eq').args),['is_public',true]);
 });
 test('profile visibility updates touch only visibility fields on the owner row',async()=>{
- const {api,calls}=fixture(()=>({data:{user_id:alice},error:null}));await api.updateReaderVisibility(alice,false,false);
- assert.deepEqual(plain(step(calls[0],'update').args),[{is_public:false,show_activity:false}]);assert.deepEqual(plain(step(calls[0],'eq').args),['user_id',alice]);
+ const {api,calls}=fixture(()=>({data:{user_id:alice},error:null}));await api.updateReaderVisibility(alice,false,false,false);
+ assert.deepEqual(plain(step(calls[0],'update').args),[{is_public:false,show_activity:false,show_top_books:false}]);assert.deepEqual(plain(step(calls[0],'eq').args),['user_id',alice]);
+});
+
+test('hidden Top 4 skips its query and an exposed shelf reads only four ordered books',async()=>{
+ const {api,calls}=fixture();assert.equal((await api.readerTopBooks({user_id:alice,show_top_books:false})).length,0);assert.equal(calls.length,0);
+ await api.readerTopBooks({user_id:alice,show_top_books:true,show_activity:false});assert.equal(calls[0].table,'profile_top_books');assert.deepEqual(plain(step(calls[0],'eq').args),['user_id',alice]);assert.deepEqual(plain(step(calls[0],'limit').args),[4]);assert.deepEqual(plain(step(calls[0],'order').args),['position']);assert(!step(calls[0],'select').args[0].includes('want_to_read'));
 });

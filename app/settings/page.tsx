@@ -1,6 +1,7 @@
 "use client";
 
 import SiteHeader from "../components/SiteHeader";
+import Link from "next/link";
 import { ReaderProfileSettings, useReaderViewer } from "../components/ReaderSocial";
 
 export default function SettingsPage() {
@@ -8,7 +9,7 @@ export default function SettingsPage() {
   return <main className="min-h-screen bg-[var(--aepilog-cream)] text-[var(--aepilog-ink)]">
     <SiteHeader active="profile" />
     <div className="mx-auto max-w-3xl px-4 py-7 sm:px-5 sm:py-10">
-      <a href="/profile" className="inline-block py-2 text-sm underline underline-offset-4">← Back to profile</a>
+      <Link href="/profile" className="inline-block py-2 text-sm underline underline-offset-4">← Back to profile</Link>
       <h1 className="aepilog-heading mt-4 text-3xl sm:text-4xl">Settings</h1>
       {viewerId === undefined ? <p role="status" className="mt-6 text-sm">Loading settings...</p> : viewerId ?
         <ReaderProfileSettings key={viewerId} userId={viewerId} /> :

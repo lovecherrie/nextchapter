@@ -26,12 +26,13 @@ Updated 11 November 2026. Feature implementation deployed successfully from comm
 
 ## Supabase migration state
 
-All four checked-in migrations have already been applied to production. Do not reapply them blindly:
+All five checked-in migrations have already been applied to production. Do not reapply them blindly:
 
 1. `202611110001_reader_profiles_and_follows.sql`
 2. `202611110002_community_write_ownership.sql`
 3. `20261111064426_reader_profile_photos.sql`
 4. `20261111171827_book_polls_and_reply_books.sql`
+5. `20261112033307_public_top_four.sql`
 
 The third migration appends `avatar_path` to the `security_invoker` reader view, adds an own-folder path constraint and creates the photo bucket/policies. The existing account sync trigger preserves the photo path and privacy settings. Production schema/API checks confirmed these changes without creating production test accounts or photos. Supabase's pre-existing disabled leaked-password-protection advisory remains; no new security advisory appeared after the photo migration.
 
@@ -75,6 +76,16 @@ Brief CSS motion adds button press feedback, fine-pointer hover lift, search-tab
 At the owner's request, visibility controls moved from the main profile into `/settings`, under Privacy. Profile now has a labelled settings gear beside its edit controls, and View public profile under the bio. Existing own-profile visibility reads/writes and explanatory privacy limits are retained; nothing is saved merely by opening Settings. Signed-out/anonymous visitors get a sign-in link, preserving the settings return destination. Settings is excluded from indexing and the sitemap. The active profile icon is explicitly cream on its burgundy background on mobile and desktop; the matching mobile search icon receives the same colour correction.
 
 The Git tag `profile-before-settings-20261112` preserves commit `b9f7574` before this trial. To undo later, revert the focused settings commit rather than resetting shared main, so subsequent work is preserved. Production build, 80 application tests and new settings ESLint checks passed. Browser fixtures at 390/1440px verified clean profile, public-profile link, gear navigation, owned privacy save/reload, failure preservation, cream SVG stroke and no overflow. Signed-out/anonymous tests confirmed no privacy controls or writes. SiteHeader retains its pre-existing home-anchor lint errors; no new lint issue was introduced. No database migration was required.
+
+## Public shelf, photo menu and faster profile navigation (12 November 2026)
+
+The owner requested a clean avatar: Edit profile photo is now the photo itself, with change/add/remove controls visible only after clicking it. The popover closes outside or on Escape, and retains the existing preview, explicit save, compression and failure handling. Keyboard users can activate the photo button; a successful save/removal closes its controls.
+
+Public reader profiles now show up to four chosen favourites in position order, with covers and links to their books. Settings → Privacy has an independent Show my Top 4 on my public profile toggle, enabled by default as requested. Hiding ratings/discussions does not hide the shelf. Private profiles and readers disabling their shelf are also protected at the database layer. Owners retain access to edit their own Top 4. Want to Read stays private and is never fetched for a public shelf. Migration five adds `show_top_books`, appends it to the invoker reader view and replaces the original unrestricted shelf read policy with the visibility checks. Shelf writes remain registered-owner-only, and clients cannot reassign owners. Existing books and shelves are preserved.
+
+Profile/Settings/header links now use Next.js client navigation and prefetching rather than full-page reloads. A bounded 30-second, account-scoped memory cache reuses the verified account display data, own reader/photo and private profile snapshot for quick returns. It never persists to browser storage or server module state. Logout/account changes clear it; account edits invalidate it; shelf/list/photo/visibility saves update the appropriate snapshot. Database RLS still validates requests, and cached UI is not an authorization mechanism. Other readers' public profiles are fetched afresh so privacy changes are not served from a shared reader cache. First visits and expired entries still require network requests.
+
+Restore point: `profile-before-public-shelf-20261112` at `6c941ad`. Revert the feature commit to undo the presentation changes; keep the additive migration and privacy checks unless intentionally reviewing a database rollback. The production build, 84 application tests and all disposable database tests passed. Browser fixtures at 390/1440px confirmed hidden photo actions; preview/cancel/save/failure/remove; in-document Profile → Settings → Profile navigation without additional account, profile or photo reads while warm; updated visibility; public shelves independent of activity; and no private Want to Read or horizontal overflow. Production schema/grants and security-advisor checks passed, with only the previously known Auth advisory. No production test users, photos or shelves were created.
 
 Validation: 80 application tests and production build passed. Browser checks at 320, 390 and 1440 pixels confirmed Fraunces inheritance, discussion-first sizing, spoiler protection, direct poll entry, matching search containers, white selected tabs, working book/reader search and no horizontal overflow. No database changes were required.
 
