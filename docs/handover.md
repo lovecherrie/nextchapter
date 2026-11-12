@@ -50,7 +50,7 @@ The owner chose book-versus-book polls and book cards in replies. Top remains ba
 
 ## Deferred work
 
-- Integrate the owner's approved logo/Figma design.
+- Integrate further approved Figma design changes. Initial brand icons are now installed (see below).
 - Finalize broader reading-style/avoid options and a nonfiction-friendly rating redesign with the owner; those decisions were intentionally deferred.
 - Continue measuring recommendation latency before selecting a different model or adding paid services. No new paid AI service was authorized by this implementation.
 
@@ -59,6 +59,10 @@ The owner chose book-versus-book polls and book cards in replies. Top remains ba
 The owner requested Fraunces throughout the website, replacing Inter, including buttons, inputs and share-card text. The featured discussion now shows a small poster name, larger discussion text, then a smaller book title; spoiler text and poll choices remain hidden until revealed in the feed. Regular discussion text is slightly larger. Create post is the single entry point, with Discussion and Book vs book options inside. In poll mode the small editor label reads Create poll. The owner requested removal of the separate poll shortcut after trying it. No example posts were added to production. These are a visual trial and can be reverted independently of the poll database migration.
 
 The earlier search-page request is also implemented: Books and People share container width, heading scale and spacing; selected tabs have explicit white text (the global anchor inheritance previously overrode the colour utility). The book heading is Search for books. Search and follow behaviour are preserved.
+
+## Initial brand icons (12 November 2026)
+
+The owner supplied the cherry logo, approved a lowercase `aepilog.` correction, and allowed a simple lowercase `a` at tiny sizes. `public/brand/aepilog-logo.png` is the circular transparent-corner cherry artwork; its lower edge is cherry, with the unwanted cream rim removed. `public/brand/aepilog-mark.png` is a lowercase Fraunces monogram for small icons. Next.js metadata conventions expose `app/favicon.ico` (16/32/48px), `app/icon.png` (96px, a multiple of Google's recommended 48px size), and `app/apple-icon.png` (180px). The root metadata uses the full cherry logo in Open Graph and Twitter summary previews. Google and social platforms control their cached icon/preview refresh timing. The existing header wordmark remains lowercase text. Assets can also be downloaded for social profile use; no social account was changed.
 
 Validation: 80 application tests and production build passed. Browser checks at 320, 390 and 1440 pixels confirmed Fraunces inheritance, discussion-first sizing, spoiler protection, direct poll entry, matching search containers, white selected tabs, working book/reader search and no horizontal overflow. No database changes were required.
 

@@ -19,6 +19,13 @@ export const metadata: Metadata = {
     title: "aepilog — Discover books and track your reading",
     description: "Discover your next book, track your reading, and connect with other readers on aepilog.",
     type: "website",
+    images: [{ url: "/brand/aepilog-logo.png", width: 1024, height: 1024, alt: "aepilog cherry logo" }],
+  },
+  twitter: {
+    card: "summary",
+    title: "aepilog",
+    description: "Discover books and talk about what you read.",
+    images: [{ url: "/brand/aepilog-logo.png", alt: "aepilog cherry logo" }],
   },
 };
 
