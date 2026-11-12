@@ -139,7 +139,7 @@ export default function SearchPage() {
             Explore aepilog
           </div>
           <h1 className="aepilog-heading mt-2 text-4xl font-medium sm:text-5xl">
-            Search aepilog
+            Search for books
           </h1>
           <p className="mt-3 text-sm leading-6 text-[var(--aepilog-muted)] sm:text-base">
             Find a book to see ratings, reviews, and what readers are discussing.

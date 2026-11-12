@@ -46,14 +46,16 @@ export default function ReadersPage() {
 
   return <main className="min-h-screen overflow-x-hidden bg-[var(--aepilog-cream)] text-[var(--aepilog-ink)]">
     <SiteHeader active="search" />
-    <div className="mx-auto max-w-5xl px-4 py-7 sm:px-5 sm:py-12">
-      <h1 className="aepilog-heading mt-5 text-4xl font-medium sm:text-5xl">Find your people</h1>
-      <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--aepilog-muted)]">Discover readers, explore what they share, and follow the people whose reading lives interest you.</p>
+    <div className="mx-auto max-w-5xl px-4 py-5 sm:px-5 sm:py-10 md:py-14">
+      <div className="mx-auto max-w-3xl">
+      <div className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--aepilog-cherry-soft)]">Explore aepilog</div>
+      <h1 className="aepilog-heading mt-2 text-4xl font-medium sm:text-5xl">Find your people</h1>
+      <p className="mt-3 text-sm leading-6 text-[var(--aepilog-muted)] sm:text-base">Discover readers, see what they share, and find people to follow.</p>
       <SearchTabs active="people" />
-      <label htmlFor="reader-search" className="mt-7 block text-sm font-semibold">Search readers</label>
+      <label htmlFor="reader-search" className="sr-only">Search readers</label>
       <input id="reader-search" type="search" placeholder="Search by display name..." value={query}
         onChange={(event) => { setQuery(event.target.value); setOffset(0); setReaders([]); setLoading(true); }}
-        className="mt-2 w-full rounded-2xl border border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] px-4 py-3.5 outline-none focus:border-[var(--aepilog-cherry)]" />
+        className="mt-7 w-full rounded-2xl border border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] px-5 py-3.5 outline-none focus:border-[var(--aepilog-cherry)]" />
       <div aria-busy={loading} className="mt-6 grid gap-3 sm:grid-cols-2">
         {readers.map((reader) => <ReaderTile key={reader.user_id} reader={reader} viewerId={viewerId} following={following.has(reader.user_id)} onFollowChange={(next) => changed(reader, next)} />)}
       </div>
@@ -61,6 +63,7 @@ export default function ReadersPage() {
       {error && <div role="alert" className="mt-5 text-sm text-[var(--aepilog-cherry)]">{error} <button type="button" onClick={() => setRetry((value) => value + 1)} className="ml-2 font-semibold underline">Try again</button></div>}
       {!loading && !error && readers.length === 0 && <p className="mt-5 text-sm text-[var(--aepilog-muted)]">{query.trim() ? "No readers found. Try another name." : "Readers will appear here as they join aepilog."}</p>}
       {!loading && !error && hasMore && <button type="button" onClick={() => setOffset((value) => value + READER_PAGE_SIZE)} className="mt-6 rounded-full border border-[var(--aepilog-cherry)] px-5 py-2.5 text-sm font-semibold text-[var(--aepilog-cherry)]">More readers</button>}
+      </div>
     </div>
   </main>;
 }

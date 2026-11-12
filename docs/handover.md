@@ -54,6 +54,14 @@ The owner chose book-versus-book polls and book cards in replies. Top remains ba
 - Finalize broader reading-style/avoid options and a nonfiction-friendly rating redesign with the owner; those decisions were intentionally deferred.
 - Continue measuring recommendation latency before selecting a different model or adding paid services. No new paid AI service was authorized by this implementation.
 
+## Fraunces and discussion hierarchy trial (12 November 2026)
+
+The owner requested Fraunces throughout the website, replacing Inter, including buttons, inputs and share-card text. The featured discussion now shows a small poster name, larger discussion text, then a smaller book title; spoiler text and poll choices remain hidden until revealed in the feed. Regular discussion text is slightly larger. A visible Create poll shortcut opens the existing Book vs book composer; no example posts were added to production. These are a visual trial and can be reverted independently of the poll database migration.
+
+The earlier search-page request is also implemented: Books and People share container width, heading scale and spacing; selected tabs have explicit white text (the global anchor inheritance previously overrode the colour utility). The book heading is Search for books. Search and follow behaviour are preserved.
+
+Validation: 80 application tests and production build passed. Browser checks at 320, 390 and 1440 pixels confirmed Fraunces inheritance, discussion-first sizing, spoiler protection, direct poll entry, matching search containers, white selected tabs, working book/reader search and no horizontal overflow. No database changes were required.
+
 ## Community browsing update
 
 The owner preferred the previous Community layout. The redesign in `be49f92` was reverted by `d2edfb3`; do not reintroduce its slogan-style copy. Keep labels plain. The original cream/burgundy layout is retained with optional collapsed Filters beside Top/Newest. All discussions show by default, with no onboarding prompts, persisted filter choices, or automatic personalisation.

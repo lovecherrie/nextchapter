@@ -46,7 +46,7 @@ export async function createShareCard({ book, rating, readerName }: ShareCard): 
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Your browser could not create the card.");
   const serif = getComputedStyle(document.body).getPropertyValue("--font-serif").trim() || "Georgia";
-  const sans = getComputedStyle(document.body).getPropertyValue("--font-sans").trim() || "Arial";
+  const sans = serif;
   context.fillStyle = "#faf6ef"; context.fillRect(0, 0, 1080, 1920);
   context.strokeStyle = "#e6d8d4"; context.lineWidth = 2; context.strokeRect(48, 48, 984, 1824);
   context.textAlign = "center"; context.textBaseline = "middle";

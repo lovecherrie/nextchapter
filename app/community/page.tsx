@@ -500,9 +500,9 @@ export default function CommunityPage() {
     return false;
   }
 
-  function openCreateModal() {
+  function openCreateModal(type: "post" | "poll" = "post") {
     if (!requireAccount()) return;
-    setPostType("post");
+    setPostType(type);
     setCreateOpen(true);
   }
 
@@ -1210,20 +1210,17 @@ export default function CommunityPage() {
                 )}
 
                 <div className="min-w-0 flex-1">
-                  <div className="text-xs font-bold uppercase tracking-[0.12em] text-[#a05a62]">
-                    Most active {featuredPoll ? "poll" : "discussion"}
+                  <div className="text-xs text-[#756866]">
+                    {featuredPost.username}
                   </div>
-                  <div className="font-aepilog-serif mt-0.5 truncate text-base font-semibold text-[#3a2b2b] sm:text-lg">
-                    {featuredPoll && !featuredPost.contains_spoilers ? `${featuredPoll.left_book?.title || "Book"} vs ${featuredPoll.right_book?.title || "book"}` : featuredBook?.title || "Book vs book"}
-                  </div>
-                  <div className="text-sm text-[#756866]">
-                    {featuredPoll ? "Book vs book" : featuredBook?.author}
-                  </div>
-                  <p className="mt-1.5 line-clamp-1 text-sm leading-5 text-[#655554] sm:line-clamp-2">
+                  <p className="mt-1 line-clamp-3 break-words text-xl font-medium leading-snug text-[#3a2b2b] sm:text-2xl">
                     {featuredPost.contains_spoilers
                       ? "This discussion contains spoilers."
                       : featuredPost.content}
                   </p>
+                  <div className="mt-2 text-sm text-[#756866]">
+                    {featuredPoll && !featuredPost.contains_spoilers ? `${featuredPoll.left_book?.title || "Book"} vs ${featuredPoll.right_book?.title || "book"}` : featuredBook?.title || "Book vs book"}
+                  </div>
                   <div className="mt-2 text-xs font-semibold text-[#8f2635]">
                     {featuredPost.discussion_likes.length} likes · {featuredPost.comments.length} {featuredPost.comments.length === 1 ? "comment" : "comments"}{pollFromPost(featuredPost.book_polls) && <> · {pollTotal(pollFromPost(featuredPost.book_polls))} votes</>} · View discussion
                   </div>
@@ -1248,10 +1245,17 @@ export default function CommunityPage() {
 
               <button
                 type="button"
-                onClick={openCreateModal}
+                onClick={() => openCreateModal()}
                 className="mt-3 inline-flex rounded-full bg-[#fffdf9] px-3 py-2 text-[11px] font-bold text-[#8f2635] sm:px-4 sm:text-sm"
               >
                 + Create post
+              </button>
+              <button
+                type="button"
+                onClick={() => openCreateModal("poll")}
+                className="mt-2 block py-1 text-sm text-[#fffdf9] underline underline-offset-4"
+              >
+                Create poll
               </button>
             </div>
 
@@ -1551,7 +1555,7 @@ export default function CommunityPage() {
                       className="mt-4 w-full rounded-2xl border border-[#d6aeb1] bg-[#f3dfe0]/75 px-4 py-5 text-left transition hover:bg-[#f1d9da]/85"
                     >
                       {revealedSpoilers.includes(post.id) ? (
-                        <p className="whitespace-pre-wrap text-[15px] leading-6 text-[#4f4140]">
+                        <p className="whitespace-pre-wrap break-words text-lg leading-7 text-[#4f4140]">
                           {post.content}
                         </p>
                       ) : (
@@ -1561,7 +1565,7 @@ export default function CommunityPage() {
                       )}
                     </button>
                   ) : (
-                    <p className="mt-4 whitespace-pre-wrap text-[15px] leading-6 text-[#4f4140]">
+                    <p className="mt-4 whitespace-pre-wrap break-words text-lg leading-7 text-[#4f4140]">
                       {post.content}
                     </p>
                   )}
