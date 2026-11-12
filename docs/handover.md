@@ -165,3 +165,11 @@ The owner selected “Reading circles” in place of Buddy reads. All visible Co
 The root uses `scrollbar-gutter: stable` with `scrollbar-width: thin`, preventing centered content from moving horizontally when a short page becomes scrollable. Browsers without gutter support fall back to an always-reserved vertical scroll area. This retains native scrolling and browser/OS scrollbar controls; it does not create a custom hover-only or draggable overlay. Restore tag `before-reading-circles-scroll-fix-20261112` preserves `684383c`.
 
 Production build and focused browser geometry checks at 390/1440px passed. Opening/closing the circle editor, applying/removing body scroll lock, and navigating between short/long pages preserved header/heading x positions within half a pixel, with no horizontal overflow or runtime errors. No database changes were needed.
+
+## Approved cherry “a.” icons (12 November 2026)
+
+The owner provided the final artwork in `exec-a044aaf8-de4e-403a-9e8e-301c9fe9479c.png.zip` after inline image previews did not reach the workspace. The ZIP contains one PNG plus a macOS resource fork; only the PNG was used. Its exact original bytes are preserved in `public/brand/aepilog-icon-source.png` (1254×1254 RGB, including its supplied background). No artwork was generated, retouched or cropped for installation.
+
+Standard-size copies replace the former standalone-a assets: browser icon 192×192, Apple touch icon 180×180, public mark 512×512, and ICO with 16/32/48/64px variants. ICO packaging uses opaque RGBA as required by Next's image decoder, without changing the supplied artwork. The full-word cherry sharing logo and site wordmark remain their existing assets. Next's file-based metadata automatically includes fresh content-hashed icon URLs.
+
+Restore tag `before-approved-cherry-icon-20261112` preserves `3254bd8`. Production build and local HTTP checks passed; all three generated head links serve bytes identical to the approved resized icon files with their correct sizes and formats. No application logic or database changes were needed.
