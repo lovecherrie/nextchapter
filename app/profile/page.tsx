@@ -64,7 +64,7 @@ type Rating = {
 
 type DiscussionPost = {
   id: string;
-  book_id: string;
+  book_id: string | null;
   user_id: string;
   username: string;
   content: string;
@@ -1043,7 +1043,7 @@ export default function ProfilePage() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-semibold text-[#8F2635]">
-                        {post.books?.title || "Book"}
+                        {post.books?.title || "Discussion"}
                       </div>
                       <div className="mt-1 text-xs text-stone-400">
                         {formatDate(post.created_at)}

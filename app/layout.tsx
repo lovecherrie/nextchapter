@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces } from "next/font/google";
 import "./globals.css";
+import { BackHistory } from "./components/BackLink";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -37,6 +38,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={fraunces.variable}>
+        <BackHistory />
         {children}
       </body>
     </html>

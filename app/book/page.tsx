@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { discussionHref } from "@/lib/discussion-links";
+import BackLink from "../components/BackLink";
 import SiteHeader from "../components/SiteHeader";
 import AnimatedLikeButton from "../components/AnimatedLikeButton";
 import { ReaderName } from "../components/ReaderSocial";
@@ -70,10 +71,6 @@ function BookPageContent() {
 
   const bookCover =
     searchParams.get("cover") ||
-    "";
-
-  const openedFrom =
-    searchParams.get("from") ||
     "";
 
   const [
@@ -846,20 +843,6 @@ function BookPageContent() {
       }
     };
 
-  const goBack =
-    () => {
-      if (
-        window.history.length >
-        1
-      ) {
-        window.history.back();
-        return;
-      }
-
-      window.location.href =
-        "/";
-    };
-
   const buyQuery =
     encodeURIComponent(
       `${bookTitle} ${bookAuthor}`.trim()
@@ -1394,17 +1377,10 @@ function BookPageContent() {
         {/* BOOK HEADER */}
 
         <div className="mb-4">
-          <button
-            type="button"
-            onClick={goBack}
+          <BackLink
+            fallback={searchParams.get("from") === "recommendations" ? "/find-books" : "/search"}
             className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-[var(--aepilog-paper)] px-4 py-2 text-sm font-semibold text-[var(--aepilog-cherry)] shadow-sm transition hover:bg-[var(--aepilog-blush-light)]"
-          >
-            ←{" "}
-            {openedFrom ===
-            "recommendations"
-              ? "Back to recommendations"
-              : "Back"}
-          </button>
+          />
         </div>
 
         <section className="rounded-[32px] border border-stone-200 bg-[var(--aepilog-paper)] p-6 shadow-sm md:p-8">

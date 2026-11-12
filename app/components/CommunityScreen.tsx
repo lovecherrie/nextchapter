@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { accountUser } from "@/lib/readers";
 import { discussionHref } from "@/lib/discussion-links";
 import SiteHeader from "./SiteHeader";
+import BackLink from "./BackLink";
 import { fetchJsonWithTimeout } from "@/lib/fetch-json";
 import AnimatedLikeButton from "./AnimatedLikeButton";
 import { ReaderName, ReaderDisplayName } from "./ReaderSocial";
@@ -54,7 +55,7 @@ type Comment = {
 
 type DiscussionPost = {
   id: string;
-  book_id: string;
+  book_id: string | null;
   user_id: string;
   username: string;
   content: string;
@@ -513,11 +514,6 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
   async function createPost() {
     setPostError("");
 
-    if (!selectedBook) {
-      setPostError("Choose a book first.");
-      return;
-    }
-
     if (!discussionText.trim()) {
       setPostError("Write something before posting.");
       return;
@@ -530,13 +526,13 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
     setPosting(true);
 
     try {
-      const book = await findOrCreateBook(selectedBook);
+      const book = selectedBook ? await findOrCreateBook(selectedBook) : null;
 
       const { data: newPost, error: insertError } =
         await supabase
           .from("discussion_posts")
           .insert({
-            book_id: book.id,
+            book_id: book?.id ?? null,
             user_id: guestUserId,
             username: guestUsername,
             content: discussionText.trim(),
@@ -1115,7 +1111,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
       <section className={`mx-auto px-4 py-5 sm:px-5 sm:py-7 ${discussionId ? "max-w-3xl" : "max-w-6xl"}`}>
         {discussionId && <div className="mb-5">
           <div className="flex items-center justify-between gap-3">
-            <Link href={recentFeed()?.path || "/"} scroll={!recentFeed()} onClick={() => { if (feedSnapshot) feedSnapshot = { ...feedSnapshot, restore: true }; }} className="py-2 text-sm font-medium underline underline-offset-4">← Back to Community</Link>
+            <BackLink fallback={recentFeed()?.path || "/"} onBack={() => { if (feedSnapshot) feedSnapshot = { ...feedSnapshot, restore: true }; }} className="py-2 text-sm font-medium underline underline-offset-4" />
             <button type="button" onClick={() => void copyDiscussionLink()} className="rounded-full border border-[#e6d8d4] bg-[#fffdf9] px-4 py-2 text-sm">{copyState === "copied" ? "Link copied" : "Copy link"}</button>
           </div>
           <h1 className="aepilog-heading mt-3 text-3xl font-medium">Discussion</h1>
@@ -1154,13 +1150,13 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
               )}
             </div>
 
-            {!loading && !error && featuredPost?.books ? (
+            {!loading && !error && featuredPost ? (
               <Link
                 href={discussionHref(featuredPost.id)}
                 onClick={rememberFeedPosition}
                 className="mt-4 flex items-center gap-3 rounded-2xl border border-[#eaded9] bg-[#fbf5f1] p-3 transition hover:border-[#c99ba0] hover:bg-[#f8efeb]"
               >
-                {featuredBook?.cover_url ? (
+                {featuredBook && (featuredBook.cover_url ? (
                   <img
                     src={featuredBook.cover_url}
                     alt={featuredBook.title}
@@ -1170,7 +1166,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
                   <div className="flex h-20 w-14 shrink-0 items-center justify-center rounded-lg bg-[#eee2de] text-xs font-bold text-[#756866]">
                     Book
                   </div>
-                )}
+                ))}
 
                 <div className="min-w-0 flex-1">
                   <div className="text-xs text-[#756866]">
@@ -1181,9 +1177,9 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
                       ? "This discussion contains spoilers."
                       : featuredPost.content}
                   </p>
-                  <div className="mt-2 text-sm text-[#756866]">
+                  {(featuredPoll || featuredBook) && <div className="mt-2 text-sm text-[#756866]">
                     {featuredPoll && !featuredPost.contains_spoilers ? `${featuredPoll.left_book?.title || "Book"} vs ${featuredPoll.right_book?.title || "book"}` : featuredBook?.title || "Book vs book"}
-                  </div>
+                  </div>}
                   <div className="mt-2 text-xs font-semibold text-[#8f2635]">
                     {featuredPost.discussion_likes.length} likes · {featuredPost.comments.length} {featuredPost.comments.length === 1 ? "comment" : "comments"}{pollFromPost(featuredPost.book_polls) && <> · {pollTotal(pollFromPost(featuredPost.book_polls))} votes</>} · View discussion
                   </div>
@@ -1203,7 +1199,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
               </h2>
 
               <p className="mt-1.5 hidden text-sm leading-5 text-[#f0d7d9] lg:block">
-                Post about a book.
+                Ask a question or share a thought.
               </p>
 
               <button
@@ -1704,7 +1700,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
             <div className="space-y-6 p-7">
               <div>
                 <label className="mb-2 block text-sm font-bold">
-                  Which book are you talking about?
+                  Add a book (optional)
                 </label>
 
                 {selectedBook ? (
@@ -1731,13 +1727,14 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
                     </div>
 
                     <button
+                      aria-label="Remove attached book"
                       onClick={() => {
                         setSelectedBook(null);
                         changeBookQuery("");
                       }}
                       className="rounded-full bg-white px-3 py-2 text-xs font-bold"
                     >
-                      Change
+                      Remove
                     </button>
                   </div>
                 ) : (

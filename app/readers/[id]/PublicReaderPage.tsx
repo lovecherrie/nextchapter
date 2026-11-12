@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { discussionHref } from "@/lib/discussion-links";
+import BackLink from "../../components/BackLink";
 import SiteHeader from "../../components/SiteHeader";
 import { FollowButton, ReaderAvatar, ReaderTile, ReaderDisplayName, useReaderViewer } from "../../components/ReaderSocial";
 import { followedReaders, getReader, readerActivity, readerConnections, readerTopBooks, READER_PAGE_SIZE, type Reader, type ReaderActivity, type ReaderBook, type ReaderTopBook } from "@/lib/readers";
@@ -112,7 +113,7 @@ export default function PublicReaderPage({ userId }: { userId: string }) {
   return <main className="min-h-screen overflow-x-hidden bg-[var(--aepilog-cream)] text-[var(--aepilog-ink)]">
     <SiteHeader active="community" />
     <div className="mx-auto max-w-4xl px-4 py-7 sm:px-5 sm:py-12">
-      <Link href="/readers" className="text-sm font-semibold text-[var(--aepilog-cherry)]">Back to readers</Link>
+      <BackLink fallback="/readers" className="text-sm font-semibold text-[var(--aepilog-cherry)]" />
       {loading ? <p role="status" className="mt-8 text-sm text-[var(--aepilog-muted)]">Loading reader profile...</p> : error ? <div role="alert" className="mt-8 text-sm text-[var(--aepilog-cherry)]">{error} <button type="button" onClick={() => setRetry((value) => value + 1)} className="ml-2 underline">Try again</button></div> : !reader ? <section className="mt-7 rounded-[28px] border border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] p-6">
         <h1 className="aepilog-heading text-3xl">Reader not found</h1>
         <p className="mt-3 text-sm leading-6 text-[var(--aepilog-muted)]">This profile may be private or no longer available.</p>
