@@ -1,13 +1,13 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { discussionHref } from "@/lib/discussion-links";
 import SiteHeader from "../components/SiteHeader";
 import AnimatedLikeButton from "../components/AnimatedLikeButton";
 import { ReaderName } from "../components/ReaderSocial";
 import BookShareButton from "../components/BookShareButton";
-import AttachedBookCard from "../components/AttachedBookCard";
-import type { AttachedBook } from "@/lib/community-books";
 import { supabase } from "@/lib/supabase";
 import { loadBookDiscussions } from "@/lib/book-discussions";
 
@@ -44,21 +44,14 @@ type DiscussionPost = {
   book_polls?: { post_id: string } | { post_id: string }[] | null;
 };
 
-type Comment = {
-  id: string;
-  username: string;
-  content: string;
-  contains_spoilers: boolean;
-  created_at: string;
-  parent_comment_id: string | null;
-  recommended_book?: AttachedBook | null;
-};
+
 
 type RatingValue =
   | number
   | null;
 
 function BookPageContent() {
+  const router = useRouter();
   const searchParams =
     useSearchParams();
 
@@ -156,12 +149,7 @@ function BookPageContent() {
       DiscussionPost[]
     >([]);
 
-  const [
-    commentsByPost,
-    setCommentsByPost,
-  ] = useState<
-    Record<string, Comment[]>
-  >({});
+
 
   // -------------------------
   // BOOK RATING
@@ -268,36 +256,13 @@ function BookPageContent() {
     []
   );
 
-  const [
-    openComments,
-    setOpenComments,
-  ] = useState<string[]>(
-    []
-  );
 
-  const [
-    commentDrafts,
-    setCommentDrafts,
-  ] = useState<
-    Record<string, string>
-  >({});
 
-  const [
-    commentSpoilers,
-    setCommentSpoilers,
-  ] = useState<
-    Record<string, boolean>
-  >({});
 
-  const [
-    replyingTo,
-    setReplyingTo,
-  ] = useState<
-    Record<
-      string,
-      string | null
-    >
-  >({});
+
+
+
+
 
   const [
     loading,
@@ -1146,9 +1111,7 @@ function BookPageContent() {
         return;
       }
 
-      const {
-        error,
-      } = await supabase
+      const { data: newPost, error } = await supabase
         .from(
           "discussion_posts"
         )
@@ -1167,7 +1130,7 @@ function BookPageContent() {
 
           contains_spoilers:
             postSpoiler,
-        });
+        }).select("id").single();
 
       if (error) {
         console.error(
@@ -1186,7 +1149,8 @@ function BookPageContent() {
         false
       );
 
-      await loadPosts();
+      if (newPost?.id) router.push(discussionHref(newPost.id));
+      else await loadPosts();
     };
 
   // -------------------------
@@ -1215,173 +1179,11 @@ function BookPageContent() {
   // COMMENTS
   // -------------------------
 
-  const loadComments =
-    async (
-      postId: string
-    ) => {
-      const {
-        data,
-        error,
-      } = await supabase
-        .from("comments")
-        .select("*,recommended_book:books!comments_recommended_book_id_fkey(id,external_id,title,author,cover_url)")
-        .eq(
-          "post_id",
-          postId
-        )
-        .order(
-          "created_at",
-          {
-            ascending: true,
-          }
-        );
 
-      if (error) {
-        console.error(
-          error
-        );
 
-        return;
-      }
 
-      setCommentsByPost(
-        (
-          previous
-        ) => ({
-          ...previous,
-          [postId]:
-            (data ||
-              []) as Comment[],
-        })
-      );
-    };
 
-  const toggleComments =
-    async (
-      postId: string
-    ) => {
-      const isOpen =
-        openComments.includes(
-          postId
-        );
 
-      if (isOpen) {
-        setOpenComments(
-          (
-            previous
-          ) =>
-            previous.filter(
-              (id) =>
-                id !== postId
-            )
-        );
-
-        return;
-      }
-
-      setOpenComments(
-        (
-          previous
-        ) => [
-          ...previous,
-          postId,
-        ]
-      );
-
-      await loadComments(
-        postId
-      );
-    };
-
-  const submitComment =
-    async (
-      postId: string
-    ) => {
-      const content =
-        commentDrafts[
-          postId
-        ]?.trim();
-
-      if (!requireAccount()) {
-        return;
-      }
-
-      if (!content) {
-        return;
-      }
-
-      const {
-        error,
-      } = await supabase
-        .from("comments")
-        .insert({
-          post_id:
-            postId,
-
-          user_id:
-            guestUserId,
-
-          username:
-            guestUsername,
-
-          content,
-
-          contains_spoilers:
-            commentSpoilers[
-              postId
-            ] || false,
-
-          parent_comment_id:
-            replyingTo[
-              postId
-            ] || null,
-        });
-
-      if (error) {
-        console.error(
-          error
-        );
-
-        alert(
-          "Could not post comment."
-        );
-
-        return;
-      }
-
-      setCommentDrafts(
-        (
-          previous
-        ) => ({
-          ...previous,
-          [postId]: "",
-        })
-      );
-
-      setCommentSpoilers(
-        (
-          previous
-        ) => ({
-          ...previous,
-          [postId]: false,
-        })
-      );
-
-      setReplyingTo(
-        (
-          previous
-        ) => ({
-          ...previous,
-          [postId]: null,
-        })
-      );
-
-      await loadComments(
-        postId
-      );
-
-      await loadPosts();
-    };
 
   // -------------------------
   // SPOILERS
@@ -2598,18 +2400,9 @@ function BookPageContent() {
                   (
                     post
                   ) => {
-                    const comments =
-                      commentsByPost[
-                        post.id
-                      ] || [];
 
-                    const topLevelComments =
-                      comments.filter(
-                        (
-                          comment
-                        ) =>
-                          !comment.parent_comment_id
-                      );
+
+
 
                     return (
                       <article
@@ -2652,14 +2445,10 @@ function BookPageContent() {
                         </div>
 
                         <div className="mt-5">
-                          {spoilerContent(
-                            `post-${post.id}`,
-                            post.content,
-                            post.contains_spoilers
-                          )}
+                          {post.contains_spoilers ? spoilerContent(`post-${post.id}`, post.content, true) : <Link href={discussionHref(post.id)} className="block"><p className="line-clamp-4 whitespace-pre-wrap break-words leading-7 text-stone-700">{post.content}</p><span className="mt-2 inline-block text-xs font-medium text-[#8f2635]">Read discussion →</span></Link>}
                         </div>
 
-                        {post.book_polls && (!Array.isArray(post.book_polls) || post.book_polls.length > 0) && <a href={`/community#post-${post.id}`} className="mt-4 inline-block rounded-full border border-[#e6d8d4] px-4 py-2 text-sm font-semibold text-[#8f2635]">View book poll →</a>}
+                        {post.book_polls && (!Array.isArray(post.book_polls) || post.book_polls.length > 0) && <Link href={discussionHref(post.id)} className="mt-4 inline-block rounded-full border border-[#e6d8d4] px-4 py-2 text-sm font-semibold text-[#8f2635]">View book poll →</Link>}
 
                         <div className="mt-5 flex items-center gap-5 border-t border-stone-100 pt-4">
 
@@ -2687,20 +2476,9 @@ function BookPageContent() {
                             }
                           </AnimatedLikeButton>
 
-                          <button
-                            type="button"
-                            onClick={() =>
-                              toggleComments(
-                                post.id
-                              )
-                            }
-                            className="text-sm font-medium text-stone-500"
-                          >
-                            {" "}
-                            {
-                              post.comments
-                            }
-                          </button>
+                          <Link href={discussionHref(post.id)} className="text-sm font-medium text-stone-500">
+                            {post.comments} {post.comments === 1 ? "comment" : "comments"}
+                          </Link>
 
                         </div>
 
@@ -2708,273 +2486,7 @@ function BookPageContent() {
 
                         {/* COMMENTS */}
 
-                        {openComments.includes(
-                          post.id
-                        ) && (
-                          <div className="aepilog-reveal mt-6 border-t border-stone-100 pt-5">
 
-                            <div className="space-y-4">
-
-                              {topLevelComments.map(
-                                (
-                                  comment
-                                ) => {
-                                  const replies =
-                                    comments.filter(
-                                      (
-                                        item
-                                      ) =>
-                                        item.parent_comment_id ===
-                                        comment.id
-                                    );
-
-                                  return (
-                                    <div
-                                      key={
-                                        comment.id
-                                      }
-                                    >
-
-                                      <div className="rounded-2xl bg-[var(--aepilog-blush-light)] p-4">
-
-                                        <div className="flex flex-wrap items-center justify-between gap-2">
-
-                                          <button
-                                            type="button"
-                                            className="text-sm font-semibold hover:underline"
-                                          >
-                                            {
-                                              comment.username
-                                            }
-                                          </button>
-
-                                          <span className="text-[11px] text-stone-400">
-                                            {formatDate(
-                                              comment.created_at
-                                            )}
-                                          </span>
-
-                                        </div>
-
-                                        {comment.contains_spoilers && (
-                                          <div className="mt-2">
-                                            <span className="rounded-full bg-amber-100 px-2 py-1 text-[11px] font-medium text-amber-800">
-
-                                              Spoiler
-                                            </span>
-                                          </div>
-                                        )}
-
-                                        <div className="mt-3">
-                                          {spoilerContent(
-                                            `comment-${comment.id}`,
-                                            comment.content,
-                                            comment.contains_spoilers
-                                          )}
-                                        </div>
-
-                                        {comment.recommended_book && (!comment.contains_spoilers || revealedSpoilers.includes(`comment-${comment.id}`)) && <AttachedBookCard book={comment.recommended_book} />}
-
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            setReplyingTo(
-                                              (
-                                                previous
-                                              ) => ({
-                                                ...previous,
-                                                [post.id]:
-                                                  comment.id,
-                                              })
-                                            )
-                                          }
-                                          className="mt-3 text-xs font-medium text-stone-500 hover:text-stone-900"
-                                        >
-                                          Reply
-                                        </button>
-
-                                      </div>
-
-                                      {/* REPLIES */}
-
-                                      {replies.map(
-                                        (
-                                          reply
-                                        ) => (
-                                          <div
-                                            key={
-                                              reply.id
-                                            }
-                                            className="ml-7 mt-2 rounded-2xl border-l-2 border-[#c9b899] bg-stone-50 p-4"
-                                          >
-
-                                            <div className="flex flex-wrap items-center justify-between gap-2">
-
-                                              <button
-                                                type="button"
-                                                className="text-sm font-semibold hover:underline"
-                                              >
-                                                {
-                                                  reply.username
-                                                }
-                                              </button>
-
-                                              <span className="text-[11px] text-stone-400">
-                                                {formatDate(
-                                                  reply.created_at
-                                                )}
-                                              </span>
-
-                                            </div>
-
-                                            {reply.contains_spoilers && (
-                                              <div className="mt-2">
-                                                <span className="rounded-full bg-amber-100 px-2 py-1 text-[11px] font-medium text-amber-800">
-
-                                                  Spoiler
-                                                </span>
-                                              </div>
-                                            )}
-
-                                            <div className="mt-3">
-                                              {spoilerContent(
-                                                `reply-${reply.id}`,
-                                                reply.content,
-                                                reply.contains_spoilers
-                                              )}
-                                            </div>
-                                            {reply.recommended_book && (!reply.contains_spoilers || revealedSpoilers.includes(`reply-${reply.id}`)) && <AttachedBookCard book={reply.recommended_book} />}
-
-                                          </div>
-                                        )
-                                      )}
-
-                                    </div>
-                                  );
-                                }
-                              )}
-
-                            </div>
-
-                            {/* COMMENT FORM */}
-
-                            {replyingTo[
-                              post.id
-                            ] && (
-                              <div className="mt-5 flex items-center justify-between rounded-xl bg-[var(--aepilog-blush-light)] px-3 py-2 text-xs text-[var(--aepilog-cherry)]">
-
-                                <span>
-                                  Replying
-                                  to a
-                                  comment
-                                </span>
-
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setReplyingTo(
-                                      (
-                                        previous
-                                      ) => ({
-                                        ...previous,
-                                        [post.id]:
-                                          null,
-                                      })
-                                    )
-                                  }
-                                  className="font-semibold"
-                                >
-                                  Cancel
-                                </button>
-
-                              </div>
-                            )}
-
-                            <textarea
-                              value={
-                                commentDrafts[
-                                  post.id
-                                ] || ""
-                              }
-                              onChange={(
-                                event
-                              ) =>
-                                setCommentDrafts(
-                                  (
-                                    previous
-                                  ) => ({
-                                    ...previous,
-                                    [post.id]:
-                                      event
-                                        .target
-                                        .value,
-                                  })
-                                )
-                              }
-                              placeholder={
-                                replyingTo[
-                                  post.id
-                                ]
-                                  ? "Write a reply..."
-                                  : "Join the discussion..."
-                              }
-                              className="mt-4 min-h-24 w-full resize-none rounded-2xl border border-stone-200 bg-white p-3 text-sm outline-none focus:border-[var(--aepilog-cherry)]"
-                            />
-
-                            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-
-                              <label className="flex items-center gap-2 text-xs text-stone-500">
-
-                                <input
-                                  type="checkbox"
-                                  checked={
-                                    commentSpoilers[
-                                      post.id
-                                    ] ||
-                                    false
-                                  }
-                                  onChange={(
-                                    event
-                                  ) =>
-                                    setCommentSpoilers(
-                                      (
-                                        previous
-                                      ) => ({
-                                        ...previous,
-                                        [post.id]:
-                                          event
-                                            .target
-                                            .checked,
-                                      })
-                                    )
-                                  }
-                                />
-
-                                Contains
-                                spoilers
-
-                              </label>
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  submitComment(
-                                    post.id
-                                  )
-                                }
-                                className="rounded-full bg-[var(--aepilog-cherry)] px-5 py-2 text-sm font-semibold text-white"
-                              >
-                                {replyingTo[
-                                  post.id
-                                ]
-                                  ? "Post reply"
-                                  : "Post comment"}
-                              </button>
-
-                            </div>
-
-                          </div>
-                        )}
 
                       </article>
                     );

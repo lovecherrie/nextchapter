@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { discussionHref } from "@/lib/discussion-links";
 import SiteHeader from "../../components/SiteHeader";
 import { FollowButton, ReaderAvatar, ReaderTile, ReaderDisplayName, useReaderViewer } from "../../components/ReaderSocial";
 import { followedReaders, getReader, readerActivity, readerConnections, readerTopBooks, READER_PAGE_SIZE, type Reader, type ReaderActivity, type ReaderBook, type ReaderTopBook } from "@/lib/readers";
@@ -23,6 +24,7 @@ function ActivityCard({ item }: { item: ReaderActivity }) {
       <button type="button" aria-expanded={revealed} onClick={() => setRevealed((value) => !value)} className="mt-4 rounded-full border border-[var(--aepilog-border)] px-3 py-2 text-xs font-semibold text-[var(--aepilog-cherry)]">{revealed ? "Hide spoiler" : "Show spoiler"}</button>
       {revealed && <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7">{item.content}</p>}
     </> : <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7">{item.content}</p>)}
+    {item.kind === "discussion" && <Link href={discussionHref(item.id)} className="mt-4 inline-block text-sm font-medium underline underline-offset-4">View discussion →</Link>}
   </article>;
 }
 

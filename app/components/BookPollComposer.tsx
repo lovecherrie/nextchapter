@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { ensureCommunityBook, type BookChoice } from "@/lib/community-books";
 import CommunityBookPicker from "./CommunityBookPicker";
 
-export default function BookPollComposer({ onPosted, onBusy }: { onPosted: () => void; onBusy: (busy: boolean) => void }) {
+export default function BookPollComposer({ onPosted, onBusy }: { onPosted: (id: string) => void; onBusy: (busy: boolean) => void }) {
   const requestKey = useRef<string | null>(null);
   const [left, setLeft] = useState<BookChoice | null>(null), [right, setRight] = useState<BookChoice | null>(null);
   const [question, setQuestion] = useState("");
@@ -20,7 +20,8 @@ export default function BookPollComposer({ onPosted, onBusy }: { onPosted: () =>
       const [first, second] = await Promise.all([ensureCommunityBook(left), ensureCommunityBook(right)]);
       const result = await supabase.rpc("create_book_poll", { p_left_book: first.id, p_right_book: second.id, p_question: question.trim(), p_spoilers: spoilers, p_request_id: requestKey.current }).abortSignal(AbortSignal.timeout(15000));
       if (result.error) throw result.error;
-      onPosted();
+      if (typeof result.data !== "string") throw new Error("Poll confirmation unavailable");
+      onPosted(result.data);
     } catch { setError("Could not publish this poll. Your choices are still here. Please try again."); }
     finally { setSaving(false); onBusy(false); }
   }

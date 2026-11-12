@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 import SiteHeader from "../components/SiteHeader";
+import { discussionHref } from "@/lib/discussion-links";
 import { accountUser, readerHref } from "@/lib/readers";
 import { readAccountCache, writeAccountCache } from "@/lib/account-cache";
 import ProfilePhotoEditor from "../components/ProfilePhotoEditor";
@@ -1032,10 +1033,10 @@ export default function ProfilePage() {
           ) : (
             <div className="mt-5 space-y-3">
               {posts.map((post) => (
-                <a
+                <Link
                   key={post.id}
                   href={
-                    post.books ? bookHref(post.books) : "#"
+                    discussionHref(post.id)
                   }
                   className="block rounded-2xl border border-stone-200 bg-white p-5 transition hover:border-[#E6D8D4] hover:bg-[#FFFDF9]"
                 >
@@ -1061,7 +1062,7 @@ export default function ProfilePage() {
                       ? "This post contains spoilers."
                       : post.content}
                   </p>
-                </a>
+                </Link>
               ))}
             </div>
           )}
