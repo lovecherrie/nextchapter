@@ -500,9 +500,9 @@ export default function CommunityPage() {
     return false;
   }
 
-  function openCreateModal(type: "post" | "poll" = "post") {
+  function openCreateModal() {
     if (!requireAccount()) return;
-    setPostType(type);
+    setPostType("post");
     setCreateOpen(true);
   }
 
@@ -1250,13 +1250,6 @@ export default function CommunityPage() {
               >
                 + Create post
               </button>
-              <button
-                type="button"
-                onClick={() => openCreateModal("poll")}
-                className="mt-2 block py-1 text-sm text-[#fffdf9] underline underline-offset-4"
-              >
-                Create poll
-              </button>
             </div>
 
             <div className="flex h-full min-h-[132px] flex-col rounded-[22px] border border-[#8f2635] bg-[#fffdf9] p-4 text-[#8f2635] shadow-sm sm:min-h-0 sm:p-5 lg:block lg:h-auto">
@@ -1721,7 +1714,7 @@ export default function CommunityPage() {
             <div className="flex items-start justify-between border-b border-[#eee2de] px-7 py-5">
               <div>
                 <div className="text-xs font-bold uppercase tracking-[0.14em] text-[#a05a62]">
-                  New discussion
+                  {postType === "poll" ? "Create poll" : "New discussion"}
                 </div>
 
                 <h2 className="font-aepilog-serif mt-1 text-2xl font-bold text-[#3a2b2b]">

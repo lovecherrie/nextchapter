@@ -56,7 +56,7 @@ The owner chose book-versus-book polls and book cards in replies. Top remains ba
 
 ## Fraunces and discussion hierarchy trial (12 November 2026)
 
-The owner requested Fraunces throughout the website, replacing Inter, including buttons, inputs and share-card text. The featured discussion now shows a small poster name, larger discussion text, then a smaller book title; spoiler text and poll choices remain hidden until revealed in the feed. Regular discussion text is slightly larger. A visible Create poll shortcut opens the existing Book vs book composer; no example posts were added to production. These are a visual trial and can be reverted independently of the poll database migration.
+The owner requested Fraunces throughout the website, replacing Inter, including buttons, inputs and share-card text. The featured discussion now shows a small poster name, larger discussion text, then a smaller book title; spoiler text and poll choices remain hidden until revealed in the feed. Regular discussion text is slightly larger. Create post is the single entry point, with Discussion and Book vs book options inside. In poll mode the small editor label reads Create poll. The owner requested removal of the separate poll shortcut after trying it. No example posts were added to production. These are a visual trial and can be reverted independently of the poll database migration.
 
 The earlier search-page request is also implemented: Books and People share container width, heading scale and spacing; selected tabs have explicit white text (the global anchor inheritance previously overrode the colour utility). The book heading is Search for books. Search and follow behaviour are preserved.
 
