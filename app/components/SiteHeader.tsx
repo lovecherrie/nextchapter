@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
+import { invalidateAccountCache } from "@/lib/account-cache";
 
 type SiteHeaderProps = {
   active?: "find" | "community" | "search" | "profile";
@@ -59,6 +61,11 @@ function SearchIcon() {
 export default function SiteHeader({
   active,
 }: SiteHeaderProps) {
+  useEffect(() => {
+    // Reuse shelf/list data only within Profile/Settings. Returning from books
+    // or Community refreshes activity that may have changed in those sections.
+    if (active !== "profile") invalidateAccountCache("profile");
+  }, [active]);
   const navClass =
     "relative px-1 py-2 text-center text-[13px] font-medium transition sm:text-left sm:text-[15px]";
 

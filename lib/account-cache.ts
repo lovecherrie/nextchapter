@@ -21,3 +21,7 @@ export function writeAccountCache(key: string, userId: string, value: unknown) {
   if (entries.size >= 8 && !entries.has(key)) entries.delete(entries.keys().next().value!);
   entries.set(key, { value, until: Date.now() + 30000 });
 }
+
+export function invalidateAccountCache(key: string) {
+  entries.delete(key);
+}

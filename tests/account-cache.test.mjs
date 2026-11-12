@@ -12,7 +12,8 @@ test('account presentation cache clears on logout and switching accounts',()=>{
 });
 test('account presentation cache expires and invalidates on account edits',()=>{
  const {api,tick}=fixture();api.syncAccountCache('alice');api.writeAccountCache('reader','alice',{photo:'old'});tick(30001);assert.equal(api.readAccountCache('reader'),undefined);
- api.writeAccountCache('reader','alice',{photo:'new'});api.syncAccountCache('alice',true);assert.equal(api.readAccountCache('reader'),undefined);
+ api.writeAccountCache('reader','alice',{photo:'new'});api.writeAccountCache('profile','alice',{books:[]});api.invalidateAccountCache('profile');assert.equal(api.readAccountCache('profile'),undefined);assert.equal(api.readAccountCache('reader').photo,'new');
+ api.syncAccountCache('alice',true);assert.equal(api.readAccountCache('reader'),undefined);
 });
 test('account presentation cache cannot retain private data in server module state',()=>{
  const {api}=fixture(false);api.syncAccountCache('alice');api.writeAccountCache('profile','alice',{private:true});assert.equal(api.readAccountCache('profile'),undefined);
