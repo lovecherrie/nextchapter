@@ -67,15 +67,15 @@ export default function SiteHeader({
     if (active !== "profile") invalidateAccountCache("profile");
   }, [active]);
   const navClass =
-    "relative px-1 py-2 text-center text-[13px] font-medium transition sm:text-left sm:text-[15px]";
+    "relative px-1 pt-2 pb-5 text-center text-[13px] font-medium transition sm:flex sm:items-center sm:py-0 sm:text-left sm:text-[15px]";
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--aepilog-border)] bg-[rgba(255,253,249,0.95)] backdrop-blur">
-      <div className="mx-auto max-w-6xl px-4 py-3 sm:flex sm:items-center sm:justify-between sm:gap-6 sm:px-5 sm:py-6">
+    <header className="relative z-40 border-b border-[var(--aepilog-border)] bg-[rgba(255,253,249,0.95)] backdrop-blur">
+      <div className="mx-auto max-w-6xl px-4 pt-3 sm:flex sm:items-stretch sm:justify-between sm:gap-6 sm:px-5 sm:pt-0">
         <div className="flex items-center justify-between sm:contents">
         <Link
           href="/"
-          className="aepilog-wordmark shrink-0 text-[31px] leading-none text-[var(--aepilog-ink)] transition hover:text-[var(--aepilog-cherry)] sm:text-[42px]"
+          className="aepilog-wordmark shrink-0 text-[31px] leading-none text-[var(--aepilog-ink)] transition hover:text-[var(--aepilog-cherry)] sm:py-6 sm:text-[42px]"
         >
           aepilog
         </Link>
@@ -111,8 +111,8 @@ export default function SiteHeader({
           </div>
         </div>
 
-        <div className="mt-3 flex items-center sm:mt-0 sm:gap-8">
-          <nav className="grid w-full grid-cols-2 items-center border-t border-[var(--aepilog-border)] pt-2 sm:flex sm:w-auto sm:gap-7 sm:border-0 sm:pt-0">
+        <div className="mt-3 flex items-stretch sm:mt-0 sm:gap-8">
+          <nav className="grid w-full grid-cols-2 items-stretch border-t border-[var(--aepilog-border)] pt-2 sm:flex sm:w-auto sm:gap-7 sm:border-0 sm:pt-0">
             <Link
               href="/"
               className={`${navClass} ${
@@ -137,7 +137,7 @@ export default function SiteHeader({
 
             <Link
               href="/search"
-              className={`hidden sm:block ${navClass} ${
+              className={`hidden sm:flex ${navClass} ${
                 active === "search"
                   ? "text-[var(--aepilog-cherry)] after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:rounded-full after:bg-[var(--aepilog-cherry)]"
                   : "text-[#665a58] hover:text-[var(--aepilog-cherry)]"
@@ -147,14 +147,14 @@ export default function SiteHeader({
             </Link>
           </nav>
 
-          <div className="hidden h-6 w-px bg-[var(--aepilog-border)] sm:block" />
+          <div className="hidden h-6 w-px self-center bg-[var(--aepilog-border)] sm:block" />
 
           <Link
             href="/profile"
             aria-label="Profile"
             title="Profile"
             style={active === "profile" ? { color: "var(--aepilog-paper)" } : undefined}
-            className={`hidden h-10 w-10 items-center justify-center rounded-full border transition sm:flex ${
+            className={`hidden h-10 w-10 self-center items-center justify-center rounded-full border transition sm:flex ${
               active === "profile"
                 ? "border-[var(--aepilog-cherry)] bg-[var(--aepilog-cherry)] text-white"
                 : "border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] text-[#665a58] hover:border-[var(--aepilog-cherry-soft)] hover:text-[var(--aepilog-cherry)]"

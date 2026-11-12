@@ -102,6 +102,16 @@ Verification: 89 application tests and the production build passed; all six migr
 
 The repository baseline still has pre-existing lint errors (44 errors/34 warnings at the start of this audit); do not claim a clean full-repository lint run. The new discussion loader passes ESLint. Production function checks confirm invoker execution, registered-role grant and no anonymous execution. Security advisors still report only the previously known Auth setting. No new paid service, test account, public post, vote, photo or shelf was created in production.
 
+## Phone screenshot layout corrections (12 November 2026)
+
+The owner supplied annotated iPhone screenshots (`IMG_4695/4697/4698.heic`) and requested the navigation underline at the bottom edge on phone and MacBook, a profile header that scrolls away, a contained Housemaid Want to Read card, lighter reader names/cleaner numeric characters, and discussion dates at the right on the same row as the name.
+
+Header links now stretch to the bottom border instead of leaving the underline above outer padding; header height and text placement are preserved. The shared header scrolls in normal page flow, including Profile and Settings. Do not restore sticky behaviour without the owner's request. Want to Read uses explicit zero-minimum grid tracks and contained cards; on phones the Remove button sits below the text beside the cover, with space reserved so it cannot overlap the title. Desktop retains the horizontal row. Long titles truncate within the card.
+
+Community poster dates now use a right-aligned semantic time element on the name row. Poster names use medium weight, matching the preferred discussion-heading weight. `ReaderDisplayName` preserves Fraunces for the letters and uses a simpler system serif for the digits in names (Georgia/Times fallback), including profile/directory names and bylines. This is the owner's requested exception to the earlier all-Fraunces preference; other text and numeric counters were not replaced.
+
+Restore tag `before-phone-layout-fixes-20261112` preserves `be5d75f`. The production build and 89 application tests passed. Browser geometry checks at 320, 390, 402 (matching screenshot width), 768 and 1440 pixels confirmed underline/border alignment, header scrolling off-screen, Housemaid and long-title card containment, functional Remove buttons, same-row right dates, name weight/numerals, and no horizontal overflow. No database changes were made.
+
 Validation: 80 application tests and production build passed. Browser checks at 320, 390 and 1440 pixels confirmed Fraunces inheritance, discussion-first sizing, spoiler protection, direct poll entry, matching search containers, white selected tabs, working book/reader search and no horizontal overflow. No database changes were required.
 
 ## Community browsing update

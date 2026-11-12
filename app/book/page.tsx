@@ -2227,7 +2227,7 @@ function BookPageContent() {
 
                         <div>
 
-                          <ReaderName userId={rating.user_id} name={rating.username} className="font-semibold" />
+                          <ReaderName userId={rating.user_id} name={rating.username} className="font-medium" />
 
                           <div className="mt-2 flex items-end gap-2">
 
@@ -2623,7 +2623,7 @@ function BookPageContent() {
 
                           <div>
 
-                            <ReaderName userId={post.user_id} name={post.username} className="font-semibold" />
+                            <ReaderName userId={post.user_id} name={post.username} className="font-medium" />
 
                             <div className="mt-2">
 

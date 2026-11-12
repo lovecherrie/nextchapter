@@ -9,6 +9,11 @@ import type { User } from "@supabase/supabase-js";
 import { readAccountCache } from "@/lib/account-cache";
 import { currentReaderId, getReader, readerHref, setReaderFollowing, updateReaderVisibility, validReaderId, type Reader } from "@/lib/readers";
 
+export function ReaderDisplayName({ name }: { name: string }) {
+  return <>{name.split(/([0-9]+)/).map((part, index) => /^[0-9]+$/.test(part)
+    ? <span key={index} className="aepilog-reader-digits">{part}</span> : part)}</>;
+}
+
 export function ReaderName({ userId, name, className = "" }: { userId: string; name: string; className?: string }) {
   const [path, setPath] = useState<string | null>(null);
   useEffect(() => {
@@ -23,8 +28,8 @@ export function ReaderName({ userId, name, className = "" }: { userId: string; n
     return () => { current = false; window.removeEventListener("aepilog-photo-changed", changed); };
   }, [userId]);
   return validReaderId(userId)
-    ? <a href={readerHref(userId)} className={`inline-flex items-center gap-2 hover:underline ${className}`}><ReaderAvatar name={name} path={path} small />{name}</a>
-    : <span className={className}>{name}</span>;
+    ? <a href={readerHref(userId)} className={`inline-flex items-center gap-2 hover:underline ${className}`}><ReaderAvatar name={name} path={path} small /><span className="min-w-0 truncate"><ReaderDisplayName name={name} /></span></a>
+    : <span className={className}><ReaderDisplayName name={name} /></span>;
 }
 
 export function useReaderViewer() {
@@ -97,7 +102,7 @@ export function ReaderTile({ reader, viewerId, following, onFollowChange }: {
       <a href={readerHref(reader.user_id)} className="flex min-w-0 flex-1 items-center gap-3">
         <ReaderAvatar name={reader.display_name} path={reader.avatar_path} />
         <div className="min-w-0">
-          <h2 className="aepilog-heading break-words text-xl font-medium text-[var(--aepilog-ink)]">{reader.display_name}</h2>
+          <h2 className="aepilog-heading break-words text-xl font-medium text-[var(--aepilog-ink)]"><ReaderDisplayName name={reader.display_name} /></h2>
           <p className="mt-1 text-xs text-[var(--aepilog-muted)]">{reader.follower_count} {Number(reader.follower_count) === 1 ? "follower" : "followers"}</p>
         </div>
       </a>

@@ -7,6 +7,7 @@ import SiteHeader from "../components/SiteHeader";
 import { accountUser, readerHref } from "@/lib/readers";
 import { readAccountCache, writeAccountCache } from "@/lib/account-cache";
 import ProfilePhotoEditor from "../components/ProfilePhotoEditor";
+import { ReaderDisplayName } from "../components/ReaderSocial";
 import BookShareButton from "../components/BookShareButton";
 import { supabase } from "@/lib/supabase";
 
@@ -693,7 +694,7 @@ export default function ProfilePage() {
                 </div>
 
                 <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
-                  {username}
+                  <ReaderDisplayName name={username} />
                 </h1>
 
                 <p className="mt-1 max-w-xl text-sm leading-6 text-stone-500">
@@ -842,11 +843,11 @@ export default function ProfilePage() {
               </p>
             </div>
           ) : (
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <div className="mt-5 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
               {wantToRead.map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-center gap-4 rounded-2xl border border-stone-200 bg-white p-4"
+                  className="relative flex min-w-0 max-w-full flex-col items-stretch gap-3 rounded-2xl border border-stone-200 bg-white p-4 sm:flex-row sm:items-center"
                 >
                   <a
                     href={
@@ -854,7 +855,7 @@ export default function ProfilePage() {
                         ? bookHref(item.books)
                         : "#"
                     }
-                    className="flex min-w-0 flex-1 items-center gap-4"
+                    className="flex min-w-0 flex-1 items-center gap-3"
                   >
                     <div className="h-24 w-16 shrink-0 overflow-hidden rounded-lg bg-[#eee8dc]">
                       {item.books?.cover_url ? (
@@ -870,7 +871,7 @@ export default function ProfilePage() {
                       )}
                     </div>
 
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1 pb-12 sm:pb-0">
                       <div className="truncate font-semibold text-stone-800">
                         {item.books?.title || "Book"}
                       </div>
@@ -887,7 +888,7 @@ export default function ProfilePage() {
                         item.id
                       )
                     }
-                    className="shrink-0 rounded-full border border-stone-200 px-3 py-2 text-xs font-semibold text-stone-500 transition hover:bg-stone-50 hover:text-stone-700"
+                    className="absolute right-4 bottom-4 shrink-0 self-end rounded-full border border-stone-200 px-3 py-2 text-xs font-semibold text-stone-500 transition hover:bg-stone-50 hover:text-stone-700 sm:static sm:self-center"
                   >
                     Remove
                   </button>

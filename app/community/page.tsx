@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import SiteHeader from "../components/SiteHeader";
 import { fetchJsonWithTimeout } from "@/lib/fetch-json";
 import AnimatedLikeButton from "../components/AnimatedLikeButton";
-import { ReaderName } from "../components/ReaderSocial";
+import { ReaderName, ReaderDisplayName } from "../components/ReaderSocial";
 import { supabase } from "../../lib/supabase";
 import { COMMUNITY_GENRES, bookTopicKey, browseText, matchesCommunityGenre } from "@/lib/community-browse";
 import { useBookTopics } from "../components/useBookTopics";
@@ -879,7 +879,7 @@ export default function CommunityPage() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <ReaderName userId={comment.user_id} name={comment.username} className="font-bold text-[#5b4444]" />
+              <ReaderName userId={comment.user_id} name={comment.username} className="font-medium text-[#5b4444]" />
 
               <span className="text-xs text-[#948583]">
                 {timeAgo(comment.created_at)}
@@ -1141,7 +1141,7 @@ export default function CommunityPage() {
 
                 <div className="min-w-0 flex-1">
                   <div className="text-xs text-[#756866]">
-                    {featuredPost.username}
+                    <ReaderDisplayName name={featuredPost.username} />
                   </div>
                   <p className="mt-1 line-clamp-3 break-words text-xl font-medium leading-snug text-[#3a2b2b] sm:text-2xl">
                     {featuredPost.contains_spoilers
@@ -1347,15 +1347,13 @@ export default function CommunityPage() {
                 )}
 
                 <div className="p-4 sm:p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div>
-                        <ReaderName userId={post.user_id} name={post.username} className="font-bold text-[#5b4444]" />
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                        <ReaderName userId={post.user_id} name={post.username} className="min-w-0 font-medium text-[#5b4444]" />
 
-                        <div className="text-xs text-[#948583]">
+                        <time dateTime={post.created_at} className="shrink-0 text-xs font-medium text-[#948583]">
                           {timeAgo(post.created_at)}
-                        </div>
-                      </div>
+                        </time>
                     </div>
 
                     {post.user_id === guestUserId && (
