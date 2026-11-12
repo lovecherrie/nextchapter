@@ -70,6 +70,12 @@ The owner requested a less stiff interface, especially a fast small-to-large pop
 
 Brief CSS motion adds button press feedback, fine-pointer hover lift, search-tab colour transitions, and entrances for post/rating/share/recommendation panels, comments and filters. All new transforms/entrances are restricted to `prefers-reduced-motion: no-preference`; interactions are never delayed waiting for an animation. No continuous animation or feed-wide entrance was added. The production build and 80 application tests passed. Browser fixtures at 390/1440px with normal/reduced motion checked immediate heart animation, successful like/unlike, failed-save state preservation, panel/tab interactions and layout.
 
+## Profile settings trial (12 November 2026)
+
+At the owner's request, visibility controls moved from the main profile into `/settings`, under Privacy. Profile now has a labelled settings gear beside its edit controls, and View public profile under the bio. Existing own-profile visibility reads/writes and explanatory privacy limits are retained; nothing is saved merely by opening Settings. Signed-out/anonymous visitors get a sign-in link, preserving the settings return destination. Settings is excluded from indexing and the sitemap. The active profile icon is explicitly cream on its burgundy background on mobile and desktop; the matching mobile search icon receives the same colour correction.
+
+The Git tag `profile-before-settings-20261112` preserves commit `b9f7574` before this trial. To undo later, revert the focused settings commit rather than resetting shared main, so subsequent work is preserved. Production build, 80 application tests and new settings ESLint checks passed. Browser fixtures at 390/1440px verified clean profile, public-profile link, gear navigation, owned privacy save/reload, failure preservation, cream SVG stroke and no overflow. Signed-out/anonymous tests confirmed no privacy controls or writes. SiteHeader retains its pre-existing home-anchor lint errors; no new lint issue was introduced. No database migration was required.
+
 Validation: 80 application tests and production build passed. Browser checks at 320, 390 and 1440 pixels confirmed Fraunces inheritance, discussion-first sizing, spoiler protection, direct poll entry, matching search containers, white selected tabs, working book/reader search and no horizontal overflow. No database changes were required.
 
 ## Community browsing update

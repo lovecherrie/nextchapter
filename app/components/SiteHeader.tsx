@@ -76,6 +76,7 @@ export default function SiteHeader({
               href="/search"
               aria-label="Search"
               title="Search"
+              style={active === "search" ? { color: "var(--aepilog-paper)" } : undefined}
               className={`flex h-9 w-9 items-center justify-center rounded-full border transition ${
                 active === "search"
                   ? "border-[var(--aepilog-cherry)] bg-[var(--aepilog-cherry)] text-white"
@@ -89,6 +90,7 @@ export default function SiteHeader({
               href="/profile"
               aria-label="Profile"
               title="Profile"
+              style={active === "profile" ? { color: "var(--aepilog-paper)" } : undefined}
               className={`flex h-9 w-9 items-center justify-center rounded-full border transition ${
                 active === "profile"
                   ? "border-[var(--aepilog-cherry)] bg-[var(--aepilog-cherry)] text-white"
@@ -142,6 +144,7 @@ export default function SiteHeader({
             href="/profile"
             aria-label="Profile"
             title="Profile"
+            style={active === "profile" ? { color: "var(--aepilog-paper)" } : undefined}
             className={`hidden h-10 w-10 items-center justify-center rounded-full border transition sm:flex ${
               active === "profile"
                 ? "border-[var(--aepilog-cherry)] bg-[var(--aepilog-cherry)] text-white"

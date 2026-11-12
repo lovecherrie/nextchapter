@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import SiteHeader from "../components/SiteHeader";
-import { ReaderProfileSettings } from "../components/ReaderSocial";
+import { readerHref } from "@/lib/readers";
 import ProfilePhotoEditor from "../components/ProfilePhotoEditor";
 import BookShareButton from "../components/BookShareButton";
 import { supabase } from "@/lib/supabase";
@@ -704,10 +704,15 @@ export default function ProfilePage() {
                 <p className="mt-1 max-w-xl text-sm leading-6 text-stone-500">
                   {bio || "Your reading life on aepilog."}
                 </p>
+                {userId && <a href={readerHref(userId)} className="mt-2 inline-block text-sm font-semibold underline underline-offset-4">View public profile</a>}
               </div>
             </div>
 
             <div className="flex flex-wrap gap-2 self-start">
+              <a href="/settings" aria-label="Settings" title="Settings" className="aepilog-pressable inline-flex items-center gap-2 rounded-xl border border-[#E6D8D4] bg-[#fffdf8] px-3 py-2 text-sm font-semibold">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true" className="h-4 w-4"><path strokeLinejoin="round" d="m9.5 3-.6 2.2-2 .9-2-.7-2.5 4.2 1.6 1.6v2l-1.6 1.6L4.9 19l2-.7 2 .9.6 2.2h5l.6-2.2 2-.9 2 .7 2.5-4.2-1.6-1.6v-2l1.6-1.6L19.1 5l-2 .7-2-.9L14.5 3z"/><circle cx="12" cy="12" r="3"/></svg>
+                Settings
+              </a>
               <button
                 type="button"
                 onClick={openEditProfile}
@@ -726,8 +731,6 @@ export default function ProfilePage() {
             </div>
           </div>
         </section>
-
-        {userId && <ReaderProfileSettings userId={userId} />}
 
         <section className="mt-6 rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 md:p-7">
           <div className="flex items-start justify-between gap-4">

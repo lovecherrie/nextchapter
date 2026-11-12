@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { avatarUrl } from "@/lib/reader-photos";
@@ -132,19 +131,15 @@ export function ReaderProfileSettings({ userId }: { userId: string }) {
     catch { setError("Could not save your visibility choices. Please try again."); }
     finally { setSaving(false); }
   }
-  return <section className="mt-6 rounded-[28px] border border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] p-6 md:p-7">
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <h2 className="text-xl font-semibold">Your public reader profile</h2>
-      <Link href="/readers" className="text-sm font-semibold text-[var(--aepilog-cherry)]">Find readers</Link>
-    </div>
+  return <section id="privacy" className="mt-6 rounded-[28px] border border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] p-6 md:p-7">
+    <h2 className="text-xl font-semibold">Privacy</h2>
     {loading ? <p className="mt-4 text-sm text-[var(--aepilog-muted)]">Loading visibility choices...</p> : reader ? <>
-      <p className="mt-2 text-sm leading-6 text-[var(--aepilog-muted)]">Your public profile uses the display name and bio above. Your email and Want to Read list stay private.</p>
+      <p className="mt-2 text-sm leading-6 text-[var(--aepilog-muted)]">Choose what appears on your public reader profile. Your email and Want to Read list stay private.</p>
       <label className="mt-5 flex items-start gap-3 text-sm"><input type="checkbox" checked={isPublic} onChange={(event) => { setIsPublic(event.target.checked); setSaved(false); }} className="mt-1 accent-[#8f2635]" />Let other readers find and follow me</label>
       <label className="mt-3 flex items-start gap-3 text-sm"><input type="checkbox" checked={showActivity} onChange={(event) => { setShowActivity(event.target.checked); setSaved(false); }} className="mt-1 accent-[#8f2635]" />Show my ratings and discussions on my reader profile</label>
       <p className="mt-2 text-xs leading-5 text-[var(--aepilog-muted)]">Posts and ratings you share on book and community pages remain visible there.</p>
       <div className="mt-5 flex flex-wrap items-center gap-4">
         <button type="button" onClick={save} disabled={saving} className="rounded-full bg-[var(--aepilog-cherry)] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{saving ? "Saving..." : "Save visibility"}</button>
-        <a href={readerHref(userId)} className="text-sm font-semibold text-[var(--aepilog-cherry)]">View my reader profile</a>
         {saved && <p role="status" className="text-sm text-[var(--aepilog-muted)]">Visibility saved.</p>}
       </div>
     </> : !error && <p className="mt-4 text-sm text-[var(--aepilog-muted)]">Your public reader profile is unavailable right now. Please try again later.</p>}
