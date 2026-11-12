@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import SiteHeader from "../components/SiteHeader";
+import { fetchJsonWithTimeout } from "@/lib/fetch-json";
 import AnimatedLikeButton from "../components/AnimatedLikeButton";
 import { ReaderName } from "../components/ReaderSocial";
 import { supabase } from "../../lib/supabase";
@@ -295,6 +296,8 @@ export default function CommunityPage() {
     useState<SearchBook | null>(null);
 
   const [searchingBooks, setSearchingBooks] = useState(false);
+  const [bookSearchError, setBookSearchError] = useState("");
+  const [likeErrors, setLikeErrors] = useState<Record<string, string>>({});
   const [discussionText, setDiscussionText] = useState("");
   const [containsSpoilers, setContainsSpoilers] =
     useState(false);
@@ -366,21 +369,17 @@ export default function CommunityPage() {
   }, []);
 
   useEffect(() => {
-    if (selectedBook) return;
-
     const trimmed = bookQuery.trim();
+    if (selectedBook || (!createOpen && !rateOpen) || trimmed.length < 2) return;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => { void searchBooks(trimmed, controller.signal); }, 350);
+    return () => { clearTimeout(timeout); controller.abort(); };
+  }, [bookQuery, selectedBook, createOpen, rateOpen]);
 
-    if (trimmed.length < 2) {
-      setBookResults([]);
-      return;
-    }
-
-    const timeout = setTimeout(() => {
-      searchBooks(trimmed);
-    }, 350);
-
-    return () => clearTimeout(timeout);
-  }, [bookQuery, selectedBook]);
+  function changeBookQuery(value: string) {
+    setBookQuery(value); setBookResults([]); setBookSearchError("");
+    setSearchingBooks(value.trim().length >= 2);
+  }
 
   async function loadPosts() {
     setLoading(true);
@@ -443,27 +442,13 @@ export default function CommunityPage() {
     setLoading(false);
   }
 
-  async function searchBooks(query: string) {
-    setSearchingBooks(true);
-
+  async function searchBooks(query: string, signal: AbortSignal) {
     try {
-      const response = await fetch(
-        `/api/books/search?q=${encodeURIComponent(query)}`
-      );
-
-      if (!response.ok) {
-        throw new Error("Book search failed");
-      }
-
-      const data = await response.json();
-
-      setBookResults(normalizeSearchResults(data));
-    } catch (error) {
-      console.error(error);
-      setBookResults([]);
-    } finally {
-      setSearchingBooks(false);
-    }
+      const data = await fetchJsonWithTimeout(`/api/books/search?q=${encodeURIComponent(query)}`, { signal }, 12000);
+      if (!signal.aborted) setBookResults(normalizeSearchResults(data));
+    } catch {
+      if (!signal.aborted) setBookSearchError("Book search is unavailable. Please try again.");
+    } finally { if (!signal.aborted) setSearchingBooks(false); }
   }
 
   async function findOrCreateBook(searchBook: SearchBook) {
@@ -547,7 +532,7 @@ export default function CommunityPage() {
 
       setDiscussionText("");
       setContainsSpoilers(false);
-      setBookQuery("");
+      changeBookQuery("");
       setBookResults([]);
       setSelectedBook(null);
       setCreateOpen(false);
@@ -564,7 +549,7 @@ export default function CommunityPage() {
     if (posting || pollBusy) return;
 
     setCreateOpen(false);
-    setBookQuery("");
+    changeBookQuery("");
     setBookResults([]);
     setSelectedBook(null);
     setDiscussionText("");
@@ -577,76 +562,38 @@ export default function CommunityPage() {
 
     setCreateOpen(false);
     setRateOpen(true);
-    setBookQuery("");
+    changeBookQuery("");
     setBookResults([]);
     setSelectedBook(null);
   }
 
   function closeRateModal() {
     setRateOpen(false);
-    setBookQuery("");
+    changeBookQuery("");
     setBookResults([]);
     setSelectedBook(null);
   }
 
   async function toggleLike(post: DiscussionPost) {
     if (!requireAccount() || likingPost) return;
-
-    setLikingPost(post.id);
-
-    const existingLike = post.discussion_likes.find(
-      (like) => like.user_id === guestUserId
-    );
-
-    if (existingLike) {
-      const { error } = await supabase
-        .from("discussion_likes")
-        .delete()
-        .eq("id", existingLike.id);
-
-      if (!error) {
-        setPosts((currentPosts) =>
-          currentPosts.map((currentPost) =>
-            currentPost.id === post.id
-              ? {
-                  ...currentPost,
-                  discussion_likes:
-                    currentPost.discussion_likes.filter(
-                      (like) => like.id !== existingLike.id
-                    ),
-                }
-              : currentPost
-          )
-        );
+    setLikingPost(post.id); setLikeErrors((current) => ({ ...current, [post.id]: "" }));
+    try {
+      const signal = AbortSignal.timeout(10000);
+      const existing = post.discussion_likes.find((like) => like.user_id === guestUserId);
+      if (existing) {
+        const result = await supabase.from("discussion_likes").delete().eq("id", existing.id).abortSignal(signal);
+        if (result.error) throw result.error;
+        setPosts((current) => current.map((item) => item.id === post.id ? { ...item,
+          discussion_likes: item.discussion_likes.filter((like) => like.id !== existing.id) } : item));
+      } else {
+        const result = await supabase.from("discussion_likes").insert({ post_id: post.id, user_id: guestUserId })
+          .select("id,user_id").abortSignal(signal).single();
+        if (result.error || !result.data) throw result.error || new Error("Like not saved");
+        setPosts((current) => current.map((item) => item.id === post.id ? { ...item,
+          discussion_likes: [...item.discussion_likes, result.data as Like] } : item));
       }
-    } else {
-      const { data, error } = await supabase
-        .from("discussion_likes")
-        .insert({
-          post_id: post.id,
-          user_id: guestUserId,
-        })
-        .select("id, user_id")
-        .single();
-
-      if (!error && data) {
-        setPosts((currentPosts) =>
-          currentPosts.map((currentPost) =>
-            currentPost.id === post.id
-              ? {
-                  ...currentPost,
-                  discussion_likes: [
-                    ...currentPost.discussion_likes,
-                    data as Like,
-                  ],
-                }
-              : currentPost
-          )
-        );
-      }
-    }
-
-    setLikingPost(null);
+    } catch { setLikeErrors((current) => ({ ...current, [post.id]: "Could not save your like. Please try again." })); }
+    finally { setLikingPost(null); }
   }
 
   function toggleComments(postId: string) {
@@ -1552,9 +1499,8 @@ export default function CommunityPage() {
                     <AnimatedLikeButton
                       liked={likedByMe}
                       onClick={() => toggleLike(post)}
-                      disabled={
-                        likingPost === post.id
-                      }
+                      disabled={!!likingPost}
+                      aria-busy={likingPost === post.id}
                       className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold sm:px-4 sm:py-2 sm:text-sm ${
                         likedByMe
                           ? "bg-[#f0d7d9] text-[#7b1f2d]"
@@ -1586,6 +1532,7 @@ export default function CommunityPage() {
                     )}
                   </div>
 
+                  {likeErrors[post.id] && <p role="alert" className="mt-2 text-sm text-[#8f2635]">{likeErrors[post.id]}</p>}
                   {expanded && (
                     <div className="aepilog-reveal mt-5 border-t border-[#eee2de] pt-5">
                       <div className="mb-5">
@@ -1715,7 +1662,7 @@ export default function CommunityPage() {
             </div>
 
             <div className="flex gap-2 px-5 pt-4 sm:px-7">{(["post", "poll"] as const).map((type) => <button key={type} type="button" disabled={posting || pollBusy} aria-pressed={postType === type} onClick={() => setPostType(type)} className={`rounded-full px-4 py-2 text-sm font-semibold ${postType === type ? "bg-[#8f2635] text-white" : "border border-[#e6d8d4] text-[#8f2635]"}`}>{type === "post" ? "Discussion" : "Book vs book"}</button>)}</div>
-            <div hidden={postType !== "poll"}><BookPollComposer onBusy={setPollBusy} onPosted={() => { setCreateOpen(false); setDiscussionText(""); setSelectedBook(null); setBookQuery(""); setContainsSpoilers(false); setFilter("newest"); void loadPosts(); }} /></div>
+            <div hidden={postType !== "poll"}><BookPollComposer onBusy={setPollBusy} onPosted={() => { setCreateOpen(false); setDiscussionText(""); setSelectedBook(null); changeBookQuery(""); setContainsSpoilers(false); setFilter("newest"); void loadPosts(); }} /></div>
             <div hidden={postType !== "post"}>
             <div className="space-y-6 p-7">
               <div>
@@ -1749,7 +1696,7 @@ export default function CommunityPage() {
                     <button
                       onClick={() => {
                         setSelectedBook(null);
-                        setBookQuery("");
+                        changeBookQuery("");
                       }}
                       className="rounded-full bg-white px-3 py-2 text-xs font-bold"
                     >
@@ -1761,9 +1708,7 @@ export default function CommunityPage() {
                     <input
                       value={bookQuery}
                       onChange={(event) =>
-                        setBookQuery(
-                          event.target.value
-                        )
+                        changeBookQuery(event.target.value)
                       }
                       placeholder="Search for a book..."
                       className="w-full rounded-2xl border border-[#e2d4cf] bg-white px-4 py-3.5 outline-none"
@@ -1777,6 +1722,7 @@ export default function CommunityPage() {
                           </div>
                         )}
 
+                        {bookSearchError && <p role="alert" className="p-4 text-sm text-[#8f2635]">{bookSearchError}</p>}
                         {!searchingBooks &&
                           bookResults
                             .slice(0, 6)
@@ -1915,7 +1861,7 @@ export default function CommunityPage() {
                 value={bookQuery}
                 onChange={(event) => {
                   setSelectedBook(null);
-                  setBookQuery(event.target.value);
+                  changeBookQuery(event.target.value);
                 }}
 
                 placeholder="Search for a book..."
@@ -1930,7 +1876,8 @@ export default function CommunityPage() {
                     </div>
                   )}
 
-                  {!searchingBooks && bookResults.length === 0 && (
+                  {bookSearchError && <p role="alert" className="p-4 text-sm text-[#8f2635]">{bookSearchError}</p>}
+                  {!searchingBooks && !bookSearchError && bookResults.length === 0 && (
                     <div className="p-4 text-sm text-[#8a7b79]">
                       No books found yet. Try another title or author.
                     </div>

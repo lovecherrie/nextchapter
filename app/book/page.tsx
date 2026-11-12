@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import SiteHeader from "../components/SiteHeader";
 import AnimatedLikeButton from "../components/AnimatedLikeButton";
@@ -9,6 +9,7 @@ import BookShareButton from "../components/BookShareButton";
 import AttachedBookCard from "../components/AttachedBookCard";
 import type { AttachedBook } from "@/lib/community-books";
 import { supabase } from "@/lib/supabase";
+import { loadBookDiscussions } from "@/lib/book-discussions";
 
 type Rating = {
   user_id: string;
@@ -998,131 +999,25 @@ function BookPageContent() {
   // LOAD POSTS
   // -------------------------
 
-  const loadPosts =
-    async () => {
-      if (
-        !databaseBookId
-      ) {
-        return;
-      }
+  const postLoadVersion = useRef(0);
+  const [postsLoading, setPostsLoading] = useState(false);
+  const [postsError, setPostsError] = useState("");
+  const [likingPost, setLikingPost] = useState<string | null>(null);
+  const [likeError, setLikeError] = useState<{ id: string; message: string } | null>(null);
 
-      const relatedPolls = await supabase.from("book_polls").select("post_id").eq("right_book_id", databaseBookId);
-      if (relatedPolls.error) { console.error("Could not load related polls", relatedPolls.error); return; }
-      const pollIds = (relatedPolls.data || []).map((poll) => poll.post_id);
-      let discussionRequest = supabase.from("discussion_posts").select("*,book_polls(post_id)");
-      discussionRequest = pollIds.length ? discussionRequest.or(`book_id.eq.${databaseBookId},id.in.(${pollIds.join(",")})`) : discussionRequest.eq("book_id", databaseBookId);
-      const { data: postRows, error } = await discussionRequest;
-
-      if (error) {
-        console.error(
-          "Load discussion error:",
-          error
-        );
-
-        return;
-      }
-
-      const enriched =
-        await Promise.all(
-          (
-            postRows || []
-          ).map(
-            async (
-              post
-            ) => {
-              const {
-                count:
-                  likeCount,
-              } =
-                await supabase
-                  .from(
-                    "discussion_likes"
-                  )
-                  .select(
-                    "*",
-                    {
-                      count:
-                        "exact",
-                      head: true,
-                    }
-                  )
-                  .eq(
-                    "post_id",
-                    post.id
-                  );
-
-              const {
-                count:
-                  commentCount,
-              } =
-                await supabase
-                  .from(
-                    "comments"
-                  )
-                  .select(
-                    "*",
-                    {
-                      count:
-                        "exact",
-                      head: true,
-                    }
-                  )
-                  .eq(
-                    "post_id",
-                    post.id
-                  );
-
-              let likedByMe =
-                false;
-
-              if (
-                guestUserId
-              ) {
-                const {
-                  data:
-                    myLike,
-                } =
-                  await supabase
-                    .from(
-                      "discussion_likes"
-                    )
-                    .select(
-                      "id"
-                    )
-                    .eq(
-                      "post_id",
-                      post.id
-                    )
-                    .eq(
-                      "user_id",
-                      guestUserId
-                    )
-                    .maybeSingle();
-
-                likedByMe =
-                  Boolean(
-                    myLike
-                  );
-              }
-
-              return {
-                ...post,
-                likes:
-                  likeCount ||
-                  0,
-                comments:
-                  commentCount ||
-                  0,
-                likedByMe,
-              };
-            }
-          )
-        );
-
-      setPosts(
-        enriched as DiscussionPost[]
-      );
-    };
+  const loadPosts = async () => {
+    if (!databaseBookId) return;
+    const version = ++postLoadVersion.current;
+    setPostsLoading(true); setPostsError("");
+    try {
+      const rows = await loadBookDiscussions(databaseBookId, guestUserId || null);
+      if (version === postLoadVersion.current) setPosts(rows as unknown as DiscussionPost[]);
+    } catch {
+      if (version === postLoadVersion.current) setPostsError("Could not load discussions. Please try again.");
+    } finally {
+      if (version === postLoadVersion.current) setPostsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (
@@ -1298,80 +1193,23 @@ function BookPageContent() {
   // LIKES
   // -------------------------
 
-  const toggleLike =
-    async (
-      postId: string
-    ) => {
-      if (!requireAccount()) {
-        return;
-      }
-
-      const {
-        data:
-          existingLike,
-      } = await supabase
-        .from(
-          "discussion_likes"
-        )
-        .select("id")
-        .eq(
-          "post_id",
-          postId
-        )
-        .eq(
-          "user_id",
-          guestUserId
-        )
-        .maybeSingle();
-
-      if (
-        existingLike?.id
-      ) {
-        const {
-          error,
-        } = await supabase
-          .from(
-            "discussion_likes"
-          )
-          .delete()
-          .eq(
-            "id",
-            existingLike.id
-          );
-
-        if (error) {
-          console.error(
-            error
-          );
-
-          return;
-        }
-      } else {
-        const {
-          error,
-        } = await supabase
-          .from(
-            "discussion_likes"
-          )
-          .insert({
-            post_id:
-              postId,
-
-            user_id:
-              guestUserId,
-          });
-
-        if (error) {
-          console.error(
-            error
-          );
-
-          return;
-        }
-      }
-
-      await loadPosts();
-    };
+  const toggleLike = async (postId: string) => {
+    if (!requireAccount() || likingPost) return;
+    setLikingPost(postId); setLikeError(null);
+    try {
+      const signal = AbortSignal.timeout(10000);
+      const existing = await supabase.from("discussion_likes").select("id")
+        .eq("post_id", postId).eq("user_id", guestUserId).abortSignal(signal).maybeSingle();
+      if (existing.error) throw existing.error;
+      const result = existing.data?.id
+        ? await supabase.from("discussion_likes").delete().eq("id", existing.data.id).abortSignal(signal)
+        : await supabase.from("discussion_likes").insert({ post_id: postId, user_id: guestUserId }).abortSignal(signal);
+      if (result.error) throw result.error;
+      setPosts((current) => current.map((post) => post.id === postId ? { ...post,
+        likedByMe: !existing.data?.id, likes: Math.max(0, post.likes + (existing.data?.id ? -1 : 1)) } : post));
+    } catch { setLikeError({ id: postId, message: "Could not save your like. Please try again." }); }
+    finally { setLikingPost(null); }
+  };
 
   // -------------------------
   // COMMENTS
@@ -2729,7 +2567,9 @@ function BookPageContent() {
 
               <div className="mt-5 space-y-5">
 
-                {filteredPosts.length ===
+                {postsLoading && <p role="status" className="text-sm text-stone-500">Loading discussions...</p>}
+                {postsError && <p role="alert" className="text-sm text-[#8f2635]">{postsError} <button type="button" onClick={() => void loadPosts()} className="underline">Try again</button></p>}
+                {!postsLoading && !postsError && filteredPosts.length ===
                   0 && (
                   <div className="rounded-[28px] border border-dashed border-stone-300 bg-[var(--aepilog-paper)] px-6 py-12 text-center">
 
@@ -2825,6 +2665,8 @@ function BookPageContent() {
 
                           <AnimatedLikeButton
                             liked={post.likedByMe}
+                            disabled={!!likingPost}
+                            aria-busy={likingPost === post.id}
                             type="button"
                             onClick={() =>
                               toggleLike(
@@ -2861,6 +2703,8 @@ function BookPageContent() {
                           </button>
 
                         </div>
+
+                        {likeError?.id === post.id && <p role="alert" className="mt-2 text-sm text-[#8f2635]">{likeError.message}</p>}
 
                         {/* COMMENTS */}
 
@@ -3158,6 +3002,12 @@ function BookPageContent() {
   );
 }
 
+function BookPageEntry() {
+  const params = useSearchParams();
+  // A different book starts with fresh rating/draft/cover state on client navigation.
+  return <BookPageContent key={params.get("book") || params.get("id") || params.get("title") || "missing"} />;
+}
+
 export default function BookPage() {
   return (
     <Suspense
@@ -3169,7 +3019,7 @@ export default function BookPage() {
         </main>
       }
     >
-      <BookPageContent />
+      <BookPageEntry />
     </Suspense>
   );
 }

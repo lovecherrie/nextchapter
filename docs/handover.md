@@ -1,6 +1,6 @@
 # Aepilog handover
 
-Updated 11 November 2026. Feature implementation deployed successfully from commit `d019768`. Read `AGENTS.md` and the relevant installed Next.js documentation before coding. This document records project context and verified work; confirm the current Git status and deployment before proceeding.
+Updated 12 November 2026. Read `AGENTS.md` and the relevant installed Next.js documentation before coding. This document records project context and verified work; confirm the current Git status and deployment before proceeding.
 
 ## Project and workflow
 
@@ -26,13 +26,14 @@ Updated 11 November 2026. Feature implementation deployed successfully from comm
 
 ## Supabase migration state
 
-All five checked-in migrations have already been applied to production. Do not reapply them blindly:
+All six checked-in migrations have already been applied to production. Do not reapply them blindly:
 
 1. `202611110001_reader_profiles_and_follows.sql`
 2. `202611110002_community_write_ownership.sql`
 3. `20261111064426_reader_profile_photos.sql`
 4. `20261111171827_book_polls_and_reply_books.sql`
 5. `20261112033307_public_top_four.sql`
+6. `20261112035152_atomic_top_four.sql`
 
 The third migration appends `avatar_path` to the `security_invoker` reader view, adds an own-folder path constraint and creates the photo bucket/policies. The existing account sync trigger preserves the photo path and privacy settings. Production schema/API checks confirmed these changes without creating production test accounts or photos. Supabase's pre-existing disabled leaked-password-protection advisory remains; no new security advisory appeared after the photo migration.
 
@@ -86,6 +87,20 @@ Public reader profiles now show up to four chosen favourites in position order, 
 Profile/Settings/header links now use Next.js client navigation and prefetching rather than full-page reloads. A bounded 30-second, account-scoped memory cache reuses the verified account display data, own reader/photo and private profile snapshot for quick returns. It never persists to browser storage or server module state. Logout/account changes clear it; account edits invalidate it; shelf/list/photo/visibility saves update the appropriate snapshot. Visiting book/Community/other sections invalidates the private activity snapshot, so subsequent saves there are refreshed on returning to Profile. Database RLS still validates requests, and cached UI is not an authorization mechanism. Other readers' public profiles are fetched afresh so privacy changes are not served from a shared reader cache. First visits and expired entries still require network requests.
 
 Restore point: `profile-before-public-shelf-20261112` at `6c941ad`. Revert the feature commit to undo the presentation changes; keep the additive migration and privacy checks unless intentionally reviewing a database rollback. The production build, 84 application tests and all disposable database tests passed. Browser fixtures at 390/1440px confirmed hidden photo actions; preview/cancel/save/failure/remove; in-document Profile → Settings → Profile navigation without additional account, profile or photo reads while warm; updated visibility; public shelves independent of activity; and no private Want to Read or horizontal overflow. Production schema/grants and security-advisor checks passed, with only the previously known Auth advisory. No production test users, photos or shelves were created.
+
+## Site audit and loading fixes (12 November 2026)
+
+The owner authorized a bug/performance/layout audit, safe fixes and publishing while away. Restore tag `site-before-audit-20261112` points to `0fe12f7`. Preserve the current design, recommendation providers, search ranking, privacy defaults and existing navigation choices.
+
+- Book discussion loading now uses embedded like/comment counts and a bounded batch of own-like IDs instead of three reads for every post. For 12 posts and a signed-in reader, this portion drops from 38 reads to three (two when signed out); larger own-like batches cap at 100 IDs. Polls involving the book as their second choice remain included. Errors have retry UI rather than silently appearing as an empty discussion list. A ten-second deadline bounds the read chain.
+- Client navigation between book identities remounts the book content, preventing the previous book's draft, rating editor and cover state from carrying across. Refreshes use a request version so late discussion responses cannot overwrite a newer load.
+- Community post/rating book searches now abort obsolete requests and ignore their late results. Changing text clears old matches immediately; failures are shown distinctly from no matches, and JSON/body reads have a 12-second deadline. Search-provider logic and recommendation prompts were not changed.
+- Community/book like operations recover in `finally`, show a retryable inline error, and have ten-second deadlines. Failed saves preserve the old count/state. Book-page confirmed likes update locally instead of reloading every discussion. Existing heart animations remain immediate and independent of saving.
+- Top 4 saves now call `save_top_four(uuid[],smallint[])`: an invoker function under existing ownership RLS, registered readers only, locking only the owner's profile and replacing the shelf in one transaction. Duplicate books/positions, invalid slots, missing books and failed insertion leave the prior shelf intact. A 15-second client deadline prevents indefinite saving UI. No live shelf records were edited for testing.
+
+Verification: 89 application tests and the production build passed; all six migrations plus ownership, visibility, photos, polls and atomic-shelf tests passed in disposable PostgreSQL. Browser checks at 390/1440px covered stale/failed searches, like failure/retry, discussion counts/own likes, clean client book navigation, atomic shelf failure/retry and refreshed cached shelves. Reader/follow/privacy, profile-photo/public-shelf/warm-navigation and recommendation cancellation/preservation regressions also passed. A read-only live audit sampled Community, Find Books, book search, readers, Settings, an existing book and an existing public shelf at 320/1440px: no runtime errors, horizontal overflow or broken images were found in those samples. This is not a guarantee of every device/path.
+
+The repository baseline still has pre-existing lint errors (44 errors/34 warnings at the start of this audit); do not claim a clean full-repository lint run. The new discussion loader passes ESLint. Production function checks confirm invoker execution, registered-role grant and no anonymous execution. Security advisors still report only the previously known Auth setting. No new paid service, test account, public post, vote, photo or shelf was created in production.
 
 Validation: 80 application tests and production build passed. Browser checks at 320, 390 and 1440 pixels confirmed Fraunces inheritance, discussion-first sizing, spoiler protection, direct poll entry, matching search containers, white selected tabs, working book/reader search and no horizontal overflow. No database changes were required.
 

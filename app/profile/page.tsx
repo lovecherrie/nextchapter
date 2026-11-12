@@ -466,26 +466,11 @@ export default function ProfilePage() {
         chosenBooks.map((item) => ensureDatabaseBook(item.book))
       );
 
-      const { error: deleteError } = await supabase
-        .from("profile_top_books")
-        .delete()
-        .eq("user_id", userId);
-
-      if (deleteError) throw deleteError;
-
-      if (chosenBooks.length > 0) {
-        const rows = chosenBooks.map((item, index) => ({
-          user_id: userId,
-          book_id: databaseBooks[index].id,
-          position: item.position,
-        }));
-
-        const { error: insertError } = await supabase
-          .from("profile_top_books")
-          .insert(rows);
-
-        if (insertError) throw insertError;
-      }
+      const { error: saveError } = await supabase.rpc("save_top_four", {
+        p_books: databaseBooks.map((book) => book.id),
+        p_positions: chosenBooks.map((item) => item.position),
+      }).abortSignal(AbortSignal.timeout(15000));
+      if (saveError) throw saveError;
 
       const { data: refreshedTopBooks, error: refreshError } = await supabase
         .from("profile_top_books")
