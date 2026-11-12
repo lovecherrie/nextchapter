@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect } from "react";
 import { invalidateAccountCache } from "@/lib/account-cache";
+import NotificationBell from "./Notifications";
 
 type SiteHeaderProps = {
   active?: "find" | "community" | "search" | "profile";
@@ -94,6 +95,7 @@ export default function SiteHeader({
             >
               <SearchIcon />
             </Link>
+            <NotificationBell />
 
             <Link
               href="/profile"
@@ -111,7 +113,7 @@ export default function SiteHeader({
           </div>
         </div>
 
-        <div className="mt-3 flex items-stretch sm:mt-0 sm:gap-8">
+        <div className="mt-3 flex items-stretch sm:mt-0 sm:gap-3">
           <nav className="grid w-full grid-cols-2 items-stretch border-t border-[var(--aepilog-border)] pt-2 sm:flex sm:w-auto sm:gap-7 sm:border-0 sm:pt-0">
             <Link
               href="/"
@@ -149,6 +151,7 @@ export default function SiteHeader({
 
           <div className="hidden h-6 w-px self-center bg-[var(--aepilog-border)] sm:block" />
 
+          <div className="hidden self-center sm:block"><NotificationBell /></div>
           <Link
             href="/profile"
             aria-label="Profile"
