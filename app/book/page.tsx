@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import SiteHeader from "../components/SiteHeader";
+import AnimatedLikeButton from "../components/AnimatedLikeButton";
 import { ReaderName } from "../components/ReaderSocial";
 import BookShareButton from "../components/BookShareButton";
 import AttachedBookCard from "../components/AttachedBookCard";
@@ -2822,7 +2823,8 @@ function BookPageContent() {
 
                         <div className="mt-5 flex items-center gap-5 border-t border-stone-100 pt-4">
 
-                          <button
+                          <AnimatedLikeButton
+                            liked={post.likedByMe}
                             type="button"
                             onClick={() =>
                               toggleLike(
@@ -2841,7 +2843,7 @@ function BookPageContent() {
                             {
                               post.likes
                             }
-                          </button>
+                          </AnimatedLikeButton>
 
                           <button
                             type="button"
@@ -2865,7 +2867,7 @@ function BookPageContent() {
                         {openComments.includes(
                           post.id
                         ) && (
-                          <div className="mt-6 border-t border-stone-100 pt-5">
+                          <div className="aepilog-reveal mt-6 border-t border-stone-100 pt-5">
 
                             <div className="space-y-4">
 

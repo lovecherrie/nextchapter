@@ -55,8 +55,8 @@ function ShareDialog({ book, rating, readerName, onClose }: ShareCard & { onClos
     try { await navigator.clipboard.writeText(new URL(book.href, window.location.origin).href); setStatus("Book link copied."); }
     catch { setError("Could not copy the link. You can copy the book page address from your browser."); }
   }
-  return <div className="fixed inset-0 z-[70] flex items-center justify-center bg-stone-900/45 p-4 backdrop-blur-[2px]" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-    <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={heading} className="max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-[28px] border border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] p-5 shadow-xl sm:p-6">
+  return <div className="aepilog-overlay fixed inset-0 z-[70] flex items-center justify-center bg-stone-900/45 p-4 backdrop-blur-[2px]" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={heading} className="aepilog-panel max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-[28px] border border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] p-5 shadow-xl sm:p-6">
       <div className="flex items-center justify-between gap-4"><h2 id={heading} className="aepilog-heading text-2xl text-[var(--aepilog-ink)]">Share this chapter</h2><button type="button" onClick={onClose} aria-label="Close sharing" className="rounded-full px-3 py-2 text-lg text-[var(--aepilog-cherry)]">×</button></div>
       <p className="mt-2 text-sm leading-6 text-[var(--aepilog-muted)]">A card for your Instagram Story or wherever you share your reading.</p>
       <div className="mx-auto mt-4 flex aspect-[9/16] w-[180px] items-center justify-center overflow-hidden rounded-xl border border-[var(--aepilog-border)] bg-[var(--aepilog-cream)] sm:w-[210px]">

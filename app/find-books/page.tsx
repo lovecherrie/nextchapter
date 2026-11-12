@@ -1917,9 +1917,9 @@ export default function AepilogFindBooks() {
       {/* RESULTS MODAL */}
 
       {showResults && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/45 p-4 backdrop-blur-[2px]">
+        <div className="aepilog-overlay fixed inset-0 z-50 flex items-center justify-center bg-stone-900/45 p-4 backdrop-blur-[2px]">
 
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[32px] border border-stone-200 bg-[#faf6ef] shadow-2xl">
+          <div className="aepilog-panel max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[32px] border border-stone-200 bg-[#faf6ef] shadow-2xl">
 
             {/* MODAL HEADER */}
 

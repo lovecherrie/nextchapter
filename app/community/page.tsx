@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import SiteHeader from "../components/SiteHeader";
+import AnimatedLikeButton from "../components/AnimatedLikeButton";
 import { ReaderName } from "../components/ReaderSocial";
 import { supabase } from "../../lib/supabase";
 import { COMMUNITY_GENRES, bookTopicKey, browseText, matchesCommunityGenre } from "@/lib/community-browse";
@@ -197,24 +198,6 @@ function normalizeSearchResults(data: any): SearchBook[] {
     .filter((book: SearchBook) => book.title);
 }
 
-function HeartIcon({ filled }: { filled: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className="h-[19px] w-[19px]"
-      fill={filled ? "currentColor" : "none"}
-    >
-      <path
-        d="M12 20.25C10.6 19.04 3 14.15 2.35 9.05C1.9 5.5 4.45 2.75 7.55 2.75C9.55 2.75 11.05 3.8 12 5.15C12.95 3.8 14.45 2.75 16.45 2.75C19.55 2.75 22.1 5.5 21.65 9.05C21 14.15 13.4 19.04 12 20.25Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
 
 export default function CommunityPage() {
   const [posts, setPosts] = useState<DiscussionPost[]>([]);
@@ -1313,7 +1296,7 @@ export default function CommunityPage() {
           </div>
         </div>
 
-        {browseOpen && <div id="community-filters" className="mb-4 rounded-2xl border border-[#e6d8d4] bg-[#fffdf9] p-4">
+        {browseOpen && <div id="community-filters" className="aepilog-reveal mb-4 rounded-2xl border border-[#e6d8d4] bg-[#fffdf9] p-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="text-xs font-semibold text-[#756866]">Genre
               <select aria-label="Genre" value={genre} onChange={(event) => setGenre(event.target.value)} className="mt-2 block w-full rounded-xl border border-[#e6d8d4] bg-white px-3 py-3 text-sm text-[#3a2b2b]">
@@ -1566,7 +1549,8 @@ export default function CommunityPage() {
                   {poll && (!post.contains_spoilers || revealedSpoilers.includes(post.id)) && <BookPollCard poll={poll} choice={myPollVotes[post.id] || null} onChoice={(choice) => setMyPollVotes((current) => ({ ...current, [post.id]: choice }))} onUpdate={(updated) => setPosts((current) => current.map((item) => item.id === post.id ? { ...item, book_polls: updated } : item))} />}
 
                   <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[#eee2de] pt-3">
-                    <button
+                    <AnimatedLikeButton
+                      liked={likedByMe}
                       onClick={() => toggleLike(post)}
                       disabled={
                         likingPost === post.id
@@ -1577,9 +1561,8 @@ export default function CommunityPage() {
                           : "bg-[#f7eeea] text-[#756866]"
                       }`}
                     >
-                      <HeartIcon filled={likedByMe} />
                       <span>{post.discussion_likes.length}</span>
-                    </button>
+                    </AnimatedLikeButton>
 
                     <button
                       onClick={() =>
@@ -1604,7 +1587,7 @@ export default function CommunityPage() {
                   </div>
 
                   {expanded && (
-                    <div className="mt-5 border-t border-[#eee2de] pt-5">
+                    <div className="aepilog-reveal mt-5 border-t border-[#eee2de] pt-5">
                       <div className="mb-5">
                         <textarea
                           value={
@@ -1700,7 +1683,7 @@ export default function CommunityPage() {
 
       {createOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#2d2625]/45 p-4 backdrop-blur-sm"
+          className="aepilog-overlay fixed inset-0 z-50 flex items-center justify-center bg-[#2d2625]/45 p-4 backdrop-blur-sm"
           onMouseDown={(event) => {
             if (
               event.target ===
@@ -1710,7 +1693,7 @@ export default function CommunityPage() {
             }
           }}
         >
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[30px] bg-[#fffdf9] shadow-2xl">
+          <div className="aepilog-panel max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[30px] bg-[#fffdf9] shadow-2xl">
             <div className="flex items-start justify-between border-b border-[#eee2de] px-7 py-5">
               <div>
                 <div className="text-xs font-bold uppercase tracking-[0.14em] text-[#a05a62]">
@@ -1890,14 +1873,14 @@ export default function CommunityPage() {
 
       {rateOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#2d2625]/45 p-4 backdrop-blur-sm"
+          className="aepilog-overlay fixed inset-0 z-50 flex items-center justify-center bg-[#2d2625]/45 p-4 backdrop-blur-sm"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
               closeRateModal();
             }
           }}
         >
-          <div className="flex h-[70dvh] max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-[30px] bg-[#fffdf9] shadow-2xl sm:h-auto sm:overflow-y-auto">
+          <div className="aepilog-panel flex h-[70dvh] max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-[30px] bg-[#fffdf9] shadow-2xl sm:h-auto sm:overflow-y-auto">
             <div className="flex items-start justify-between border-b border-[#eee2de] px-7 py-5">
               <div>
                 <div className="text-xs font-bold uppercase tracking-[0.14em] text-[#a05a62]">

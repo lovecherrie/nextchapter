@@ -64,6 +64,12 @@ The earlier search-page request is also implemented: Books and People share cont
 
 The owner supplied the cherry logo, approved a lowercase `aepilog.` correction, and allowed a simple lowercase `a` at tiny sizes. `public/brand/aepilog-logo.png` is the circular transparent-corner cherry artwork; its lower edge is cherry, with the unwanted cream rim removed. `public/brand/aepilog-mark.png` is a lowercase Fraunces monogram for small icons. Next.js metadata conventions expose `app/favicon.ico` (16/32/48px), `app/icon.png` (96px, a multiple of Google's recommended 48px size), and `app/apple-icon.png` (180px). The root metadata uses the full cherry logo in Open Graph and Twitter summary previews. Google and social platforms control their cached icon/preview refresh timing. The existing header wordmark remains lowercase text. Assets can also be downloaded for social profile use; no social account was changed.
 
+## Interaction motion (12 November 2026)
+
+The owner requested a less stiff interface, especially a fast small-to-large pop when liking. Community and book discussions use `AnimatedLikeButton`: the heart responds immediately to clicks/taps/keyboard activation with a 280ms pop, and a smaller 180ms response on unlike. Existing persistence handlers and confirmed like counts/states are unchanged. Animations cancel cleanly on repeat interaction/unmount, skip existing likes on page load, and respect reduced-motion preferences. No animation dependency was added.
+
+Brief CSS motion adds button press feedback, fine-pointer hover lift, search-tab colour transitions, and entrances for post/rating/share/recommendation panels, comments and filters. All new transforms/entrances are restricted to `prefers-reduced-motion: no-preference`; interactions are never delayed waiting for an animation. No continuous animation or feed-wide entrance was added. The production build and 80 application tests passed. Browser fixtures at 390/1440px with normal/reduced motion checked immediate heart animation, successful like/unlike, failed-save state preservation, panel/tab interactions and layout.
+
 Validation: 80 application tests and production build passed. Browser checks at 320, 390 and 1440 pixels confirmed Fraunces inheritance, discussion-first sizing, spoiler protection, direct poll entry, matching search containers, white selected tabs, working book/reader search and no horizontal overflow. No database changes were required.
 
 ## Community browsing update
