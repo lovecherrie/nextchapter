@@ -1,5 +1,6 @@
 -- Disposable local PostgreSQL fixture only. Never run this on a live project.
 create role anon nologin;
+create role service_role nologin;
 create role authenticated nologin;
 create schema auth;
 create table auth.users(id uuid primary key, raw_user_meta_data jsonb not null default '{}', is_anonymous boolean default false, created_at timestamptz default now());

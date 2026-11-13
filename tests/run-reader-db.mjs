@@ -17,11 +17,11 @@ try {
   started = true;
   let ready = false;
   for (let i = 0; i < 60; i++) {
-    try { docker(['exec', container, 'pg_isready', '-U', 'postgres']); ready = true; break; } catch { await new Promise(resolve => setTimeout(resolve, 250)); }
+    try { docker(['exec', container, 'pg_isready', '-h', '127.0.0.1', '-U', 'postgres']); ready = true; break; } catch { await new Promise(resolve => setTimeout(resolve, 250)); }
   }
   if (!ready) throw new Error('Local PostgreSQL did not become ready');
   const migrations = readdirSync(new URL('../supabase/migrations/', import.meta.url)).filter(name => name.endsWith('.sql')).sort().map(name => `../supabase/migrations/${name}`);
-  const files = ['fixtures/reader-database.sql', ...migrations, 'sql/reader-security.sql', 'sql/reader-photos.sql', 'sql/book-polls.sql', 'sql/public-top-four.sql', 'sql/atomic-top-four.sql', 'sql/general-discussions.sql', 'sql/reply-notifications.sql', 'sql/buddy-reads.sql', 'sql/comment-likes.sql', 'sql/multiple-reviews.sql'];
+  const files = ['fixtures/reader-database.sql', ...migrations, 'sql/reader-security.sql', 'sql/reader-photos.sql', 'sql/book-polls.sql', 'sql/public-top-four.sql', 'sql/atomic-top-four.sql', 'sql/general-discussions.sql', 'sql/reply-notifications.sql', 'sql/buddy-reads.sql', 'sql/comment-likes.sql', 'sql/multiple-reviews.sql', 'sql/book-genres-sections.sql'];
   for (const file of files) {
     const sql = readFileSync(new URL(file, import.meta.url), 'utf8');
     const output = docker(['exec', '-i', container, 'psql', '-U', 'postgres', '-v', 'ON_ERROR_STOP=1'], sql);

@@ -9,7 +9,7 @@ export type BookPoll = {
   left_book: AttachedBook | null;
   right_book: AttachedBook | null;
 };
-export const POLL_FIELDS = "post_id,left_book_id,right_book_id,left_votes,right_votes,left_book:books!book_polls_left_book_id_fkey(id,external_id,title,author,cover_url),right_book:books!book_polls_right_book_id_fkey(id,external_id,title,author,cover_url)";
+export const POLL_FIELDS = "post_id,left_book_id,right_book_id,left_votes,right_votes,left_book:books!book_polls_left_book_id_fkey(id,external_id,title,author,cover_url,book_genres(genres)),right_book:books!book_polls_right_book_id_fkey(id,external_id,title,author,cover_url,book_genres(genres))";
 export function pollFromPost(value: BookPoll | BookPoll[] | null | undefined): BookPoll | null {
   return Array.isArray(value) ? value[0] || null : value || null;
 }

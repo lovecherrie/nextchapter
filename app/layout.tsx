@@ -23,6 +23,7 @@ const loraNumbers = localFont({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.aepilog.com"),
+  icons: { shortcut: "/icon.png?v=cherry-clean-20261113" },
   verification: { google: "H1OwA9BcZoVaSySdQlWPvCcSLYYpsl62rZR8KW0iXGs" },
   title: { default: "aepilog — Discover books and track your reading", template: "%s | aepilog" },
   description:

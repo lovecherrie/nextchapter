@@ -21,3 +21,11 @@ test('author matching and topic identities tolerate case and accents',()=>{
  assert.equal(api.browseText(' GABRIEL GARCÍA MÁRQUEZ ').includes(api.browseText('garcia')),true);
  assert.notEqual(api.bookTopicKey({title:'Same title',author:'Author One'}),api.bookTopicKey({title:'Same title',author:'Author Two'}));
 });
+
+test('saved genre corrections classify sparse catalogue entries without guessing from titles',()=>{
+ const book={title:'A catalogue book',author:'An Author',book_genres:{genres:['Manga & Graphic Novels','Fantasy']}};
+ assert.equal(api.matchesCommunityGenre('Manga & Graphic Novels',api.savedBookGenres(book)),true);
+ assert.equal(api.matchesCommunityGenre('Fantasy',api.savedBookGenres(book)),true);
+ assert.equal(api.savedBookGenres({title:'Manga sounding title',author:'Someone'}).length,0);
+ assert.equal(api.savedBookGenres({...book,book_genres:[{genres:['Fantasy']},{genres:['Fantasy']}]}).length,1);
+});

@@ -1,7 +1,7 @@
 import { supabase } from "@/lib/supabase";
 
 export type BookChoice = { external_id: string; title: string; author: string; cover_url: string | null };
-export type AttachedBook = { id: string; external_id: string | null; title: string; author: string | null; cover_url: string | null };
+export type AttachedBook = { id: string; external_id: string | null; title: string; author: string | null; cover_url: string | null; book_genres?: { genres: string[] } | { genres: string[] }[] | null };
 export const ATTACHED_BOOK_FIELDS = "id,external_id,title,author,cover_url";
 
 export function attachedBookHref(book: AttachedBook) {

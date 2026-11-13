@@ -19,6 +19,8 @@ import { POLL_FIELDS, pollFromPost, pollTotal, discussionEngagement, type BookPo
 import AttachedBookCard from "./AttachedBookCard";
 import BookPollComposer from "./BookPollComposer";
 import BookPollCard from "./BookPollCard";
+import DiscussionSection from "./DiscussionSection";
+import { discussionSectionLabel } from "@/lib/discussion-sections";
 import ConversationBooks, { type ConversationBook } from "./ConversationBooks";
 import ReplyBookPicker from "./ReplyBookPicker";
 
@@ -28,6 +30,7 @@ type Book = {
   title: string;
   author: string | null;
   cover_url: string | null;
+  book_genres?: { genres: string[] } | { genres: string[] }[] | null;
 };
 
 type SearchBook = {
@@ -68,6 +71,7 @@ type DiscussionPost = {
   discussion_likes: Like[];
   comments: Comment[];
   book_polls?: BookPoll | BookPoll[] | null;
+  section_label?: string | null;
 };
 
 type Filter = "top" | "newest";
@@ -308,6 +312,8 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
     useState<string | null>(null);
   const [editingPostText, setEditingPostText] = useState("");
   const [editingPostSpoiler, setEditingPostSpoiler] = useState(false);
+  const [sectionLabel, setSectionLabel] = useState<string | null>(null);
+  const [editingSection, setEditingSection] = useState<string | null>(null);
   const [savingPostId, setSavingPostId] =
     useState<string | null>(null);
 
@@ -447,13 +453,15 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
         username,
         content,
         contains_spoilers,
+        section_label,
         created_at,
         books (
           id,
           external_id,
           title,
           author,
-          cover_url
+          cover_url,
+          book_genres(genres)
         ),
         book_polls (${POLL_FIELDS}),
         discussion_likes (
@@ -538,6 +546,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
       return;
     }
 
+    if (sectionLabel && !discussionSectionLabel(sectionLabel)) { setPostError("Choose a chapter from 1 to 1000."); return; }
     setPosting(true);
 
     try {
@@ -552,6 +561,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
             username: guestUsername,
             content: discussionText.trim(),
             contains_spoilers: containsSpoilers,
+            section_label: sectionLabel,
           })
           .select(`
             id,
@@ -560,6 +570,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
             username,
             content,
             contains_spoilers,
+            section_label,
             created_at
           `)
           .single();
@@ -578,6 +589,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
       setPosts((current) => [completePost, ...current]);
 
       setDiscussionText("");
+      setSectionLabel(null);
       setContainsSpoilers(false);
       changeBookQuery("");
       setBookResults([]);
@@ -765,12 +777,14 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
 
     if (!content) return;
 
+    if (!pollFromPost(post.book_polls) && editingSection && !discussionSectionLabel(editingSection)) { window.alert("Choose a chapter from 1 to 1000."); return; }
     setSavingPostId(post.id);
 
     const { error } = await supabase
       .from("discussion_posts")
       .update(pollFromPost(post.book_polls) ? { contains_spoilers: editingPostSpoiler, updated_at: new Date().toISOString() } : {
         content,
+        section_label: editingSection,
         contains_spoilers: editingPostSpoiler,
         updated_at: new Date().toISOString(),
       })
@@ -783,6 +797,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
             ? {
                 ...item,
                 content,
+                section_label: pollFromPost(post.book_polls) ? item.section_label : editingSection,
                 contains_spoilers: editingPostSpoiler,
               }
             : item
@@ -1489,6 +1504,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
                               onClick={() => {
                                 setEditingPostId(post.id);
                                 setEditingPostText(post.content);
+                                setEditingSection(post.section_label || null);
                                 setEditingPostSpoiler(
                                   post.contains_spoilers
                                 );
@@ -1512,8 +1528,10 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
                     )}
                   </div>
 
+                  {discussionSectionLabel(post.section_label) && <p className="mt-2 text-xs text-[#897471]">{discussionSectionLabel(post.section_label)}</p>}
                   {editingPostId === post.id ? (
                     <div className="mt-5 rounded-2xl border border-[#e4d7d2] bg-[#fcf7f3] p-4">
+                      {!poll && <div className="mb-3"><DiscussionSection value={editingSection} onChange={setEditingSection} disabled={savingPostId === post.id} /></div>}
                       <textarea
                         value={editingPostText}
                         readOnly={!!poll}
@@ -1773,7 +1791,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
             </div>
 
             <div className="flex gap-2 px-5 pt-4 sm:px-7">{(["post", "poll"] as const).map((type) => <button key={type} type="button" disabled={posting || pollBusy} aria-pressed={postType === type} onClick={() => setPostType(type)} className={`rounded-full px-4 py-2 text-sm font-semibold ${postType === type ? "bg-[#8f2635] text-white" : "border border-[#e6d8d4] text-[#8f2635]"}`}>{type === "post" ? "Discussion" : "Book vs book"}</button>)}</div>
-            <div hidden={postType !== "poll"}><BookPollComposer onBusy={setPollBusy} onPosted={(id) => { setCreateOpen(false); setDiscussionText(""); setSelectedBook(null); changeBookQuery(""); setContainsSpoilers(false); setFilter("newest"); router.push(discussionHref(id)); }} /></div>
+            <div hidden={postType !== "poll"}><BookPollComposer onBusy={setPollBusy} onPosted={(id) => { setCreateOpen(false); setDiscussionText(""); setSelectedBook(null); changeBookQuery(""); setContainsSpoilers(false); setSectionLabel(null); setFilter("newest"); router.push(discussionHref(id)); }} /></div>
             <div hidden={postType !== "post"}>
             <div className="space-y-6 p-7">
               <div>
@@ -1892,6 +1910,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
                 className="w-full resize-none rounded-2xl border border-[#e2d4cf] bg-white px-4 py-3.5 outline-none"
               />
 
+              <DiscussionSection value={sectionLabel} onChange={setSectionLabel} disabled={posting} />
               <label className="flex items-center gap-3 rounded-2xl border bg-[#fcf7f3] p-4">
                 <input
                   type="checkbox"

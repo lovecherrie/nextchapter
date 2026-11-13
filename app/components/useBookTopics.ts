@@ -1,13 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
-import { bookTopicKey } from "@/lib/community-browse";
+import { bookTopicKey, savedBookGenres, type GenreBook } from "@/lib/community-browse";
 import { fetchJsonWithTimeout } from "@/lib/fetch-json";
 
-type TopicBook = { title: string; author: string | null };
+type TopicBook = GenreBook;
 const cache = new Map<string, { until: number; subjects: string[] }>();
 
 export function useBookTopics(books: TopicBook[], enabled: boolean) {
-  const requestKey = JSON.stringify([...new Map(books.map((book) => [bookTopicKey(book), { title: book.title, author: book.author }])).values()].sort((a, b) => bookTopicKey(a).localeCompare(bookTopicKey(b))));
+  const requestKey = JSON.stringify([...new Map(books.map((book) => [bookTopicKey(book), { title: book.title, author: book.author, book_genres: book.book_genres }])).values()].sort((a, b) => bookTopicKey(a).localeCompare(bookTopicKey(b))));
   const [topics, setTopics] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -24,6 +24,8 @@ export function useBookTopics(books: TopicBook[], enabled: boolean) {
       await Promise.all(Array.from({ length: Math.min(3, queue.length) }, async () => {
         while (index < queue.length && !controller.signal.aborted) {
           const book = queue[index++], key = bookTopicKey(book);
+          const verified = savedBookGenres(book);
+          if (verified.length) { result[key] = verified; continue; }
           const saved = cache.get(key);
           if (saved && saved.until > Date.now()) { result[key] = saved.subjects; continue; }
           try {

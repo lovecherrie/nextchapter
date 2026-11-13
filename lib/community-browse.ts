@@ -26,3 +26,9 @@ export function matchesCommunityGenre(genre: string, subjects: string[]) {
     return pattern.test(subject);
   });
 }
+
+export type GenreBook = { title: string; author: string | null; book_genres?: { genres: string[] } | { genres: string[] }[] | null };
+export function savedBookGenres(book: GenreBook): string[] {
+  const rows = Array.isArray(book.book_genres) ? book.book_genres : book.book_genres ? [book.book_genres] : [];
+  return [...new Set(rows.flatMap((row) => Array.isArray(row.genres) ? row.genres.filter((genre): genre is string => typeof genre === "string") : []))];
+}

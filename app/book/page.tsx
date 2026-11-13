@@ -5,6 +5,8 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { discussionHref } from "@/lib/discussion-links";
 import BackLink from "../components/BackLink";
+import DiscussionSection from "../components/DiscussionSection";
+import { discussionSectionLabel } from "@/lib/discussion-sections";
 import SiteHeader from "../components/SiteHeader";
 import AnimatedLikeButton from "../components/AnimatedLikeButton";
 import { ReaderName } from "../components/ReaderSocial";
@@ -46,6 +48,7 @@ type DiscussionPost = {
   comments: number;
   likedByMe: boolean;
   book_polls?: { post_id: string } | { post_id: string }[] | null;
+  section_label?: string | null;
 };
 
 
@@ -84,6 +87,8 @@ function BookPageContent() {
   );
 
   const [enrichedCover, setEnrichedCover] = useState<string | null>(null);
+  const [storedCover, setStoredCover] = useState<{ externalId: string; url: string } | null>(null);
+  const displayCover = (storedCover?.externalId === bookExternalId ? storedCover.url : "") || bookCover || enrichedCover || "";
 
   const [
     descriptionLoading,
@@ -226,6 +231,7 @@ function BookPageContent() {
     setRatingSpoiler,
   ] = useState(false);
 
+  const [discussionSection, setDiscussionSection] = useState<string | null>(null);
   const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
   const [savingReview, setSavingReview] = useState(false);
   const savingReviewRef = useRef(false);
@@ -566,6 +572,7 @@ function BookPageContent() {
         if (
           existingBook?.id
         ) {
+          if (typeof existingBook.cover_url === "string" && existingBook.cover_url.trim()) setStoredCover({ externalId: bookExternalId, url: existingBook.cover_url });
           setDatabaseBookId(
             existingBook.id
           );
@@ -1059,6 +1066,7 @@ function BookPageContent() {
         return;
       }
 
+      if (discussionSection && !discussionSectionLabel(discussionSection)) { alert("Choose a chapter from 1 to 1000."); return; }
       const { data: newPost, error } = await supabase
         .from(
           "discussion_posts"
@@ -1078,6 +1086,7 @@ function BookPageContent() {
 
           contains_spoilers:
             postSpoiler,
+          section_label: discussionSection,
         }).select("id").single();
 
       if (error) {
@@ -1093,6 +1102,7 @@ function BookPageContent() {
       }
 
       setPostText("");
+      setDiscussionSection(null);
       setPostSpoiler(
         false
       );
@@ -1333,9 +1343,9 @@ function BookPageContent() {
           <div className="grid gap-6 md:grid-cols-[180px_1fr]">
 
             <div>
-              {(enrichedCover || bookCover) ? (
+              {(displayCover) ? (
                 <img
-                  src={enrichedCover || bookCover || ""}
+                  src={displayCover}
                   alt={bookTitle}
                   className="w-full max-w-[180px] rounded-2xl object-cover shadow-md"
                 />
@@ -1361,7 +1371,7 @@ function BookPageContent() {
                 </p>
               )}
 
-              <div className="mt-4"><BookShareButton book={{ title: bookTitle, author: bookAuthor, cover: enrichedCover || bookCover, href: `/book?${new URLSearchParams({ book: bookExternalId, title: bookTitle, author: bookAuthor, ...(enrichedCover || bookCover ? { cover: enrichedCover || bookCover } : {}) })}` }} rating={ratings.find((item) => item.user_id === guestUserId)?.overall_rating} readerName={guestUsername} /></div>
+              <div className="mt-4"><BookShareButton book={{ title: bookTitle, author: bookAuthor, cover: displayCover, href: `/book?${new URLSearchParams({ book: bookExternalId, title: bookTitle, author: bookAuthor, ...(displayCover ? { cover: displayCover } : {}) })}` }} rating={ratings.find((item) => item.user_id === guestUserId)?.overall_rating} readerName={guestUsername} /></div>
 
               <div className="mt-4 flex flex-wrap gap-2">
                 {bookMeta.publishedDate && (
@@ -1714,7 +1724,7 @@ function BookPageContent() {
 
                     <div className="mt-2 flex items-end gap-2">
 
-                      <div className="text-4xl font-semibold text-[#3f4c38]">
+                      <div className="text-4xl font-semibold text-[var(--aepilog-cherry)]">
                         {calculatedOverall !==
                         null
                           ? calculatedOverall.toFixed(
@@ -1725,7 +1735,7 @@ function BookPageContent() {
 
                       {calculatedOverall !==
                         null && (
-                        <div className="pb-1 text-sm text-[#718069]">
+                        <div className="pb-1 text-sm text-[var(--aepilog-muted)]">
                           / 5
                         </div>
                       )}
@@ -1791,7 +1801,8 @@ function BookPageContent() {
                       type="range"
                       min="1"
                       max="5"
-                      step="0.5"
+                      step="0.1"
+                      aria-label="Your overall rating"
                       disabled={
                         calculatedOverall ===
                           null &&
@@ -1847,7 +1858,7 @@ function BookPageContent() {
                               calculatedOverall
                             );
                           }}
-                          className="mt-3 text-xs font-medium text-[#5e704f] hover:underline"
+                          className="mt-3 text-xs font-medium text-[var(--aepilog-cherry)] hover:underline"
                         >
                           Reset to
                           calculated
@@ -2198,6 +2209,7 @@ function BookPageContent() {
                   className="mt-5 min-h-36 w-full resize-none rounded-2xl border border-stone-200 bg-white p-4 outline-none transition focus:border-[var(--aepilog-cherry)]"
                 />
 
+                <div className="mt-3"><DiscussionSection value={discussionSection} onChange={setDiscussionSection} /></div>
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
 
                   <label className="flex cursor-pointer items-center gap-2 text-sm text-stone-600">
@@ -2371,6 +2383,7 @@ function BookPageContent() {
 
                         </div>
 
+                        {discussionSectionLabel(post.section_label) && <p className="mt-2 text-xs text-[var(--aepilog-muted)]">{discussionSectionLabel(post.section_label)}</p>}
                         <div className="mt-5">
                           {post.contains_spoilers ? spoilerContent(`post-${post.id}`, post.content, true) : <Link href={discussionHref(post.id)} className="block"><p className="line-clamp-4 whitespace-pre-wrap break-words leading-7 text-stone-700">{post.content}</p><span className="mt-2 inline-block text-xs font-medium text-[#8f2635]">Read discussion →</span></Link>}
                         </div>
