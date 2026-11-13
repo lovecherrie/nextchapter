@@ -73,6 +73,38 @@ a {
   color: inherit;
 }
 
+/* A stretched native link opens card whitespace; independent controls stay above
+   it. Hover adds depth without scaling the card or moving its text. */
+.aepilog-discussion-card {
+  position: relative;
+  isolation: isolate;
+  transition: border-color 160ms ease-out, box-shadow 160ms ease-out;
+}
+.aepilog-discussion-card:hover {
+  border-color: #d4b7b6;
+  box-shadow: 0 4px 16px rgb(86 43 48 / 8%);
+}
+.aepilog-discussion-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: 22px;
+}
+.aepilog-discussion-link:focus-visible { outline: none; }
+.aepilog-discussion-link:focus-visible::after {
+  outline: 2px solid var(--aepilog-cherry);
+  outline-offset: -3px;
+}
+.aepilog-discussion-card :is(a, button, input, textarea, select, [data-menu-root]) {
+  position: relative;
+  z-index: 2;
+}
+.aepilog-discussion-card .aepilog-discussion-link {
+  position: static;
+  z-index: auto;
+}
+
 /* Motion stays brief and never delays clicks or content becoming usable. */
 @keyframes aepilog-fade-in {
   from { opacity: 0; }
@@ -95,12 +127,12 @@ a {
 @media (prefers-reduced-motion: no-preference) {
   /* Use scale separately so existing transforms and heart animations still work.
      These shared rules also reach controls carrying Tailwind transition classes. */
-  :where(button, a.aepilog-pressable, a[href][class*="rounded-"], summary) {
+  :where(button, a.aepilog-pressable, a[href][class*="rounded-full"], summary) {
     transition: scale 230ms cubic-bezier(.34,1.56,.64,1),
       background-color 160ms ease-out, color 160ms ease-out,
       border-color 160ms ease-out, box-shadow 160ms ease-out;
   }
-  :where(button:not(:disabled), a.aepilog-pressable, a[href][class*="rounded-"], summary):active {
+  :where(button:not(:disabled), a.aepilog-pressable, a[href][class*="rounded-full"], summary):active {
     scale: .95;
     transition-duration: 65ms;
     transition-timing-function: ease-out;
@@ -119,7 +151,7 @@ a {
     transform-origin: top right;
   }
   @media (hover: hover) and (pointer: fine) {
-    :where(button:not(:disabled), a.aepilog-pressable, a[href][class*="rounded-"], summary):hover { scale: 1.015; }
-    :where(button:not(:disabled), a.aepilog-pressable, a[href][class*="rounded-"], summary):active { scale: .95; }
+    :where(button:not(:disabled), a.aepilog-pressable, a[href][class*="rounded-full"], summary):hover { scale: 1.015; }
+    :where(button:not(:disabled), a.aepilog-pressable, a[href][class*="rounded-full"], summary):active { scale: .95; }
   }
 }

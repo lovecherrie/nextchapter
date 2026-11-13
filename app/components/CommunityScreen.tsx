@@ -1130,7 +1130,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
             <div className="mt-3 flex items-start justify-between gap-4">
               <div>
                 <h1 className="font-aepilog-serif text-[28px] font-medium leading-[1.08] text-[#3a2b2b] sm:text-4xl">
-                  Book discussions
+                  Top discussions
                 </h1>
 
                 <p className="mt-1.5 hidden max-w-2xl text-sm leading-5 text-[#756866] sm:block">
@@ -1156,7 +1156,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
               <Link
                 href={discussionHref(featuredPost.id)}
                 onClick={rememberFeedPosition}
-                className="mt-4 flex items-center gap-3 rounded-2xl border border-[#eaded9] bg-[#fbf5f1] p-3 transition hover:border-[#c99ba0] hover:bg-[#f8efeb]"
+                className="aepilog-featured-discussion mt-4 flex items-center gap-3 rounded-2xl border border-[#eaded9] bg-[#fbf5f1] p-3 transition hover:border-[#c99ba0] hover:bg-[#f8efeb]"
               >
                 {featuredBook && (featuredBook.cover_url ? (
                   <img
@@ -1342,7 +1342,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
               <article
                 id={`post-${post.id}`}
                 key={post.id}
-                className="scroll-mt-36 overflow-hidden rounded-[22px] border border-[#e6d8d4] bg-[#fffdf9] shadow-sm sm:scroll-mt-28 sm:rounded-[24px]"
+                className={`${!discussionId ? "aepilog-discussion-card cursor-pointer " : ""}scroll-mt-36 overflow-hidden rounded-[22px] border border-[#e6d8d4] bg-[#fffdf9] shadow-sm sm:scroll-mt-28 sm:rounded-[24px]`}
               >
                 {book && !poll && (
                   <div className="border-b border-[#eee2de] bg-[#fdf9f5] px-4 py-3 sm:px-5">
@@ -1499,9 +1499,8 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
                       </div>
                     </div>
                   ) : !discussionId ? (
-                    <Link href={discussionHref(post.id)} onClick={rememberFeedPosition} className="mt-4 block rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#8f2635]">
+                    <Link href={discussionHref(post.id)} onClick={rememberFeedPosition} className="aepilog-discussion-link mt-4 block">
                       {post.contains_spoilers ? <p className="rounded-2xl border border-[#d6aeb1] bg-[#f3dfe0]/75 px-4 py-5 text-sm font-medium text-[#8f2635]">Contains spoilers · Open discussion</p> : <p className="line-clamp-4 whitespace-pre-wrap break-words text-lg leading-7 text-[#4f4140]">{post.content}</p>}
-                      <span className="mt-2 inline-block text-xs font-medium text-[#8f2635]">Read discussion →</span>
                     </Link>
                   ) : post.contains_spoilers ? (
                     <button
@@ -1682,7 +1681,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
                   {postType === "poll" ? "Create poll" : "New discussion"}
                 </div>
 
-                <h2 className="font-aepilog-serif mt-1 text-2xl font-bold text-[#3a2b2b]">
+                <h2 className="font-aepilog-serif mt-1 text-2xl font-medium text-[#3a2b2b]">
                   {postType === "poll" ? "Book vs book" : "New discussion"}
                 </h2>
               </div>
@@ -1702,7 +1701,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
             <div className="space-y-6 p-7">
               <div>
                 <label className="mb-2 block text-sm font-bold">
-                  Add a book (optional)
+                  Add a book
                 </label>
 
                 {selectedBook ? (
@@ -1869,7 +1868,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
                   Your reading history
                 </div>
 
-                <h2 className="font-aepilog-serif mt-1 text-2xl font-bold text-[#3a2b2b]">
+                <h2 className="font-aepilog-serif mt-1 text-2xl font-medium text-[#3a2b2b]">
                   Rate a book
                 </h2>
 

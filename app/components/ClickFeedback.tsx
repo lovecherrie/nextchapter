@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-const controls = 'button, a.aepilog-pressable, a[href][class*="rounded-"], summary';
+const controls = 'button, a.aepilog-pressable, a[href][class*="rounded-full"], summary';
 
 export default function ClickFeedback() {
   useEffect(() => {
