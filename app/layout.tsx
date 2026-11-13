@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { BackHistory } from "./components/BackLink";
 import { NotificationsProvider } from "./components/Notifications";
@@ -8,6 +9,15 @@ const fraunces = Fraunces({
   subsets: ["latin"],
   variable: "--font-serif",
   display: "swap",
+});
+
+const loraNumbers = localFont({
+  src: "./fonts/lora-numbers.woff2",
+  weight: "400 700",
+  variable: "--font-numbers",
+  display: "swap",
+  adjustFontFallback: false,
+  declarations: [{ prop: "unicode-range", value: "U+0030-0039" }],
 });
 
 export const metadata: Metadata = {
@@ -38,7 +48,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={fraunces.variable}>
+      <body className={`${fraunces.variable} ${loraNumbers.variable}`}>
         <BackHistory />
         <NotificationsProvider>{children}</NotificationsProvider>
       </body>

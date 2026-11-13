@@ -28,7 +28,8 @@ body {
   margin: 0;
   background: var(--aepilog-cream);
   color: var(--aepilog-ink);
-  font-family: var(--font-serif), Georgia, "Times New Roman", serif;
+  font-family: var(--font-numbers), var(--font-serif), Georgia, "Times New Roman", serif;
+  font-variant-numeric: lining-nums;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -41,12 +42,12 @@ body {
 .font-aepilog-serif,
 .aepilog-wordmark,
 .aepilog-heading {
-  font-family: var(--font-serif), Georgia, "Times New Roman", serif;
+  font-family: var(--font-numbers), var(--font-serif), Georgia, "Times New Roman", serif;
 }
 
-/* Fraunces stays on the text; use simpler serif numerals in reader names. */
+/* The digit-only Lora face leaves words in Fraunces, including mixed names. */
 .aepilog-reader-digits {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-numbers), var(--font-serif), Georgia, "Times New Roman", serif;
   font-weight: 500;
   font-variant-numeric: lining-nums;
 }
