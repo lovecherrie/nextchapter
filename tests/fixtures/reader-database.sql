@@ -14,6 +14,9 @@ insert into auth.users(id,raw_user_meta_data,is_anonymous) values
  ('44444444-4444-4444-8444-444444444444','{"username":"Bookworm"}',true);
 
 create table public.ratings(id uuid primary key default gen_random_uuid(),user_id text not null,content text);
+alter table public.ratings add column book_id uuid, add column username text, add column overall_rating numeric,
+ add column created_at timestamptz default now(), add column updated_at timestamptz default now(),
+ add constraint ratings_book_id_user_id_key unique(book_id,user_id);
 create table public.discussion_posts(id uuid primary key default gen_random_uuid(),user_id text not null,content text);
 create table public.comments(id uuid primary key default gen_random_uuid(),user_id text not null,content text);
 create table public.discussion_likes(id uuid primary key default gen_random_uuid(),user_id text not null);

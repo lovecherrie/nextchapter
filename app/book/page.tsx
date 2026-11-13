@@ -10,6 +10,8 @@ import AnimatedLikeButton from "../components/AnimatedLikeButton";
 import { ReaderName } from "../components/ReaderSocial";
 import BookShareButton from "../components/BookShareButton";
 import { supabase } from "@/lib/supabase";
+import { invalidateAccountCache } from "@/lib/account-cache";
+import { latestReviewsByReader } from "@/lib/reviews";
 import { saveLike } from "@/lib/likes";
 import { loadBookDiscussions } from "@/lib/book-discussions";
 
@@ -223,6 +225,32 @@ function BookPageContent() {
     ratingSpoiler,
     setRatingSpoiler,
   ] = useState(false);
+
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
+  const [savingReview, setSavingReview] = useState(false);
+  const savingReviewRef = useRef(false);
+  const pendingReviewId = useRef<string | null>(null);
+
+  function editReview(review: Rating | null) {
+    setEditingReviewId(review?.id || null);
+    pendingReviewId.current = null;
+    setPlotRating(review?.plot_rating ?? null);
+    setCharactersRating(review?.characters_rating ?? null);
+    setPacingRating(review?.pacing_rating ?? null);
+    setWritingRating(review?.writing_rating ?? null);
+    setAtmosphereRating(review?.atmosphere_rating ?? null);
+    setEndingRating(review?.ending_rating ?? null);
+    setOverallRating(review ? Number(review.overall_rating) : null);
+    setOverallWasEdited(Boolean(review && (review.calculated_overall_rating == null || Number(review.overall_rating) !== Number(review.calculated_overall_rating))));
+    setRatingThought(review?.content || "");
+    setRatingSpoiler(Boolean(review?.contains_spoilers));
+  }
+
+  function openReview(review: Rating | null) {
+    if (savingReviewRef.current) return;
+    editReview(review);
+    document.getElementById("rate-book")?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  }
 
   // -------------------------
   // DISCUSSION
@@ -875,7 +903,7 @@ function BookPageContent() {
           {
             ascending: false,
           }
-        );
+        ).order("id", { ascending: false });
 
       if (error) {
         console.error(
@@ -898,49 +926,7 @@ function BookPageContent() {
             guestUserId
         );
 
-      if (myRating) {
-        setPlotRating(
-          myRating.plot_rating
-        );
-        setCharactersRating(
-          myRating.characters_rating
-        );
-        setPacingRating(
-          myRating.pacing_rating
-        );
-        setWritingRating(
-          myRating.writing_rating
-        );
-        setAtmosphereRating(
-          myRating.atmosphere_rating
-        );
-        setEndingRating(
-          myRating.ending_rating
-        );
-        setOverallRating(
-          Number(
-            myRating.overall_rating
-          )
-        );
-        setOverallWasEdited(
-          myRating.calculated_overall_rating !==
-            null &&
-            Number(
-              myRating.overall_rating
-            ) !==
-              Number(
-                myRating.calculated_overall_rating
-              )
-        );
-        setRatingThought(
-          myRating.content || ""
-        );
-        setRatingSpoiler(
-          Boolean(
-            myRating.contains_spoilers
-          )
-        );
-      }
+      editReview(myRating || null);
     };
 
   // -------------------------
@@ -1020,62 +1006,40 @@ function BookPageContent() {
         return;
       }
 
-      const { error } =
-        await supabase
-          .from("ratings")
-          .upsert(
-            {
-              book_id:
-                databaseBookId,
-              user_id:
-                guestUserId,
-              username:
-                guestUsername,
-              overall_rating:
-                overallRating,
-              calculated_overall_rating:
-                calculatedOverall,
-              plot_rating:
-                plotRating,
-              characters_rating:
-                charactersRating,
-              pacing_rating:
-                pacingRating,
-              writing_rating:
-                writingRating,
-              atmosphere_rating:
-                atmosphereRating,
-              ending_rating:
-                endingRating,
-              content:
-                ratingThought.trim(),
-              contains_spoilers:
-                ratingSpoiler,
-              updated_at:
-                new Date().toISOString(),
-            },
-            {
-              onConflict:
-                "book_id,user_id",
-            }
-          );
-
-      if (error) {
-        console.error(
-          "Save rating error:",
-          error
-        );
-
-        alert(
-          "Could not save rating."
-        );
-
-        return;
+      if (savingReviewRef.current) return;
+      savingReviewRef.current = true;
+      setSavingReview(true);
+      const reviewId = editingReviewId || (pendingReviewId.current ||= crypto.randomUUID());
+      try {
+        const { data, error } = await supabase.from("ratings").upsert({
+          id: reviewId,
+          book_id: databaseBookId,
+          user_id: guestUserId,
+          username: guestUsername,
+          overall_rating: overallRating,
+          calculated_overall_rating: calculatedOverall,
+          plot_rating: plotRating,
+          characters_rating: charactersRating,
+          pacing_rating: pacingRating,
+          writing_rating: writingRating,
+          atmosphere_rating: atmosphereRating,
+          ending_rating: endingRating,
+          content: ratingThought.trim(),
+          contains_spoilers: ratingSpoiler,
+        }, { onConflict: "id" }).select("id").abortSignal(AbortSignal.timeout(10000)).single();
+        if (error || !data) throw error || new Error("Review was not saved");
+        pendingReviewId.current = null;
+        setEditingReviewId(reviewId);
+        invalidateAccountCache("profile");
+        await loadRatings();
+        alert("Review saved");
+      } catch (error) {
+        console.error("Save review error:", error);
+        alert("Could not save review. Please try again.");
+      } finally {
+        savingReviewRef.current = false;
+        setSavingReview(false);
       }
-
-      await loadRatings();
-
-      alert("Rating saved ");
     };
 
   // -------------------------
@@ -1239,23 +1203,10 @@ function BookPageContent() {
     );
   };
 
-  const averageRating =
-    ratings.length > 0
-      ? (
-          ratings.reduce(
-            (
-              total,
-              rating
-            ) =>
-              total +
-              Number(
-                rating.overall_rating
-              ),
-            0
-          ) /
-          ratings.length
-        ).toFixed(1)
-      : null;
+  const currentRatings = latestReviewsByReader(ratings);
+  const averageRating = currentRatings.length
+    ? (currentRatings.reduce((total, rating) => total + Number(rating.overall_rating), 0) / currentRatings.length).toFixed(1)
+    : null;
 
   const filteredPosts = [
     ...posts,
@@ -1593,8 +1544,8 @@ function BookPageContent() {
                   </div>
 
                   <p className="mt-3 text-sm text-stone-500">
-                    {ratings.length}{" "}
-                    {ratings.length ===
+                    {currentRatings.length}{" "}
+                    {currentRatings.length ===
                     1
                       ? "rating"
                       : "ratings"}
@@ -1636,6 +1587,12 @@ function BookPageContent() {
                     your thoughts
                     too if you want.
                   </p>
+
+                  {ratings.some((review) => review.user_id === guestUserId) && (
+                    <button type="button" disabled={savingReview} onClick={() => openReview(editingReviewId ? null : ratings.find((review) => review.user_id === guestUserId) || null)} className="mt-4 text-sm font-medium text-[var(--aepilog-cherry)] underline disabled:opacity-50">
+                      {editingReviewId ? "Add another review" : "Cancel"}
+                    </button>
+                  )}
 
                   {/* CATEGORY RATINGS */}
 
@@ -1946,12 +1903,11 @@ function BookPageContent() {
 
                     <button
                       type="button"
-                      onClick={
-                        submitRating
-                      }
+                      disabled={savingReview}
+                      onClick={submitRating}
                       className="rounded-full bg-[var(--aepilog-cherry)] px-6 py-3 text-sm font-semibold text-white hover:bg-[var(--aepilog-cherry-hover)]"
                     >
-                      Done
+                      {savingReview ? "Saving…" : editingReviewId ? "Save changes" : "Post review"}
                     </button>
 
                   </div>
@@ -2022,9 +1978,8 @@ function BookPageContent() {
                         </div>
 
                         <div className="text-xs text-stone-400">
-                          {formatDate(
-                            rating.created_at
-                          )}
+                          {formatDate(rating.created_at)}
+                          {rating.user_id === guestUserId && <button type="button" disabled={savingReview} onClick={() => openReview(rating)} className="ml-3 text-[var(--aepilog-cherry)] underline disabled:opacity-50">Edit review</button>}
                         </div>
 
                       </div>

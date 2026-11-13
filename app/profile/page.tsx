@@ -902,7 +902,7 @@ export default function ProfilePage() {
         <section className="mt-6 grid gap-4 sm:grid-cols-3">
           <div className="rounded-2xl border border-stone-200 bg-white p-5">
             <div className="text-2xl font-semibold text-[#8F2635]">
-              {loading ? "—" : ratings.length}
+              {loading ? "—" : new Set(ratings.map((rating) => rating.book_id)).size}
             </div>
             <div className="mt-1 text-sm text-stone-500">
               Books rated
