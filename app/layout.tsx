@@ -4,6 +4,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { BackHistory } from "./components/BackLink";
 import { NotificationsProvider } from "./components/Notifications";
+import ClickFeedback from "./components/ClickFeedback";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -50,6 +51,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${fraunces.variable} ${loraNumbers.variable}`}>
         <BackHistory />
+        <ClickFeedback />
         <NotificationsProvider>{children}</NotificationsProvider>
       </body>
     </html>

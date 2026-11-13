@@ -1072,14 +1072,14 @@ export default function ProfilePage() {
 
       {topBooksOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-stone-900/30 px-4 py-6 backdrop-blur-[2px]"
+          className="aepilog-overlay fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-stone-900/30 px-4 py-6 backdrop-blur-[2px]"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
               closeTopBooksEditor();
             }
           }}
         >
-          <div className="w-full max-w-2xl rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 shadow-xl sm:p-7">
+          <div className="aepilog-panel w-full max-w-2xl rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 shadow-xl sm:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#B65A65]">
@@ -1258,14 +1258,14 @@ export default function ProfilePage() {
 
       {editOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/30 px-4 backdrop-blur-[2px]"
+          className="aepilog-overlay fixed inset-0 z-50 flex items-center justify-center bg-stone-900/30 px-4 backdrop-blur-[2px]"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
               closeEditProfile();
             }
           }}
         >
-          <div className="w-full max-w-md rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 shadow-xl sm:p-7">
+          <div className="aepilog-panel w-full max-w-md rounded-[28px] border border-stone-200 bg-[#fffdf8] p-6 shadow-xl sm:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#B65A65]">

@@ -55,7 +55,7 @@ function BuddyList({ userId }: { userId: string }) {
   }
   return <>
     <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} className="mt-6 rounded-full bg-[var(--aepilog-cherry)] px-5 py-2.5 text-sm" style={{ color: "var(--aepilog-paper)" }}>{open ? "Close editor" : "Start a reading circle"}</button>
-    {open && <section aria-label="Start a reading circle" className="mt-5 space-y-5 rounded-3xl border border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] p-5 sm:p-6">
+    {open && <section aria-label="Start a reading circle" className="aepilog-reveal mt-5 space-y-5 rounded-3xl border border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] p-5 sm:p-6">
       <CommunityBookPicker label="Book to read together" value={book} onChange={setBook} disabled={saving} />
       <label className="block text-sm">Group name (optional)<input value={title} onChange={(event) => setTitle(event.target.value.slice(0,120))} disabled={saving} className="mt-2 w-full rounded-xl border border-[var(--aepilog-border)] bg-white px-3 py-3" placeholder="e.g. Our next thriller" /></label>
       <p className="text-xs leading-5 text-[var(--aepilog-muted)]">Only members can see the group and its messages. Share the invite with the people you want to join. Groups can have up to 50 readers.</p>

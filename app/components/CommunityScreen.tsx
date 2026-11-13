@@ -936,7 +936,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
               </button>
 
               {commentMenu === comment.id && (
-                <div className="absolute right-0 top-8 z-20 w-28 overflow-hidden rounded-xl border border-[#e6d8d4] bg-white shadow-lg">
+                <div className="aepilog-popover absolute right-0 top-8 z-20 w-28 overflow-hidden rounded-xl border border-[#e6d8d4] bg-white shadow-lg">
                   <button
                     type="button"
                     onClick={() => {
@@ -1408,7 +1408,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
                         </button>
 
                         {postMenu === post.id && (
-                          <div className="absolute right-0 top-8 z-20 w-28 overflow-hidden rounded-xl border border-[#e6d8d4] bg-white shadow-lg">
+                          <div className="aepilog-popover absolute right-0 top-8 z-20 w-28 overflow-hidden rounded-xl border border-[#e6d8d4] bg-white shadow-lg">
                             <button
                               type="button"
                               onClick={() => {
@@ -1751,7 +1751,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
                     />
 
                     {bookQuery.trim().length >= 2 && (
-                      <div className="mt-2 overflow-hidden rounded-2xl border bg-white shadow-lg">
+                      <div className="aepilog-reveal mt-2 overflow-hidden rounded-2xl border bg-white shadow-lg">
                         {searchingBooks && (
                           <div className="p-4 text-sm">
                             Searching books...

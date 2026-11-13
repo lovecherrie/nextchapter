@@ -80,36 +80,46 @@ a {
 }
 
 @keyframes aepilog-panel-in {
-  from { opacity: 0; transform: translateY(10px) scale(.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  0% { opacity: 0; transform: translateY(14px) scale(.92); }
+  62% { opacity: 1; transform: translateY(-2px) scale(1.025); }
+  82% { transform: translateY(1px) scale(.995); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes aepilog-reveal {
-  from { opacity: 0; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
+  0% { opacity: 0; transform: translateY(7px) scale(.975); }
+  68% { opacity: 1; transform: translateY(-1px) scale(1.008); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  @layer base {
-    button, .aepilog-pressable {
-      transition: transform 120ms ease-out, background-color 160ms ease-out,
-        color 160ms ease-out, border-color 160ms ease-out, box-shadow 160ms ease-out;
-    }
-    button:not(:disabled):active, .aepilog-pressable:active {
-      transform: scale(.96);
-    }
-    input, textarea, select {
-      transition: border-color 160ms ease-out, box-shadow 160ms ease-out;
-    }
+  /* Use scale separately so existing transforms and heart animations still work.
+     These shared rules also reach controls carrying Tailwind transition classes. */
+  :where(button, a.aepilog-pressable, a[href][class*="rounded-"], summary) {
+    transition: scale 230ms cubic-bezier(.34,1.56,.64,1),
+      background-color 160ms ease-out, color 160ms ease-out,
+      border-color 160ms ease-out, box-shadow 160ms ease-out;
+  }
+  :where(button:not(:disabled), a.aepilog-pressable, a[href][class*="rounded-"], summary):active {
+    scale: .95;
+    transition-duration: 65ms;
+    transition-timing-function: ease-out;
+  }
+  input, textarea, select {
+    transition: border-color 160ms ease-out, box-shadow 160ms ease-out;
   }
   .aepilog-overlay { animation: aepilog-fade-in 150ms ease-out; }
-  .aepilog-panel { animation: aepilog-panel-in 190ms cubic-bezier(.2,.7,.2,1); }
-  .aepilog-reveal { animation: aepilog-reveal 160ms ease-out; }
-
+  .aepilog-panel { animation: aepilog-panel-in 320ms cubic-bezier(.2,.8,.2,1); }
+  .aepilog-reveal, details[open] > :not(summary) {
+    animation: aepilog-reveal 240ms cubic-bezier(.2,.8,.2,1);
+    transform-origin: top center;
+  }
+  .aepilog-popover {
+    animation: aepilog-panel-in 260ms cubic-bezier(.2,.8,.2,1);
+    transform-origin: top right;
+  }
   @media (hover: hover) and (pointer: fine) {
-    @layer base {
-      button:not(:disabled):hover, .aepilog-pressable:hover { transform: translateY(-1px); }
-      button:not(:disabled):active, .aepilog-pressable:active { transform: scale(.96); }
-    }
+    :where(button:not(:disabled), a.aepilog-pressable, a[href][class*="rounded-"], summary):hover { scale: 1.015; }
+    :where(button:not(:disabled), a.aepilog-pressable, a[href][class*="rounded-"], summary):active { scale: .95; }
   }
 }

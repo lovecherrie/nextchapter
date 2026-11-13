@@ -33,12 +33,12 @@ export default function CommunityBookPicker({ label, value, onChange, disabled =
   }, [query, value]);
   return <div>
     <label htmlFor={id} className="text-xs font-semibold text-[#756866]">{label}</label>
-    {value ? <div className="mt-2 flex items-center gap-3 rounded-xl border border-[#e6d8d4] bg-[#faf6ef] p-3">
+    {value ? <div className="aepilog-reveal mt-2 flex items-center gap-3 rounded-xl border border-[#e6d8d4] bg-[#faf6ef] p-3">
       <div className="min-w-0 flex-1"><p className="break-words text-sm font-semibold">{value.title}</p><p className="mt-1 text-xs text-[#756866]">{value.author}</p></div>
       <button type="button" disabled={disabled} onClick={() => { onChange(null); setQuery(""); setResults([]); }} aria-label={`Remove ${value.title}`} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xl text-[#8f2635]">×</button>
     </div> : <>
       <input id={id} type="search" disabled={disabled} value={query} onChange={(event) => { setQuery(event.target.value); setLoading(event.target.value.trim().length >= 2); setResults([]); setError(""); }} placeholder="Search by title or author" className="mt-2 w-full rounded-xl border border-[#e6d8d4] bg-white px-3 py-3 text-sm outline-none focus:border-[#8f2635]" />
-      {query.trim().length >= 2 && <div className="mt-2 max-h-60 overflow-y-auto rounded-xl border border-[#e6d8d4] bg-white">
+      {query.trim().length >= 2 && <div className="aepilog-reveal mt-2 max-h-60 overflow-y-auto rounded-xl border border-[#e6d8d4] bg-white">
         {loading && <p role="status" className="p-3 text-xs text-[#756866]">Searching…</p>}
         {error && <p role="alert" className="p-3 text-xs text-[#8f2635]">{error}</p>}
         {results.map((book) => <button key={book.external_id} type="button" disabled={disabled} onClick={() => { onChange(book); setResults([]); }} className="block w-full border-b border-[#eee2de] p-3 text-left text-sm last:border-0 hover:bg-[#faf6ef]"><span className="block font-semibold">{book.title}</span><span className="mt-1 block text-xs text-[#756866]">{book.author}</span></button>)}
