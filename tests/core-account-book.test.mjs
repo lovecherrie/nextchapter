@@ -30,10 +30,10 @@ const googleItem = { volumeInfo: {
   imageLinks: { thumbnail: 'http://example.com/google-cover.jpg' }, pageCount: 300, publisher: 'Fixture Publisher',
 } };
 const libraryDoc = { key: '/works/OL1W', title: 'No Exit', author_name: ['Taylor Adams'], cover_i: 12345, isbn: ['123456789X'], first_publish_year: 2017 };
-async function bookDetails({ title = 'No Exit', google = [googleItem], library = [libraryDoc], googleUnavailable = false, topics = false } = {}) {
+async function bookDetails({ title = 'No Exit', google = [googleItem], library = [libraryDoc], googleUnavailable = false, topics = false, author = "Taylor Adams", work = { description: { value: "An Open Library description." } }, edition = {}, stalledGoogle = false } = {}) {
   const calls = [];
   const context = {
-    exports: {}, URLSearchParams, AbortController, setTimeout, clearTimeout,
+    exports: {}, URLSearchParams, AbortController, setTimeout: (fn, ms) => setTimeout(fn, stalledGoogle ? 20 : ms), clearTimeout,
     console: { error() {} },
     require(name) {
       if (name === 'next/server') return { NextResponse: { json: (body, options) => Response.json(body, options) } };
@@ -41,13 +41,14 @@ async function bookDetails({ title = 'No Exit', google = [googleItem], library =
     },
     async fetch(url) {
       calls.push(url);
+      if (url.includes('googleapis') && stalledGoogle) return { ok: true, json: () => new Promise(() => {}) };
       if (url.includes('googleapis')) return { ok: !googleUnavailable, json: async () => ({ items: google }) };
       if (url.includes('/search.json')) return { ok: true, json: async () => ({ docs: library }) };
-      return { ok: true, json: async () => ({ description: { value: 'An Open Library description.' } }) };
+      return { ok: true, json: async () => url.includes('/books/') ? edition : work };
     },
   };
   vm.runInNewContext(compile('../app/api/book/details/route.ts'), context);
-  const response = await context.exports.GET({ nextUrl: new URL(`http://localhost/api/book/details?title=${encodeURIComponent(title)}&author=Taylor%20Adams${topics ? '&topics=1' : ''}`) });
+  const response = await context.exports.GET({ nextUrl: new URL(`http://localhost/api/book/details?title=${encodeURIComponent(title)}&author=${encodeURIComponent(author)}${topics ? '&topics=1' : ''}`) });
   return { response, data: await response.json(), calls };
 }
 
@@ -80,4 +81,24 @@ test('genre-only lookup merges catalog subjects and skips work descriptions', as
 });
 test('genre-only lookup does not use a different author’s same-title book',async()=>{
  const {response}=await bookDetails({topics:true,google:[],library:[{...libraryDoc,author_name:['Wrong Author'],subject:['Romance']}]});assert.equal(response.status,503);
+});
+
+test('same title by the wrong author cannot supply a description from either provider', async () => {
+ const {data}=await bookDetails({google:[{volumeInfo:{...googleItem.volumeInfo,authors:['Someone Else']}}],library:[{...libraryDoc,author_name:['Someone Else']}]});
+ assert.equal(data.description,null); assert.equal(data.cover,null);
+});
+test('non-Latin titles and authors retain their distinct identities', async () => {
+ const {data}=await bookDetails({title:'人間失格',author:'太宰治',google:[{volumeInfo:{title:'別の本',authors:['別人'],description:'Wrong'}},{volumeInfo:{title:'人間失格',authors:['太宰治'],description:'Correct description'}}],library:[]});
+ assert.equal(data.description,'Correct description');
+});
+test('edition description fills a missing work description without inventing text', async () => {
+ const {data,calls}=await bookDetails({google:[],library:[{...libraryDoc,edition_key:['OL123M']}],work:{},edition:{title:'No Exit',description:{value:'<p>Edition description.</p>'},number_of_pages:333,publishers:['Edition Publisher'],publish_date:'2018'}});
+ assert.equal(data.description,'Edition description.'); assert.equal(data.pageCount,333); assert.equal(data.publisher,'Edition Publisher'); assert.ok(calls.some(url=>url.endsWith('/books/OL123M.json')));
+});
+test('unrelated edition cannot overwrite matched work metadata', async () => {
+ const {data}=await bookDetails({google:[],library:[{...libraryDoc,edition_key:['OL123M']}],work:{},edition:{title:'A Different Book',description:'Wrong',number_of_pages:999}});
+ assert.equal(data.description,null);assert.equal(data.pageCount,null);
+});
+test('a stalled Google response body times out and preserves the other provider result', async () => {
+ const {data}=await bookDetails({stalledGoogle:true});assert.equal(data.description,'An Open Library description.');
 });

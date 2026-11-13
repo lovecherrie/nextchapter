@@ -344,6 +344,7 @@ function BookPageContent() {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
 
     const loadBookDetails =
       async () => {
@@ -364,8 +365,7 @@ function BookPageContent() {
                 bookAuthor
               )}`,
               {
-                cache:
-                  "no-store",
+                signal: controller.signal,
               }
             );
 
@@ -413,10 +413,8 @@ function BookPageContent() {
               null,
           });
         } catch (error) {
-          console.error(
-            "Book details load error:",
-            error
-          );
+          if (controller.signal.aborted) return;
+          console.error("Book details load error:", error);
 
           if (
             !cancelled
@@ -440,6 +438,7 @@ function BookPageContent() {
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [
     bookTitle,
@@ -1444,6 +1443,7 @@ function BookPageContent() {
                   )}
               </div>
 
+              {bookMeta.publisher && <p className="mt-3 text-xs text-stone-500">Published by {bookMeta.publisher}</p>}
               <div className="mt-6">
                 <div className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--aepilog-cherry-soft)]">
                   About this book

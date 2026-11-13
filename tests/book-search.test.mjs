@@ -11,7 +11,7 @@ const source = ts.transpileModule(
   { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }
 ).outputText;
 
-function setup({ cached = [], google = [], openLibraryCandidates = [], providerFailure = false, cacheFailure = false, stallCache = false, stallSave = false } = {}) {
+function setup({ cached = [], google = [], openLibraryCandidates = [], providerFailure = false, cacheFailure = false, stallCache = false, stallSave = false, libraryBroad = false } = {}) {
   const calls = { providers: 0, writes: [] };
   const database = {
     select() { return this; }, abortSignal(signal) { this.signal = signal; return this; },
@@ -40,7 +40,7 @@ function setup({ cached = [], google = [], openLibraryCandidates = [], providerF
       if (providerFailure) throw new Error('Provider unavailable');
       return { ok: true, json: async () => url.includes('googleapis')
         ? { items: google }
-        : { docs: new URL(url).searchParams.get('q').startsWith('title:') ? openLibraryCandidates : [] } };
+        : { docs: (libraryBroad || new URL(url).searchParams.get('q').startsWith('title:')) ? openLibraryCandidates : [] } };
     }
   };
   vm.runInNewContext(source, context);
@@ -214,4 +214,13 @@ test('a stalled database lookup does not prevent external results',{timeout:1000
 test('a stalled cache write does not hold back discovered books',{timeout:1000},async()=>{
  const app=setup({google:[exact],stallSave:true});
  assert.equal((await app.search('Harry Potter')).books[0].title,'Harry Potter');
+});
+
+test('different non-Latin books are not collapsed into a single duplicate',async()=>{
+ const {books}=await setup({google:[{id:'jp1',volumeInfo:{title:'人間失格',authors:['太宰治']}},{id:'jp2',volumeInfo:{title:'人間失格 新版',authors:['太宰治']}}]}).search('人間失格');
+ assert.equal(books.length,2); assert.equal(books[0].title,'人間失格');
+});
+test('Open Library ISBN-10 ending in X supplies its cover fallback',async()=>{
+ const {books}=await setup({libraryBroad:true,openLibraryCandidates:[{key:'/works/OL123W',title:'Niche Book',author_name:['A Reader'],isbn:['123456789X']}]}).search('Niche Book');
+ assert.equal(books[0].isbn10,'123456789X'); assert.match(books[0].cover,/isbn\/123456789X/);
 });

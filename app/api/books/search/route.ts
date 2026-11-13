@@ -23,7 +23,7 @@ function normalizeText(value: string) {
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[’‘]/g, "'")
-    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/[^\p{L}\p{N}\p{M}]+/gu, " ")
     .trim()
     .replace(/\s+/g, " ");
 }
@@ -305,7 +305,7 @@ async function searchOpenLibrary(
 
         const isbn10 =
           isbns.find((value: string) =>
-            /^\d{10}$/.test(String(value))
+            /^\d{9}[\dX]$/i.test(String(value))
           ) || null;
 
         const cover = doc.cover_i

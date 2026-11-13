@@ -5,7 +5,7 @@ function normalize(value: string) {
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/[^\p{L}\p{N}\p{M}]+/gu, " ")
     .trim();
 }
 
@@ -61,22 +61,26 @@ async function fetchWithTimeout(
   url: string,
   timeoutMs = 5000
 ) {
-  const controller =
-    new AbortController();
-
-  const timeout =
-    setTimeout(
-      () => controller.abort(),
-      timeoutMs
-    );
-
+  const controller = new AbortController();
+  let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
-    return await fetch(url, {
-      signal: controller.signal,
-      next: {
-        revalidate: 86400,
-      },
-    });
+    // Bound the whole request, including a stalled response body.
+    return await Promise.race([
+      (async () => {
+        const response = await fetch(url, {
+          signal: controller.signal,
+          next: { revalidate: 86400 },
+        });
+        const data = response.ok ? await response.json() : null;
+        return { ok: response.ok, json: async () => data };
+      })(),
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => {
+          controller.abort();
+          reject(new Error("Book metadata request timed out"));
+        }, timeoutMs);
+      }),
+    ]);
   } finally {
     clearTimeout(timeout);
   }
@@ -125,6 +129,7 @@ async function getGoogleDetails(
         return {
           info,
           candidateAuthor,
+          compatible: authorLooksCompatible(candidateAuthor, author),
           score:
             titleScore(
               info.title || "",
@@ -138,6 +143,7 @@ async function getGoogleDetails(
               : 0),
         };
       })
+      .filter((candidate: { compatible: boolean }) => candidate.compatible)
       .sort(
         (a: any, b: any) =>
           b.score - a.score
@@ -148,7 +154,7 @@ async function getGoogleDetails(
 
   if (
     !match ||
-    match.score < 50
+    match.score < 85
   ) {
     return null;
   }
@@ -220,7 +226,7 @@ async function getOpenLibraryDetails(
       author,
       limit: "10",
       fields:
-        "key,title,author_name,cover_i,isbn,editions,first_publish_year,number_of_pages_median,subject",
+        "key,title,author_name,cover_i,isbn,edition_key,editions,first_publish_year,number_of_pages_median,subject",
     }).toString();
 
   const searchResponse =
@@ -249,6 +255,7 @@ async function getOpenLibraryDetails(
 
         return {
           doc,
+          compatible: authorLooksCompatible(candidateAuthor, author),
           score:
             titleScore(
               doc.title || "",
@@ -262,6 +269,7 @@ async function getOpenLibraryDetails(
               : 0),
         };
       })
+      .filter((candidate: { compatible: boolean }) => candidate.compatible)
       .sort(
         (a: any, b: any) =>
           b.score - a.score
@@ -272,7 +280,7 @@ async function getOpenLibraryDetails(
 
   if (
     !match ||
-    match.score < 50
+    match.score < 85
   ) {
     return null;
   }
@@ -295,7 +303,7 @@ async function getOpenLibraryDetails(
     try {
       const workResponse =
         await fetchWithTimeout(
-          `https://openlibrary.org${doc.key}.json`
+          `https://openlibrary.org${doc.key}.json`, 2500
         );
 
       if (
@@ -324,24 +332,45 @@ async function getOpenLibraryDetails(
     }
   }
 
+  // Some books describe an edition rather than the parent work.
+  let edition: { publish_date?: string; number_of_pages?: number; publishers?: string[] } | null = null;
+  const editionId = Array.isArray(doc.edition_key)
+    ? doc.edition_key.find((id: unknown) => typeof id === "string" && /^OL\d+M$/.test(id))
+    : null;
+  if (!topicsOnly && !description && editionId) {
+    try {
+      const response = await fetchWithTimeout(`https://openlibrary.org/books/${editionId}.json`, 2500);
+      if (response.ok) {
+        const candidate = await response.json();
+        if (titleScore(candidate.title || "", title) >= 60) {
+          edition = candidate;
+          const raw = typeof candidate.description === "string" ? candidate.description : candidate.description?.value;
+          if (typeof raw === "string") description = stripHtml(raw) || null;
+        }
+      }
+    } catch {
+      // Preserve the matched work's metadata when an edition is unavailable.
+    }
+  }
+
   return {
     description,
     publishedDate:
-      doc.first_publish_year
+      edition?.publish_date || doc.first_publish_year
         ? String(
-            doc.first_publish_year
+            edition?.publish_date || doc.first_publish_year
           )
         : null,
     pageCount:
-      typeof doc.number_of_pages_median ===
+      typeof (edition?.number_of_pages ?? doc.number_of_pages_median) ===
       "number"
-        ? doc.number_of_pages_median
+        ? (edition?.number_of_pages ?? doc.number_of_pages_median)
         : null,
     categories:
       Array.isArray(doc.subject)
         ? doc.subject.slice(0, topicsOnly ? 80 : 4)
         : [],
-    publisher: null,
+    publisher: Array.isArray(edition?.publishers) ? edition.publishers.filter((value: unknown) => typeof value === "string").join(", ") || null : null,
     cover:
       doc.cover_i
         ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg?default=false`
@@ -444,7 +473,7 @@ export async function GET(
         google?.publisher ||
         openLibrary?.publisher ||
         null,
-    });
+    }, { headers: { "Cache-Control": google || openLibrary ? "public, max-age=3600, stale-while-revalidate=86400" : "no-store" } });
   } catch (error) {
     console.error(
       "Book details error:",
