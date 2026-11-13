@@ -195,3 +195,9 @@ The owner requested Top discussions instead of Book discussions, stationary feat
 Each feed post has a native stretched discussion link covering its whitespace. Independent author/book links, like/comment controls, polls and owner menus sit above it; there are no nested links or article click handlers. Editing removes the discussion link while retaining usable form controls. Thread pages retain their existing layout. The composer and rating headings use weight 500, matching the Community heading; Add a book remains optional in the logic without stating optional in its label.
 
 Restore tag `before-community-card-polish-20261113` preserves `fde66d6`. Production build and browser checks at 390/1440px passed for stable hover geometry, whitespace navigation/Back, independent likes/menus/book/profile/poll actions, posting without a book, heading weights, and no overflow/runtime errors. No database change was required.
+
+## Muted sage accent trial (13 November 2026)
+
+The owner selected muted sage for a reversible first trial. It is limited to the featured discussion surface, Community badge and Reading circles entry pill. Cream/paper backgrounds and burgundy action styling remain the foundation. Tokens are `#edf1e8` (wash), `#45533e` (text), `#cdd6c5` (border), and `#e6ecdf` (hover). The entry link has an explicit unlayered colour rule so the global anchor inheritance rule cannot override it.
+
+The colour change is isolated in its own commit. Restore tag `before-sage-accent-20261113` points to `48f0674`, preserving the card and composer fixes before sage was added. Reverting only the colour commit removes the trial without undoing the other fixes. Final validation is recorded with the following interaction work.

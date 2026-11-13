@@ -11,6 +11,10 @@
   --aepilog-ink: #2d2625;
   --aepilog-muted: #756866;
   --aepilog-border: #e6d8d4;
+  --aepilog-sage-soft: #edf1e8;
+  --aepilog-sage-ink: #45533e;
+  --aepilog-sage-border: #cdd6c5;
+  --aepilog-sage-hover: #e6ecdf;
 }
 
 html {
@@ -72,6 +76,8 @@ select {
 a {
   color: inherit;
 }
+
+.aepilog-sage-link { color: var(--aepilog-sage-ink); }
 
 /* A stretched native link opens card whitespace; independent controls stay above
    it. Hover adds depth without scaling the card or moving its text. */

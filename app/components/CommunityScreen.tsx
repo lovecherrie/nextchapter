@@ -1120,10 +1120,10 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
           {copyState === "copied" && <p role="status" className="sr-only">Discussion link copied.</p>}
         </div>}
         {!discussionId && <>
-        <div className="mb-4 flex justify-end"><Link href="/buddy-reads" className="rounded-full border border-[#e6d8d4] bg-[#fffdf9] px-4 py-2 text-sm text-[#8f2635]">Reading circles →</Link></div>
+        <div className="mb-4 flex justify-end"><Link href="/buddy-reads" className="aepilog-sage-link rounded-full border border-[var(--aepilog-sage-border)] bg-[var(--aepilog-sage-soft)] px-4 py-2 text-sm text-[var(--aepilog-sage-ink)]">Reading circles →</Link></div>
         <div className="mb-5 grid gap-4 lg:grid-cols-[1fr_280px]">
           <div className="rounded-[20px] border border-[#e6d8d4] bg-[#fffdf9] p-4 shadow-sm sm:rounded-[24px] sm:p-6">
-            <div className="inline-flex rounded-full bg-[#f6e8e6] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#8f2635] sm:text-xs">
+            <div className="inline-flex rounded-full bg-[var(--aepilog-sage-soft)] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--aepilog-sage-ink)] sm:text-xs">
               Community
             </div>
 
@@ -1156,7 +1156,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
               <Link
                 href={discussionHref(featuredPost.id)}
                 onClick={rememberFeedPosition}
-                className="aepilog-featured-discussion mt-4 flex items-center gap-3 rounded-2xl border border-[#eaded9] bg-[#fbf5f1] p-3 transition hover:border-[#c99ba0] hover:bg-[#f8efeb]"
+                className="aepilog-featured-discussion mt-4 flex items-center gap-3 rounded-2xl border border-[var(--aepilog-sage-border)] bg-[var(--aepilog-sage-soft)] p-3 transition hover:bg-[var(--aepilog-sage-hover)]"
               >
                 {featuredBook && (featuredBook.cover_url ? (
                   <img
