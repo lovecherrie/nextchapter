@@ -19,6 +19,7 @@ import { POLL_FIELDS, pollFromPost, pollTotal, discussionEngagement, type BookPo
 import AttachedBookCard from "./AttachedBookCard";
 import BookPollComposer from "./BookPollComposer";
 import BookPollCard from "./BookPollCard";
+import ConversationBooks, { type ConversationBook } from "./ConversationBooks";
 import ReplyBookPicker from "./ReplyBookPicker";
 
 type Book = {
@@ -916,6 +917,30 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
   const featuredBook = featuredPost?.contains_spoilers && pollFromPost(featuredPost.book_polls) ? null : featuredPost?.books;
   const featuredPoll = featuredPost ? pollFromPost(featuredPost.book_polls) : null;
 
+  const conversationBooks = useMemo(() => {
+    const grouped = new Map<string, ConversationBook & { newest: number }>();
+    for (const post of posts) {
+      // Poll choices remain private until the discussion is revealed; do not
+      // expose them through the book shelf. Ordinary spoiler posts are omitted too.
+      if (post.contains_spoilers) continue;
+      const poll = pollFromPost(post.book_polls);
+      const books = poll ? [poll.left_book, poll.right_book] : [post.books];
+      const seen = new Set<string>();
+      for (const book of books) {
+        if (!book) continue;
+        const key = bookTopicKey(book);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const previous = grouped.get(key);
+        const newest = new Date(post.created_at).getTime();
+        if (previous) { previous.posts += 1; previous.newest = Math.max(previous.newest, newest); }
+        else grouped.set(key, { key, title: book.title, author: book.author, cover: book.cover_url, href: makeBookUrl(book), posts: 1, newest });
+      }
+    }
+    return [...grouped.values()].sort((a, b) => b.posts - a.posts || b.newest - a.newest || a.title.localeCompare(b.title)).slice(0, 6);
+  }, [posts]);
+  const showBookShelf = !discussionId && !loading && conversationBooks.length > 0;
+
   function renderComment(
     comment: Comment,
     post: DiscussionPost,
@@ -1163,10 +1188,10 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
           {copyState === "copied" && <p role="status" className="sr-only">Discussion link copied.</p>}
         </div>}
         {!discussionId && <>
-        <div className="mb-4 flex justify-end"><Link href="/buddy-reads" className="aepilog-sage-link rounded-full border border-[var(--aepilog-sage-border)] bg-[var(--aepilog-sage-soft)] px-4 py-2 text-sm text-[var(--aepilog-sage-ink)]">Reading circles →</Link></div>
+        <div className="mb-4 flex justify-end"><Link href="/buddy-reads" className="aepilog-accent-link rounded-full border border-[var(--aepilog-rose-border)] bg-[var(--aepilog-rose-soft)] px-4 py-2 text-sm text-[var(--aepilog-rose-ink)]">Reading circles →</Link></div>
         <div className="mb-5 grid gap-4 lg:grid-cols-[1fr_280px]">
           <div className="rounded-[20px] border border-[#e6d8d4] bg-[#fffdf9] p-4 shadow-sm sm:rounded-[24px] sm:p-6">
-            <div className="inline-flex rounded-full bg-[var(--aepilog-sage-soft)] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--aepilog-sage-ink)] sm:text-xs">
+            <div className="inline-flex rounded-full bg-[var(--aepilog-rose-soft)] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--aepilog-rose-ink)] sm:text-xs">
               Community
             </div>
 
@@ -1199,7 +1224,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
               <Link
                 href={discussionHref(featuredPost.id)}
                 onClick={rememberFeedPosition}
-                className="aepilog-featured-discussion mt-4 flex items-center gap-3 rounded-2xl border border-[var(--aepilog-sage-border)] bg-[var(--aepilog-sage-soft)] p-3 transition hover:bg-[var(--aepilog-sage-hover)]"
+                className="aepilog-featured-discussion mt-4 flex items-center gap-3 rounded-2xl border border-[var(--aepilog-rose-border)] bg-[var(--aepilog-rose-soft)] p-3 transition hover:bg-[var(--aepilog-rose-hover)]"
               >
                 {featuredBook && (featuredBook.cover_url ? (
                   <img
@@ -1276,6 +1301,12 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
           </div>
         </div>
 
+        </>}
+
+        <div className={showBookShelf ? "grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_250px] lg:gap-6" : ""}>
+          {showBookShelf && <div className="order-first min-w-0 lg:order-last"><ConversationBooks books={conversationBooks} /></div>}
+          <div className="min-w-0">
+        {!discussionId && <>
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="font-aepilog-serif text-2xl font-medium text-[#3a2b2b] sm:text-2xl">
@@ -1385,7 +1416,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
               <article
                 id={`post-${post.id}`}
                 key={post.id}
-                className={`${!discussionId ? "aepilog-discussion-card cursor-pointer " : ""}scroll-mt-36 overflow-hidden rounded-[22px] border border-[#e6d8d4] bg-[#fffdf9] shadow-sm sm:scroll-mt-28 sm:rounded-[24px]`}
+                className={`${!discussionId ? "aepilog-discussion-card cursor-pointer " : ""}scroll-mt-36 overflow-hidden rounded-[22px] border border-[#e6d8d4] ${!discussionId && poll ? "bg-[var(--aepilog-rose-paper)]" : "bg-[#fffdf9]"} shadow-sm sm:scroll-mt-28 sm:rounded-[24px]`}
               >
                 {book && !poll && (
                   <div className="border-b border-[#eee2de] bg-[#fdf9f5] px-4 py-3 sm:px-5">
@@ -1423,6 +1454,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
                 )}
 
                 <div className="p-4 sm:p-5">
+                  {!discussionId && (poll || !book) && <span className="mb-3 inline-flex rounded-full bg-[var(--aepilog-rose-soft)] px-2.5 py-1 text-[11px] font-medium text-[var(--aepilog-rose-ink)]">{poll ? "Book vs book" : "General discussion"}</span>}
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
                         <ReaderName userId={post.user_id} name={post.username} className="min-w-0 font-medium text-[#5b4444]" />
@@ -1702,6 +1734,8 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
 
         <div className="mt-6 rounded-[20px] border border-[#e6d8d4] bg-[#fffdf9] px-4 py-3 text-center text-xs text-[#756866] sm:text-sm">
           {guestUsername ? <>Posting as <a href="/profile" className="font-semibold text-[#8f2635]">{guestUsername}</a>.</> : <a href="/auth" onClick={() => sessionStorage.setItem("nextchapter_return_after_auth", window.location.href)} className="font-semibold text-[#8f2635]">Sign in to post</a>}
+        </div>
+          </div>
         </div>
       </section>
 
