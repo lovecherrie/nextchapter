@@ -133,12 +133,12 @@ a {
 @media (prefers-reduced-motion: no-preference) {
   /* Use scale separately so existing transforms and heart animations still work.
      These shared rules also reach controls carrying Tailwind transition classes. */
-  :where(button, a.aepilog-pressable, a[href][class*="rounded-full"], summary) {
+  :where(button, a.aepilog-pressable, a[href][class*="rounded-full"]) {
     transition: scale 230ms cubic-bezier(.34,1.56,.64,1),
       background-color 160ms ease-out, color 160ms ease-out,
       border-color 160ms ease-out, box-shadow 160ms ease-out;
   }
-  :where(button:not(:disabled), a.aepilog-pressable, a[href][class*="rounded-full"], summary):active {
+  :where(button:not(:disabled), a.aepilog-pressable, a[href][class*="rounded-full"]):active {
     scale: .95;
     transition-duration: 65ms;
     transition-timing-function: ease-out;
@@ -157,7 +157,7 @@ a {
     transform-origin: top right;
   }
   @media (hover: hover) and (pointer: fine) {
-    :where(button:not(:disabled), a.aepilog-pressable, a[href][class*="rounded-full"], summary):hover { scale: 1.015; }
-    :where(button:not(:disabled), a.aepilog-pressable, a[href][class*="rounded-full"], summary):active { scale: .95; }
+    :where(button:not(:disabled), a.aepilog-pressable, a[href][class*="rounded-full"]):hover { scale: 1.015; }
+    :where(button:not(:disabled), a.aepilog-pressable, a[href][class*="rounded-full"]):active { scale: .95; }
   }
 }

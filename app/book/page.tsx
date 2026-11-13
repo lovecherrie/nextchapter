@@ -10,6 +10,7 @@ import AnimatedLikeButton from "../components/AnimatedLikeButton";
 import { ReaderName } from "../components/ReaderSocial";
 import BookShareButton from "../components/BookShareButton";
 import { supabase } from "@/lib/supabase";
+import { saveLike } from "@/lib/likes";
 import { loadBookDiscussions } from "@/lib/book-discussions";
 
 type Rating = {
@@ -950,7 +951,8 @@ function BookPageContent() {
   const postLoadVersion = useRef(0);
   const [postsLoading, setPostsLoading] = useState(false);
   const [postsError, setPostsError] = useState("");
-  const [likingPost, setLikingPost] = useState<string | null>(null);
+  const [likingPosts, setLikingPosts] = useState<string[]>([]);
+  const pendingLikes = useRef(new Set<string>());
   const [likeError, setLikeError] = useState<{ id: string; message: string } | null>(null);
 
   const loadPosts = async () => {
@@ -1141,21 +1143,15 @@ function BookPageContent() {
   // -------------------------
 
   const toggleLike = async (postId: string) => {
-    if (!requireAccount() || likingPost) return;
-    setLikingPost(postId); setLikeError(null);
-    try {
-      const signal = AbortSignal.timeout(10000);
-      const existing = await supabase.from("discussion_likes").select("id")
-        .eq("post_id", postId).eq("user_id", guestUserId).abortSignal(signal).maybeSingle();
-      if (existing.error) throw existing.error;
-      const result = existing.data?.id
-        ? await supabase.from("discussion_likes").delete().eq("id", existing.data.id).abortSignal(signal)
-        : await supabase.from("discussion_likes").insert({ post_id: postId, user_id: guestUserId }).abortSignal(signal);
-      if (result.error) throw result.error;
-      setPosts((current) => current.map((post) => post.id === postId ? { ...post,
-        likedByMe: !existing.data?.id, likes: Math.max(0, post.likes + (existing.data?.id ? -1 : 1)) } : post));
-    } catch { setLikeError({ id: postId, message: "Could not save your like. Please try again." }); }
-    finally { setLikingPost(null); }
+    if (!requireAccount() || pendingLikes.current.has(postId)) return;
+    const previous = posts.find((post) => post.id === postId);
+    if (!previous) return;
+    pendingLikes.current.add(postId); setLikingPosts((current) => [...current, postId]); setLikeError(null);
+    setPosts((current) => current.map((post) => post.id === postId ? { ...post, likedByMe: !previous.likedByMe,
+      likes: Math.max(0, post.likes + (previous.likedByMe ? -1 : 1)) } : post));
+    try { await saveLike("discussion_likes", postId, guestUserId, !previous.likedByMe); }
+    catch { setPosts((current) => current.map((post) => post.id === postId ? { ...post, likedByMe: previous.likedByMe, likes: previous.likes } : post)); setLikeError({ id: postId, message: "Could not save your like. Please try again." }); }
+    finally { pendingLikes.current.delete(postId); setLikingPosts((current) => current.filter((id) => id !== postId)); }
   };
 
   // -------------------------
@@ -2430,8 +2426,8 @@ function BookPageContent() {
 
                           <AnimatedLikeButton
                             liked={post.likedByMe}
-                            disabled={!!likingPost}
-                            aria-busy={likingPost === post.id}
+                            disabled={likingPosts.includes(post.id)}
+                            aria-busy={likingPosts.includes(post.id)}
                             type="button"
                             onClick={() =>
                               toggleLike(

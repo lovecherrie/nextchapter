@@ -11,6 +11,7 @@ import { fetchJsonWithTimeout } from "@/lib/fetch-json";
 import AnimatedLikeButton from "./AnimatedLikeButton";
 import { ReaderName, ReaderDisplayName } from "./ReaderSocial";
 import { supabase } from "@/lib/supabase";
+import { saveLike } from "@/lib/likes";
 import { COMMUNITY_GENRES, bookTopicKey, browseText, matchesCommunityGenre } from "@/lib/community-browse";
 import { useBookTopics } from "./useBookTopics";
 import { ensureCommunityBook, type BookChoice, type AttachedBook } from "@/lib/community-books";
@@ -51,6 +52,7 @@ type Comment = {
   created_at: string;
   updated_at: string;
   recommended_book?: AttachedBook | null;
+  comment_likes?: { user_id: string }[];
 };
 
 type DiscussionPost = {
@@ -269,7 +271,11 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
   const [revealedCommentSpoilers, setRevealedCommentSpoilers] =
     useState<string[]>([]);
 
-  const [likingPost, setLikingPost] = useState<string | null>(null);
+  const [likingPosts, setLikingPosts] = useState<string[]>([]);
+  const [likingComments, setLikingComments] = useState<string[]>([]);
+  const postLikeIntents = useRef(new Map<string, { userId: string; liked: boolean; pending: boolean }>());
+  const commentLikeIntents = useRef(new Map<string, { userId: string; liked: boolean; pending: boolean }>());
+  const [commentLikeErrors, setCommentLikeErrors] = useState<Record<string, string>>({});
 
 
   const [commentDrafts, setCommentDrafts] = useState<
@@ -453,7 +459,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
           id,
           user_id
         ),
-        comments (${discussionId ? "id,post_id,user_id,username,content,contains_spoilers,parent_comment_id,created_at,updated_at,recommended_book:books!comments_recommended_book_id_fkey(id,external_id,title,author,cover_url)" : "id,created_at"})
+        comments (${discussionId ? "id,post_id,user_id,username,content,contains_spoilers,parent_comment_id,created_at,updated_at,comment_likes(user_id),recommended_book:books!comments_recommended_book_id_fkey(id,external_id,title,author,cover_url)" : "id,created_at"})
       `);
     if (discussionId) request = request.eq("id", discussionId).limit(1);
     const { data, error } = await request.order("created_at", { ascending: false }).abortSignal(AbortSignal.timeout(12000));
@@ -466,14 +472,22 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
       return;
     }
 
-    const cleaned = (data || []).map((post: any) => ({
-      ...post,
-      comments: [...(post.comments || [])].sort(
-        (a: Comment, b: Comment) =>
-          new Date(a.created_at).getTime() -
-          new Date(b.created_at).getTime()
-      ),
-    }));
+    const cleaned = (data || []).map((post: any) => {
+      const intent = postLikeIntents.current.get(post.id);
+      let likes = post.discussion_likes || [];
+      if (intent) {
+        if (!intent.pending && likes.some((like: Like) => like.user_id === intent.userId) === intent.liked) postLikeIntents.current.delete(post.id);
+        likes = [...likes.filter((like: Like) => like.user_id !== intent.userId), ...(intent.liked ? [{ id: `local:${post.id}`, user_id: intent.userId }] : [])];
+      }
+      const comments = [...(post.comments || [])].map((comment: Comment) => {
+        const pending = commentLikeIntents.current.get(comment.id);
+        if (!pending) return comment;
+        const rows = comment.comment_likes || [];
+        if (!pending.pending && rows.some((like) => like.user_id === pending.userId) === pending.liked) commentLikeIntents.current.delete(comment.id);
+        return { ...comment, comment_likes: [...rows.filter((like) => like.user_id !== pending.userId), ...(pending.liked ? [{ user_id: pending.userId }] : [])] };
+      }).sort((a: Comment, b: Comment) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      return { ...post, discussion_likes: likes, comments };
+    });
 
     setPosts(cleaned as DiscussionPost[]);
     setLoading(false);
@@ -608,26 +622,44 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
     setSelectedBook(null);
   }
 
+  function updatePostLike(postId: string, userId: string, liked: boolean) {
+    const update = (rows: DiscussionPost[]) => rows.map((post) => post.id === postId ? { ...post,
+      discussion_likes: [...post.discussion_likes.filter((like) => like.user_id !== userId), ...(liked ? [{ id: `local:${postId}`, user_id: userId }] : [])] } : post);
+    setPosts(update);
+    if (feedSnapshot) feedSnapshot = { ...feedSnapshot, posts: update(feedSnapshot.posts) };
+  }
+
   async function toggleLike(post: DiscussionPost) {
-    if (!requireAccount() || likingPost) return;
-    setLikingPost(post.id); setLikeErrors((current) => ({ ...current, [post.id]: "" }));
-    try {
-      const signal = AbortSignal.timeout(10000);
-      const existing = post.discussion_likes.find((like) => like.user_id === guestUserId);
-      if (existing) {
-        const result = await supabase.from("discussion_likes").delete().eq("id", existing.id).abortSignal(signal);
-        if (result.error) throw result.error;
-        setPosts((current) => current.map((item) => item.id === post.id ? { ...item,
-          discussion_likes: item.discussion_likes.filter((like) => like.id !== existing.id) } : item));
-      } else {
-        const result = await supabase.from("discussion_likes").insert({ post_id: post.id, user_id: guestUserId })
-          .select("id,user_id").abortSignal(signal).single();
-        if (result.error || !result.data) throw result.error || new Error("Like not saved");
-        setPosts((current) => current.map((item) => item.id === post.id ? { ...item,
-          discussion_likes: [...item.discussion_likes, result.data as Like] } : item));
-      }
-    } catch { setLikeErrors((current) => ({ ...current, [post.id]: "Could not save your like. Please try again." })); }
-    finally { setLikingPost(null); }
+    if (!requireAccount() || postLikeIntents.current.get(post.id)?.pending) return;
+    const userId = guestUserId;
+    const wasLiked = post.discussion_likes.some((like) => like.user_id === userId);
+    const intent = { userId, liked: !wasLiked, pending: true };
+    postLikeIntents.current.set(post.id, intent);
+    setLikingPosts((current) => [...current, post.id]);
+    setLikeErrors((current) => ({ ...current, [post.id]: "" }));
+    updatePostLike(post.id, userId, !wasLiked);
+    try { await saveLike("discussion_likes", post.id, userId, !wasLiked); intent.pending = false; }
+    catch { postLikeIntents.current.delete(post.id); updatePostLike(post.id, userId, wasLiked); setLikeErrors((current) => ({ ...current, [post.id]: "Could not save your like. Please try again." })); }
+    finally { setLikingPosts((current) => current.filter((id) => id !== post.id)); }
+  }
+
+  function updateCommentLike(commentId: string, userId: string, liked: boolean) {
+    setPosts((current) => current.map((post) => ({ ...post, comments: post.comments.map((comment) => comment.id === commentId ? { ...comment,
+      comment_likes: [...(comment.comment_likes || []).filter((like) => like.user_id !== userId), ...(liked ? [{ user_id: userId }] : [])] } : comment) })));
+  }
+
+  async function toggleCommentLike(comment: Comment) {
+    if (!requireAccount() || commentLikeIntents.current.get(comment.id)?.pending) return;
+    const userId = guestUserId;
+    const wasLiked = (comment.comment_likes || []).some((like) => like.user_id === userId);
+    const intent = { userId, liked: !wasLiked, pending: true };
+    commentLikeIntents.current.set(comment.id, intent);
+    setLikingComments((current) => [...current, comment.id]);
+    setCommentLikeErrors((current) => ({ ...current, [comment.id]: "" }));
+    updateCommentLike(comment.id, userId, !wasLiked);
+    try { await saveLike("comment_likes", comment.id, userId, !wasLiked); intent.pending = false; }
+    catch { commentLikeIntents.current.delete(comment.id); updateCommentLike(comment.id, userId, wasLiked); setCommentLikeErrors((current) => ({ ...current, [comment.id]: "Could not save your like. Please try again." })); }
+    finally { setLikingComments((current) => current.filter((id) => id !== comment.id)); }
   }
 
   async function publishComment(postId: string, parentId: string | null, text: string, choice: BookChoice | null, spoiler: boolean) {
@@ -641,7 +673,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
       const { data, error } = await supabase.from("comments").insert({
         post_id: postId, user_id: guestUserId, username: guestUsername, content,
         contains_spoilers: spoiler, parent_comment_id: parentId, recommended_book_id: book?.id || null,
-      }).select("id,post_id,user_id,username,content,contains_spoilers,parent_comment_id,created_at,updated_at,recommended_book:books!comments_recommended_book_id_fkey(id,external_id,title,author,cover_url)").single();
+      }).select("id,post_id,user_id,username,content,contains_spoilers,parent_comment_id,created_at,updated_at,comment_likes(user_id),recommended_book:books!comments_recommended_book_id_fkey(id,external_id,title,author,cover_url)").single();
       if (error) throw error;
       setPosts((current) => current.map((post) => post.id === postId ? { ...post, comments: [...post.comments, data as unknown as Comment] } : post));
       return true;
@@ -1023,6 +1055,14 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
 
         {comment.recommended_book && (!comment.contains_spoilers || revealed) && <AttachedBookCard book={comment.recommended_book} />}
 
+        <div className="mt-3 flex items-center gap-4">
+          <AnimatedLikeButton liked={(comment.comment_likes || []).some((like) => like.user_id === guestUserId)}
+            aria-label={(comment.comment_likes || []).some((like) => like.user_id === guestUserId) ? "Unlike comment" : "Like comment"}
+            disabled={likingComments.includes(comment.id)} aria-busy={likingComments.includes(comment.id)}
+            onClick={() => void toggleCommentLike(comment)}
+            className={`text-xs font-medium ${(comment.comment_likes || []).some((like) => like.user_id === guestUserId) ? "text-[#8f2635]" : "text-[#756866]"}`}>
+            <span>{(comment.comment_likes || []).length}</span>
+          </AnimatedLikeButton>
         {!isReply && (
           <button
             type="button"
@@ -1038,11 +1078,14 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
               setReplySpoiler(false);
               setReplyBook(null); setReplyPicker(false);
             }}
-            className="mt-3 text-xs font-bold text-[#8f2635] hover:underline"
+            className="text-xs font-bold text-[#8f2635] hover:underline"
           >
             Reply
           </button>
         )}
+
+        </div>
+        {commentLikeErrors[comment.id] && <p role="alert" className="mt-2 text-xs text-[#8f2635]">{commentLikeErrors[comment.id]}</p>}
 
         {replyingTo === comment.id && !isReply && (
           <div className="mt-4 rounded-xl border border-[#e6d8d4] bg-white p-3">
@@ -1535,8 +1578,8 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
                     <AnimatedLikeButton
                       liked={likedByMe}
                       onClick={() => toggleLike(post)}
-                      disabled={!!likingPost}
-                      aria-busy={likingPost === post.id}
+                      disabled={likingPosts.includes(post.id)}
+                      aria-busy={likingPosts.includes(post.id)}
                       className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold sm:px-4 sm:py-2 sm:text-sm ${
                         likedByMe
                           ? "bg-[#f0d7d9] text-[#7b1f2d]"
