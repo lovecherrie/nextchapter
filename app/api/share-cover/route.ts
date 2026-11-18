@@ -1,6 +1,8 @@
+import { requestLimit } from "@/lib/api-security";
 import { safeCoverUrl } from "@/lib/share-card";
 
 export async function GET(request: Request) {
+  const limited = requestLimit(request, "catalogue"); if (limited) return limited;
   const url = safeCoverUrl(new URL(request.url).searchParams.get("url"));
   if (!url) return new Response("Unsupported cover", { status: 400 });
   try {

@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { discussionHref } from "@/lib/discussion-links";
 import BackLink from "../components/BackLink";
+import { SafetyActions } from "../components/Safety";
 import DiscussionSection from "../components/DiscussionSection";
 import { discussionSectionLabel } from "@/lib/discussion-sections";
 import SiteHeader from "../components/SiteHeader";
@@ -1989,6 +1990,7 @@ function BookPageContent() {
                         </div>
 
                         <div className="text-xs text-stone-400">
+                          <SafetyActions kind="review" targetId={rating.id} authorId={rating.user_id} />
                           {formatDate(rating.created_at)}
                           {rating.user_id === guestUserId && <button type="button" disabled={savingReview} onClick={() => openReview(rating)} className="ml-3 text-[var(--aepilog-cherry)] underline disabled:opacity-50">Edit review</button>}
                         </div>
@@ -2356,6 +2358,7 @@ function BookPageContent() {
                           <div>
 
                             <ReaderName userId={post.user_id} name={post.username} className="font-medium" />
+                            <SafetyActions kind="post" targetId={post.id} authorId={post.user_id} />
 
                             <div className="mt-2">
 

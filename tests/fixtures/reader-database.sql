@@ -21,9 +21,14 @@ alter table public.ratings add column book_id uuid, add column username text, ad
 create table public.discussion_posts(id uuid primary key default gen_random_uuid(),user_id text not null,content text);
 create table public.comments(id uuid primary key default gen_random_uuid(),user_id text not null,content text);
 create table public.discussion_likes(id uuid primary key default gen_random_uuid(),user_id text not null);
+create table public.reviews(id uuid primary key default gen_random_uuid(),content text);
+alter table public.reviews enable row level security;
+create policy retired_reviews_read on public.reviews for select using(true);
+create policy retired_reviews_insert on public.reviews for insert with check(true);
 create table public.books(id uuid primary key default gen_random_uuid(),external_id text unique,title text not null,author text,cover_url text);
 alter table public.discussion_posts add column book_id uuid references public.books(id),add column username text,add column contains_spoilers boolean default false,add column created_at timestamptz default now();
 alter table public.discussion_likes add column post_id uuid references public.discussion_posts(id) on delete cascade, add unique(post_id,user_id);
+alter table public.comments add column username text, add column created_at timestamptz default now(), add column updated_at timestamptz default now(), add column contains_spoilers boolean default false;
 alter table public.comments add column post_id uuid references public.discussion_posts(id) on delete cascade, add column parent_comment_id uuid references public.comments(id) on delete cascade;
 alter table public.ratings enable row level security;
 alter table public.discussion_posts enable row level security;

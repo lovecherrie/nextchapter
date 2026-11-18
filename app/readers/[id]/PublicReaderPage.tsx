@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { discussionHref } from "@/lib/discussion-links";
+import { SafetyActions } from "../../components/Safety";
 import BackLink from "../../components/BackLink";
 import SiteHeader from "../../components/SiteHeader";
 import { FollowButton, ReaderAvatar, ReaderTile, ReaderDisplayName, useReaderViewer } from "../../components/ReaderSocial";
@@ -124,6 +125,7 @@ export default function PublicReaderPage({ userId }: { userId: string }) {
               <ReaderAvatar name={reader.display_name} path={reader.avatar_path} large />
               <div className="min-w-0"><p className="text-xs font-bold uppercase tracking-widest text-[var(--aepilog-cherry-soft)]">aepilog reader</p><h1 className="aepilog-heading mt-2 break-words text-3xl font-medium sm:text-4xl"><ReaderDisplayName name={reader.display_name} /></h1></div>
             </div>
+            <SafetyActions kind="reader" targetId={reader.user_id} authorId={reader.user_id} />
             <FollowButton reader={reader} viewerId={viewerId} following={following.has(userId)} onChange={(next) => changed(userId, next)} />
           </div>
           {reader.bio && <p className="mt-5 whitespace-pre-wrap break-words text-sm leading-7 text-[var(--aepilog-muted)]">{reader.bio}</p>}

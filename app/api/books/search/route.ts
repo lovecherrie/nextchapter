@@ -1,3 +1,4 @@
+import { requestLimit } from "@/lib/api-security";
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 
@@ -473,6 +474,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ books: [] });
   }
 
+  if (query.length > 160) return NextResponse.json({ books: [], error: "Search text is too long." }, { status: 400 });
+  const limited = requestLimit(request, "catalogue"); if (limited) return limited;
   const key = query.toLowerCase().replace(/\s+/g, " ");
   const recent = recentSearches.get(key);
   if (recent && recent.expires > Date.now()) return NextResponse.json(recent.payload, { headers: { "Cache-Control": "no-store" } });

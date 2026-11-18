@@ -19,6 +19,7 @@ import { POLL_FIELDS, pollFromPost, pollTotal, discussionEngagement, type BookPo
 import AttachedBookCard from "./AttachedBookCard";
 import BookPollComposer from "./BookPollComposer";
 import BookPollCard from "./BookPollCard";
+import { SafetyActions } from "./Safety";
 import DiscussionSection from "./DiscussionSection";
 import { discussionSectionLabel } from "@/lib/discussion-sections";
 import ConversationBooks, { type ConversationBook } from "./ConversationBooks";
@@ -1096,6 +1097,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
         {comment.recommended_book && (!comment.contains_spoilers || revealed) && <AttachedBookCard book={comment.recommended_book} />}
 
         <div className="mt-3 flex items-center gap-4">
+          <SafetyActions kind="comment" targetId={comment.id} authorId={comment.user_id} />
           <AnimatedLikeButton liked={(comment.comment_likes || []).some((like) => like.user_id === guestUserId)}
             aria-label={(comment.comment_likes || []).some((like) => like.user_id === guestUserId) ? "Unlike comment" : "Like comment"}
             disabled={likingComments.includes(comment.id)} aria-busy={likingComments.includes(comment.id)}
@@ -1479,6 +1481,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
                         </time>
                     </div>
 
+                    <SafetyActions kind="post" targetId={post.id} authorId={post.user_id} />
                     {post.user_id === guestUserId && (
                       <div className="relative" data-menu-root>
                         <button

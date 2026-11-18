@@ -1,3 +1,4 @@
+import { apiSecurityFixture } from "./helpers/api-security.mjs";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -31,6 +32,7 @@ function setup({ cached = [], google = [], openLibraryCandidates = [], providerF
   const context = {
     exports: {}, console: { error() {} }, URL, URLSearchParams, AbortSignal: { timeout: ms => AbortSignal.timeout(stallCache || stallSave ? Math.min(ms, 10) : ms) },
     require(name) {
+      if (name === '@/lib/api-security') return apiSecurityFixture();
       if (name === 'next/server') return { NextResponse: { json: (body) => ({ json: async () => body }) } };
       if (name === '@/lib/supabase') return { supabase: { from: () => database } };
       throw new Error(`Unexpected import: ${name}`);
@@ -224,3 +226,5 @@ test('Open Library ISBN-10 ending in X supplies its cover fallback',async()=>{
  const {books}=await setup({libraryBroad:true,openLibraryCandidates:[{key:'/works/OL123W',title:'Niche Book',author_name:['A Reader'],isbn:['123456789X']}]}).search('Niche Book');
  assert.equal(books[0].isbn10,'123456789X'); assert.match(books[0].cover,/isbn\/123456789X/);
 });
+
+test('oversized search queries are refused without provider requests',async()=>{const app=setup();const result=await app.search('x'.repeat(161));assert.match(result.error,/too long/);assert.equal(app.calls.providers,0);});

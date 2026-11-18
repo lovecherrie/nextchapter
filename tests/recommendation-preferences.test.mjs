@@ -1,3 +1,4 @@
+import { apiSecurityFixture } from "./helpers/api-security.mjs";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -77,6 +78,7 @@ async function requestRecommendations(body, scenario = {}) {
     process: { env: { GEMINI_API_KEY: 'test-fixture-only', ...(scenario.race ? { OPENROUTER_API_KEY: 'test-backup-only' } : {}) } },
     console: { log() {}, error() {} },
     require(name) {
+      if (name === '@/lib/api-security') return apiSecurityFixture();
       if (name === '@/lib/recommendation-preferences') return preferences;
       if (name === '@/lib/fetch-json') {
         const helper = { ...context, exports: {} };

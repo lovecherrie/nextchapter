@@ -63,7 +63,11 @@ set local role authenticated;
 set local request.jwt.claims='{"sub":"11111111-1111-4111-8111-111111111111","is_anonymous":false}';
 do $$declare tbl text; begin
   foreach tbl in array array['ratings','discussion_posts','comments','discussion_likes'] loop
-    execute format('insert into public.%I(user_id) values(%L)',tbl,'11111111-1111-4111-8111-111111111111');
+    if tbl='comments' then
+      insert into public.comments(user_id,post_id) select '11111111-1111-4111-8111-111111111111',id from public.discussion_posts limit 1;
+    else
+      execute format('insert into public.%I(user_id) values(%L)',tbl,'11111111-1111-4111-8111-111111111111');
+    end if;
     begin execute format('insert into public.%I(user_id) values(%L)',tbl,'22222222-2222-4222-8222-222222222222'); raise exception 'forged author allowed: %',tbl; exception when insufficient_privilege then null; end;
   end loop;
 end$$;

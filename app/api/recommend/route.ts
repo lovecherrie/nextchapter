@@ -1,3 +1,4 @@
+import { ApiInputError, requestLimit, readRecommendationInput, reserveAiRequest } from "@/lib/api-security";
 import { fetchJsonWithTimeout } from "@/lib/fetch-json";
 import { recommendationPreferencePrompt } from "@/lib/recommendation-preferences";
 
@@ -376,17 +377,21 @@ async function getBookEvidence(
 export async function POST(req: Request) {
   const startedAt = Date.now();
   try {
+    const limited = requestLimit(req, "recommend");
+    if (limited) return limited;
+    const body = await readRecommendationInput(req);
     if (!process.env.GEMINI_API_KEY && !process.env.OPENROUTER_API_KEY) {
       return Response.json(
         {
           error:
-            "No AI API key is configured. Add GEMINI_API_KEY or OPENROUTER_API_KEY.",
+            "Recommendations are temporarily unavailable. Please try again later.",
         },
         { status: 500 }
       );
     }
 
-    const body = await req.json();
+    const budget = await reserveAiRequest();
+    if (budget) return budget;
 
     const {
       likedBooks,
@@ -398,7 +403,7 @@ export async function POST(req: Request) {
       avoid,
       extraNotes,
       previousRecommendations,
-    } = body;
+    } = body as { likedBooks?: string; dislikedBooks?: string; categories?: string[]; mood?: string; matters?: string[]; readingStyle?: string[]; avoid?: string[]; extraNotes?: string; previousRecommendations?: string[] };
 
     const previous = Array.isArray(previousRecommendations)
       ? previousRecommendations
@@ -648,13 +653,13 @@ Return ONLY valid JSON in this exact shape:
       recommendations: finalFive,
     }, { headers: { "Server-Timing": `ai;dur=${generatedAt - startedAt}, book_details;dur=${Date.now() - generatedAt}` } });
   } catch (error: any) {
+    if (error instanceof ApiInputError) return Response.json({ error: error.message }, { status: error.status });
     console.error("Recommendation error:", error);
 
     return Response.json(
       {
         error:
-          error?.message ||
-          "Something went wrong while generating recommendations.",
+          "We couldn’t find recommendations right now. Please try again.",
       },
       { status: 500 }
     );

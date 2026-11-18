@@ -1,3 +1,4 @@
+import { apiSecurityFixture } from "./helpers/api-security.mjs";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -11,7 +12,7 @@ test('share covers accept established image endpoints and reject arbitrary origi
  for(const url of ['http://covers.openlibrary.org/b/id/1.jpg','https://covers.openlibrary.org.evil.test/b/id/1.jpg','https://books.google.com@127.0.0.1/books/content','https://books.google.com:444/books/content','https://books.google.com/redirect?url=http://127.0.0.1','https://127.0.0.1/x.png','data:image/png,x','https://covers.openlibrary.org/b/id/a.svg'])assert.equal(safe.safeCoverUrl(url),null,url);
  assert.equal(safe.shareFilename('../A Book: /\\ special?'),'aepilog-A-Book-special.png');
 });
-async function route(url,fetcher){let calls=0;const context={exports:{},URL,Response,Blob,AbortSignal,require:()=>safe,fetch:async(...args)=>{calls++;return fetcher(...args)}};vm.runInNewContext(compile('../app/api/share-cover/route.ts'),context);return{response:await context.exports.GET(new Request(`http://localhost/api/share-cover?url=${encodeURIComponent(url)}`)),calls}}
+async function route(url,fetcher){let calls=0;const context={exports:{},URL,Response,Blob,AbortSignal,require:name=>name==="@/lib/api-security"?apiSecurityFixture():safe,fetch:async(...args)=>{calls++;return fetcher(...args)}};vm.runInNewContext(compile('../app/api/share-cover/route.ts'),context);return{response:await context.exports.GET(new Request(`http://localhost/api/share-cover?url=${encodeURIComponent(url)}`)),calls}}
 test('the cover endpoint rejects untrusted URLs without making a network request',async()=>{
  const result=await route('https://127.0.0.1/private',()=>{throw new Error('must not fetch')});assert.equal(result.response.status,400);assert.equal(result.calls,0);
 });

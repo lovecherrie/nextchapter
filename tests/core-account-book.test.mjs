@@ -1,3 +1,4 @@
+import { apiSecurityFixture } from "./helpers/api-security.mjs";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -36,6 +37,7 @@ async function bookDetails({ title = 'No Exit', google = [googleItem], library =
     exports: {}, URLSearchParams, AbortController, setTimeout: (fn, ms) => setTimeout(fn, stalledGoogle ? 20 : ms), clearTimeout,
     console: { error() {} },
     require(name) {
+      if (name === '@/lib/api-security') return apiSecurityFixture();
       if (name === 'next/server') return { NextResponse: { json: (body, options) => Response.json(body, options) } };
       throw new Error(`Unexpected dependency: ${name}`);
     },

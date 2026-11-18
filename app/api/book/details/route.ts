@@ -1,3 +1,4 @@
+import { requestLimit } from "@/lib/api-security";
 import { NextRequest, NextResponse } from "next/server";
 
 function normalize(value: string) {
@@ -404,6 +405,8 @@ export async function GET(
       .get("author")
       ?.trim() || "";
 
+  if (title.length > 300 || author.length > 200) return NextResponse.json({ error: "Book details request is too long." }, { status: 400 });
+  const limited = requestLimit(request, "catalogue"); if (limited) return limited;
   if (!title) {
     return NextResponse.json(
       {
