@@ -1,6 +1,6 @@
 # Security and moderation review
 
-Prepared 18 November 2026. The dependency/header patch is independent of the community-safety database rollout. Verify deployment state before describing either as live.
+Prepared 18 November 2026; rollout verified 20 November 2026. The owner explicitly approved the wider posting, avatar and permission protections after automatic review requested clearer scope authorization. The tested migration is applied, and the verified lovecheries account is enrolled privately as moderator. Client table grants and RPC access checks passed production readback; publication of the dependent app follows this database gate.
 
 ## Implemented and tested
 
