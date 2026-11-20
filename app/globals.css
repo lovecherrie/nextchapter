@@ -16,6 +16,11 @@
   --aepilog-rose-border: #dfc3bd;
   --aepilog-rose-hover: #ecd7d0;
   --aepilog-rose-paper: #fff7f4;
+  --aepilog-blue-soft: #e6edf1;
+  --aepilog-blue-paper: #f1f5f7;
+  --aepilog-blue-ink: #435e70;
+  --aepilog-blue-border: #c5d3dc;
+  --aepilog-blue-hover: #d9e4eb;
 }
 
 html {
@@ -79,6 +84,12 @@ a {
 }
 
 .aepilog-accent-link { color: var(--aepilog-rose-ink); }
+.aepilog-circle-link {
+  color: var(--aepilog-blue-ink);
+  border-color: var(--aepilog-blue-border);
+  background: var(--aepilog-blue-soft);
+}
+.aepilog-circle-link:hover { background: var(--aepilog-blue-hover); }
 
 /* A stretched native link opens card whitespace; independent controls stay above
    it. Hover adds depth without scaling the card or moving its text. */

@@ -1205,7 +1205,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
           {copyState === "copied" && <p role="status" className="sr-only">Discussion link copied.</p>}
         </div>}
         {!discussionId && <>
-        <div className="mb-4 flex justify-end"><Link href="/buddy-reads" className="aepilog-accent-link rounded-full border border-[var(--aepilog-rose-border)] bg-[var(--aepilog-rose-soft)] px-4 py-2 text-sm text-[var(--aepilog-rose-ink)]">Reading circles →</Link></div>
+        <div className="mb-4 flex justify-end"><Link href="/buddy-reads" className="aepilog-circle-link rounded-full border px-4 py-2 text-sm">Reading circles →</Link></div>
         <div className="mb-5 grid gap-4 lg:grid-cols-[1fr_280px]">
           <div className="rounded-[20px] border border-[#e6d8d4] bg-[#fffdf9] p-4 shadow-sm sm:rounded-[24px] sm:p-6">
             <div className="inline-flex rounded-full bg-[var(--aepilog-rose-soft)] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--aepilog-rose-ink)] sm:text-xs">

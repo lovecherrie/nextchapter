@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect } from "react";
 import { invalidateAccountCache } from "@/lib/account-cache";
 import NotificationBell from "./Notifications";
@@ -76,9 +77,11 @@ export default function SiteHeader({
         <div className="flex items-center justify-between sm:contents">
         <Link
           href="/"
-          className="aepilog-wordmark shrink-0 text-[31px] leading-none text-[var(--aepilog-ink)] transition hover:text-[var(--aepilog-cherry)] sm:py-6 sm:text-[42px]"
+          aria-label="aepilog home"
+          className="aepilog-wordmark inline-flex shrink-0 items-center gap-2 text-[29px] leading-none text-[var(--aepilog-ink)] transition hover:text-[var(--aepilog-cherry)] sm:gap-3 sm:py-6 sm:text-[42px]"
         >
-          aepilog
+          <Image src="/icon.png" alt="" width={36} height={36} unoptimized className="h-7 w-7 shrink-0 sm:h-9 sm:w-9" />
+          <span>aepilog</span>
         </Link>
 
           <div className="flex items-center gap-2 sm:hidden">

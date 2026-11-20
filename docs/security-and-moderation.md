@@ -1,6 +1,6 @@
 # Security and moderation review
 
-Prepared 18 November 2026; rollout verified 20 November 2026. The owner explicitly approved the wider posting, avatar and permission protections after automatic review requested clearer scope authorization. The tested migration is applied, and the verified lovecheries account is enrolled privately as moderator. Client table grants and RPC access checks passed production readback; publication of the dependent app follows this database gate.
+Prepared 18 November 2026; rollout verified 20 November 2026. The owner explicitly approved the wider posting, avatar and permission protections after automatic review requested clearer scope authorization. The tested migration is applied, and the verified lovecheries account is enrolled privately as moderator. Production deployment a734fe4 succeeded. Client table grants and RPC access checks passed production readback. Live checks confirmed anonymous dashboard/report/moderation/usage denial, malformed recommendation rejection before AI, protective headers and the existing manga/cover/score/icon behaviour at 390/1440px. The separate preview deployment of that commit failed; GitHub exposes its status but not its detailed build logs, and Vercel CLI credentials are not connected. Production was unaffected; the preview failure cause is not established.
 
 ## Implemented and tested
 
