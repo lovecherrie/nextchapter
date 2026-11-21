@@ -7,6 +7,7 @@ import { NotificationsProvider } from "./components/Notifications";
 import { SafetyProvider } from "./components/Safety";
 import ClickFeedback from "./components/ClickFeedback";
 import SiteHeader from "./components/SiteHeader";
+import SiteFooter from "./components/SiteFooter";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -55,7 +56,7 @@ export default function RootLayout({
       <body className={`${fraunces.variable} ${loraNumbers.variable}`}>
         <BackHistory />
         <ClickFeedback />
-        <NotificationsProvider><SafetyProvider><div className="aepilog-shell"><SiteHeader />{children}</div></SafetyProvider></NotificationsProvider>
+        <NotificationsProvider><SafetyProvider><div className="aepilog-shell"><SiteHeader />{children}<SiteFooter /></div></SafetyProvider></NotificationsProvider>
       </body>
     </html>
   );

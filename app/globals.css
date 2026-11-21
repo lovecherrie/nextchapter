@@ -46,6 +46,13 @@ body {
 
 .aepilog-shell { display: flex; min-height: 100dvh; flex-direction: column; }
 .aepilog-shell > main { flex: 1; min-height: 0; }
+.aepilog-info h1 { font-size: clamp(2rem, 5vw, 3rem); font-weight: 500; line-height: 1.15; letter-spacing: -.025em; }
+.aepilog-info h2 { margin-top: 2rem; font-size: 1.35rem; font-weight: 500; }
+.aepilog-info p { margin-top: 1rem; line-height: 1.85; color: var(--aepilog-muted); }
+.aepilog-info p a { color: var(--aepilog-cherry); text-decoration: underline; text-underline-offset: 3px; }
+.aepilog-info-button, .aepilog-info-secondary { display: inline-block; border-radius: 999px; padding: .8rem 1.2rem; }
+.aepilog-info-button { background: var(--aepilog-cherry); color: var(--aepilog-paper); }
+.aepilog-info-secondary { border: 1px solid var(--aepilog-border); background: var(--aepilog-paper); }
 
 ::selection {
   background: var(--aepilog-blush);
