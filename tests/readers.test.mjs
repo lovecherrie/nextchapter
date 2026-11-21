@@ -14,7 +14,7 @@ function fixture(resolve=()=>({data:[],error:null}),user=null){
  }
  for(const method of ['select','eq','ilike','order','range','limit','abortSignal','in','insert','delete','update'])Query.prototype[method]=function(...args){this.steps.push({method,args});return this};
  for(const method of ['single','maybeSingle'])Query.prototype[method]=function(...args){this.steps.push({method,args});return Promise.resolve(resolve(this))};
- const context={exports:{},Set,console,require(name){if(name==='./account-cache')return {readAccountCache:()=>undefined,syncAccountCache:()=>{},writeAccountCache:()=>{}};if(name==='@/lib/supabase')return {supabase:{from:table=>new Query(table),auth:{getUser:async()=>({data:{user}})}}};throw Error(name)}};
+ const context={exports:{},Set,console,require(name){if(name==='./account-cache')return {accountCacheRevision:()=>0,readAccountCache:()=>undefined,syncAccountCache:()=>{},writeAccountCache:()=>{}};if(name==='@/lib/supabase')return {supabase:{from:table=>new Query(table),auth:{getUser:async()=>({data:{user}})}}};throw Error(name)}};
  vm.runInNewContext(code,context);
  return {api:context.exports,calls};
 }

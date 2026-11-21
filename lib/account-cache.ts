@@ -1,13 +1,17 @@
 // Short-lived presentation data only. Database RLS still authorizes every request.
 // Never persist this cache to browser storage or share it between server requests.
 let account: string | null = null;
+let revision = 0;
 const entries = new Map<string, { value: unknown; until: number }>();
 
 export function syncAccountCache(userId: string | null, invalidate = false) {
   if (typeof window === "undefined") return;
+  if (account !== userId || invalidate) revision++;
   if (account !== userId || invalidate || !userId) entries.clear();
   account = userId;
 }
+
+export function accountCacheRevision() { return revision; }
 
 export function readAccountCache<T>(key: string): T | undefined {
   if (typeof window === "undefined" || !account) return;

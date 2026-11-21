@@ -36,11 +36,12 @@ export function useReaderViewer() {
   const [viewerId, setViewerId] = useState<string | null | undefined>(() => readAccountCache<User>("user")?.id);
   useEffect(() => {
     let current = true;
-    void currentReaderId().then((id) => { if (current) setViewerId(id); }).catch(() => { if (current) setViewerId(null); });
+    let authChanged = false;
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT") setViewerId(null);
-      if (event === "SIGNED_IN") setViewerId(session?.user && !session.user.is_anonymous ? session.user.id : null);
+      if (event === "SIGNED_OUT") { authChanged = true; setViewerId(null); }
+      if (event === "SIGNED_IN") { authChanged = true; setViewerId(session?.user && !session.user.is_anonymous ? session.user.id : null); }
     });
+    void currentReaderId().then((id) => { if (current && !authChanged) setViewerId(id); }).catch(() => { if (current && !authChanged) setViewerId(null); });
     return () => { current = false; data.subscription.unsubscribe(); };
   }, []);
   return viewerId;

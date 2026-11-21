@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
-import { readAccountCache, syncAccountCache, writeAccountCache } from "./account-cache";
+import { accountCacheRevision, readAccountCache, syncAccountCache, writeAccountCache } from "./account-cache";
 
 export const READER_PAGE_SIZE = 20;
 export const READER_COLUMNS = "user_id,display_name,bio,is_public,show_activity,created_at,follower_count,following_count,avatar_path,show_top_books";
@@ -36,11 +36,21 @@ export function escapedReaderSearch(value: string) { return value.trim().slice(0
 export async function accountUser() {
   const cached = readAccountCache<User>("user");
   if (cached) return cached;
-  const { data } = await supabase.auth.getUser();
-  const user = data.user && !data.user.is_anonymous ? data.user : null;
-  syncAccountCache(user?.id || null);
-  if (user) writeAccountCache("user", user.id, user);
-  return user;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const revision = accountCacheRevision();
+    const { data } = await supabase.auth.getUser();
+    // A response started before logout/account changes must not repopulate caches.
+    if (revision !== accountCacheRevision()) {
+      const current = readAccountCache<User>("user");
+      if (current) return current;
+      continue;
+    }
+    const user = data.user && !data.user.is_anonymous ? data.user : null;
+    syncAccountCache(user?.id || null);
+    if (user) writeAccountCache("user", user.id, user);
+    return user;
+  }
+  return readAccountCache<User>("user") || null;
 }
 
 export async function currentReaderId() {
