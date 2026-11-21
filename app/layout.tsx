@@ -56,7 +56,7 @@ export default function RootLayout({
       <body className={`${fraunces.variable} ${loraNumbers.variable}`}>
         <BackHistory />
         <ClickFeedback />
-        <NotificationsProvider><SafetyProvider><div className="aepilog-shell"><SiteHeader />{children}<SiteFooter /></div></SafetyProvider></NotificationsProvider>
+        <NotificationsProvider><SafetyProvider><div className="aepilog-shell"><div className="aepilog-page"><SiteHeader />{children}</div><SiteFooter /></div></SafetyProvider></NotificationsProvider>
       </body>
     </html>
   );

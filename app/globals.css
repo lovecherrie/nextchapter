@@ -44,8 +44,8 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-.aepilog-shell { display: flex; min-height: 100dvh; flex-direction: column; }
-.aepilog-shell > main { flex: 1; min-height: 0; }
+.aepilog-page { display: flex; min-height: 100dvh; flex-direction: column; }
+.aepilog-page > main { flex: 1; min-height: 0; }
 .aepilog-info h1 { font-size: clamp(2rem, 5vw, 3rem); font-weight: 500; line-height: 1.15; letter-spacing: -.025em; }
 .aepilog-info h2 { margin-top: 2rem; font-size: 1.35rem; font-weight: 500; }
 .aepilog-info p { margin-top: 1rem; line-height: 1.85; color: var(--aepilog-muted); }
