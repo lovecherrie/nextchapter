@@ -1,20 +1,11 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { FormEvent, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { cachedBookSearch, rememberBookSearch, type CatalogueBook as BookResult } from "@/lib/book-search-cache";
 import SiteHeader from "../components/SiteHeader";
 import SearchTabs from "../components/SearchTabs";
-
-type BookResult = {
-  id?: string;
-  external_id?: string;
-  title: string;
-  author?: string | null;
-  cover?: string | null;
-  cover_url?: string | null;
-  publishedDate?: string | null;
-  isbn10?: string | null;
-  isbn13?: string | null;
-};
 
 function SearchCover({ book }: { book: BookResult }) {
   const [failed, setFailed] = useState(0);
@@ -29,6 +20,7 @@ function SearchCover({ book }: { book: BookResult }) {
       src={source}
       alt=""
       loading="lazy"
+      decoding="async"
       onError={() => setFailed((count) => count + 1)}
       className="h-28 w-[74px] shrink-0 rounded-xl object-cover"
     />
@@ -40,12 +32,18 @@ function SearchCover({ book }: { book: BookResult }) {
 }
 
 export default function SearchPage() {
-  const [query, setQuery] = useState("");
-  const [books, setBooks] = useState<BookResult[]>([]);
+  return <Suspense fallback={<main className="min-h-screen bg-[var(--aepilog-cream)]"><SiteHeader active="search" /><p role="status" className="mx-auto max-w-3xl px-5 py-10 text-sm">Loading search...</p></main>}><BookSearch /></Suspense>;
+}
+
+function BookSearch() {
+  const params = useSearchParams();
+  const [query, setQuery] = useState(() => (params.get("q") || "").slice(0, 160));
+  const [initialResults] = useState(() => cachedBookSearch(query));
+  const [books, setBooks] = useState<BookResult[]>(initialResults?.books || []);
   const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
+  const [searched, setSearched] = useState(!!initialResults);
   const [error, setError] = useState("");
-  const [suggestions, setSuggestions] = useState<BookResult[]>([]);
+  const [suggestions, setSuggestions] = useState<BookResult[]>(initialResults?.suggestions || []);
   const [composing, setComposing] = useState(false);
   const controller = useRef<AbortController | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -57,6 +55,14 @@ export default function SearchPage() {
     controller.current = currentController;
     const currentRequest = ++requestId.current;
 
+    const url = new URL(window.location.href);
+    url.searchParams.set("q", clean);
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+    const cached = cachedBookSearch(clean);
+    if (cached) {
+      setBooks(cached.books); setSuggestions(cached.suggestions);
+      setSearched(true); setError(""); setLoading(false); return;
+    }
     setLoading(true);
     setSearched(true);
     setError("");
@@ -64,14 +70,15 @@ export default function SearchPage() {
     try {
       const response = await fetch(
         `/api/books/search?q=${encodeURIComponent(clean)}`,
-        { cache: "no-store", signal: currentController.signal }
+        { cache: "no-store", signal: AbortSignal.any([currentController.signal, AbortSignal.timeout(15000)]) }
       );
       if (!response.ok) throw new Error("Book search failed");
       const data = await response.json();
       if (data.error) throw new Error("Book search failed");
-      if (currentRequest !== requestId.current) return;
-      setBooks(Array.isArray(data.books) ? data.books : []);
-      setSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
+      if (currentController.signal.aborted || currentRequest !== requestId.current) return;
+      const results = { books: Array.isArray(data.books) ? data.books : [], suggestions: Array.isArray(data.suggestions) ? data.suggestions : [] };
+      rememberBookSearch(clean, results);
+      setBooks(results.books); setSuggestions(results.suggestions);
     } catch {
       if (currentController.signal.aborted || currentRequest !== requestId.current) return;
       setBooks([]);
@@ -97,11 +104,15 @@ export default function SearchPage() {
     controller.current?.abort();
     if (timer.current) clearTimeout(timer.current);
     setQuery(value);
+    if (value.trim().length < 2) {
+      const url = new URL(window.location.href); url.searchParams.delete("q");
+      window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+    }
     setBooks([]);
     setSuggestions([]);
     setError("");
     setSearched(false);
-    setLoading(value.trim().length >= 2);
+    setLoading(value.trim().length >= 2 && !composing);
   }
 
   function searchBooks(event: FormEvent) {
@@ -150,8 +161,9 @@ export default function SearchPage() {
           <form onSubmit={searchBooks} className="mt-7 flex gap-2">
             <input
               value={query}
+              maxLength={160}
               onChange={(event) => changeQuery(event.target.value)}
-              onCompositionStart={() => setComposing(true)}
+              onCompositionStart={() => { setComposing(true); setLoading(false); }}
               onCompositionEnd={() => setComposing(false)}
               aria-label="Search by title or author"
               aria-controls="book-search-results"
@@ -186,8 +198,9 @@ export default function SearchPage() {
                   {suggestions.length > 0 && index === suggestions.length && (
                     <p className="mb-3 text-sm text-[var(--aepilog-muted)]">Other results</p>
                   )}
-                <a
+                <Link
                   href={bookHref(book)}
+                  prefetch={false}
                   className="flex gap-4 rounded-[22px] border border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] p-4 transition hover:border-[var(--aepilog-cherry-soft)]"
                 >
                   <SearchCover key={`${cover}-${book.isbn13}-${book.isbn10}`} book={book} />
@@ -208,7 +221,7 @@ export default function SearchPage() {
                       View book →
                     </p>
                   </div>
-                </a>
+                </Link>
                 </div>
               );
             })}
