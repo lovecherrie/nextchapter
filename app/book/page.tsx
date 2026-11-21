@@ -1,5 +1,7 @@
 "use client";
 
+import StableImage from "../components/StableImage";
+
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -8,7 +10,6 @@ import BackLink from "../components/BackLink";
 import { SafetyActions } from "../components/Safety";
 import DiscussionSection from "../components/DiscussionSection";
 import { discussionSectionLabel } from "@/lib/discussion-sections";
-import SiteHeader from "../components/SiteHeader";
 import AnimatedLikeButton from "../components/AnimatedLikeButton";
 import { ReaderName } from "../components/ReaderSocial";
 import BookShareButton from "../components/BookShareButton";
@@ -806,8 +807,7 @@ function BookPageContent() {
             window.location.href
           );
 
-          window.location.href =
-            "/auth";
+          router.push("/auth");
 
           return;
         }
@@ -834,6 +834,7 @@ function BookPageContent() {
             throw error;
           }
 
+          invalidateAccountCache("profile");
           setIsWantToRead(
             false
           );
@@ -859,6 +860,7 @@ function BookPageContent() {
             throw error;
           }
 
+          invalidateAccountCache("profile");
           setIsWantToRead(
             true
           );
@@ -985,7 +987,7 @@ function BookPageContent() {
       "nextchapter_return_after_auth",
       window.location.href
     );
-    window.location.href = "/auth";
+    router.push("/auth");
     return false;
   }
 
@@ -1102,6 +1104,7 @@ function BookPageContent() {
         return;
       }
 
+      invalidateAccountCache("profile");
       setPostText("");
       setDiscussionSection(null);
       setPostSpoiler(
@@ -1317,10 +1320,10 @@ function BookPageContent() {
   if (!bookExternalId || !bookTitle) {
     return (
       <main className="min-h-screen bg-[var(--aepilog-cream)] text-stone-900">
-        <SiteHeader />
+
         <div className="mx-auto max-w-5xl px-5 py-12">
           <h1 className="aepilog-heading text-3xl">Choose a book first</h1>
-          <a href="/search" className="mt-4 inline-block font-semibold text-[var(--aepilog-cherry)]">Search for a book</a>
+          <Link href="/search" className="mt-4 inline-block font-semibold text-[var(--aepilog-cherry)]">Search for a book</Link>
         </div>
       </main>
     );
@@ -1328,7 +1331,7 @@ function BookPageContent() {
 
   return (
     <main className="min-h-screen bg-[var(--aepilog-cream)] text-stone-900">
-      <SiteHeader />
+
       <div className="mx-auto max-w-5xl px-5 py-8 md:py-12">
 
         {/* BOOK HEADER */}
@@ -1345,7 +1348,7 @@ function BookPageContent() {
 
             <div>
               {(displayCover) ? (
-                <img
+                <StableImage
                   src={displayCover}
                   alt={bookTitle}
                   className="w-full max-w-[180px] rounded-2xl object-cover shadow-md"
@@ -1468,9 +1471,6 @@ function BookPageContent() {
                 </a>
               </div>
 
-              <p className="mt-3 text-xs leading-5 text-stone-400">
-                Retailer buttons currently open normal search links. Affiliate tracking can be added later without changing this layout.
-              </p>
             </div>
           </div>
         </section>

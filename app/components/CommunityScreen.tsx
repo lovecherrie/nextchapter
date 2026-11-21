@@ -1,11 +1,14 @@
 "use client";
 
+import { invalidateAccountCache } from "@/lib/account-cache";
+
+import StableImage from "./StableImage";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { accountUser, followedReaders } from "@/lib/readers";
 import { discussionHref } from "@/lib/discussion-links";
-import SiteHeader from "./SiteHeader";
 import BackLink from "./BackLink";
 import { fetchJsonWithTimeout } from "@/lib/fetch-json";
 import AnimatedLikeButton from "./AnimatedLikeButton";
@@ -235,7 +238,7 @@ function updateFeed(viewer: string | null, change: (snapshot: FeedSnapshot) => F
 
 export default function CommunityScreen({ discussionId }: { discussionId?: string }) {
   const { viewer } = useNotifications();
-  if (viewer === undefined) return <main className="min-h-screen bg-[var(--aepilog-cream)]"><SiteHeader active="community" /><p role="status" className="mx-auto max-w-6xl px-4 py-10 text-sm text-[var(--aepilog-muted)]">Loading discussions...</p></main>;
+  if (viewer === undefined) return <main className="min-h-screen bg-[var(--aepilog-cream)]"><p role="status" className="mx-auto max-w-6xl px-4 py-10 text-sm text-[var(--aepilog-muted)]">Loading discussions...</p></main>;
   return <CommunityContent key={`${viewer || "guest"}:${discussionId || "feed"}`} viewer={viewer} discussionId={discussionId} />;
 }
 
@@ -604,6 +607,7 @@ function CommunityContent({ discussionId, viewer }: { discussionId?: string; vie
         comments: [],
       };
 
+      invalidateAccountCache("profile");
       setPosts((current) => [completePost, ...current]);
 
       setDiscussionText("");
@@ -742,6 +746,7 @@ function CommunityContent({ discussionId, viewer }: { discussionId?: string; vie
       .eq("id", comment.id);
 
     if (!error) {
+      invalidateAccountCache("profile");
       setPosts((current) =>
         current.map((post) => ({
           ...post,
@@ -775,6 +780,7 @@ function CommunityContent({ discussionId, viewer }: { discussionId?: string; vie
       .eq("id", comment.id);
 
     if (!error) {
+      invalidateAccountCache("profile");
       setPosts((current) =>
         current.map((post) => ({
           ...post,
@@ -809,6 +815,7 @@ function CommunityContent({ discussionId, viewer }: { discussionId?: string; vie
       .eq("id", post.id);
 
     if (!error) {
+      invalidateAccountCache("profile");
       setPosts((current) =>
         current.map((item) =>
           item.id === post.id
@@ -847,6 +854,7 @@ function CommunityContent({ discussionId, viewer }: { discussionId?: string; vie
       .eq("id", post.id);
 
     if (!error) {
+      invalidateAccountCache("profile");
       setPosts((current) =>
         current.filter((item) => item.id !== post.id)
       );
@@ -1209,7 +1217,7 @@ function CommunityContent({ discussionId, viewer }: { discussionId?: string; vie
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#faf6ef] text-[#2d2625]">
-      <SiteHeader active="community" />
+
 
       <section className={`mx-auto px-4 py-5 sm:px-5 sm:py-7 ${discussionId ? "max-w-3xl" : "max-w-6xl"}`}>
         {discussionId && <div className="mb-5">
@@ -1261,7 +1269,7 @@ function CommunityContent({ discussionId, viewer }: { discussionId?: string; vie
                 className="aepilog-featured-discussion mt-4 flex items-center gap-3 rounded-2xl border border-[var(--aepilog-rose-border)] bg-[var(--aepilog-rose-soft)] p-3 transition hover:bg-[var(--aepilog-rose-hover)]"
               >
                 {featuredBook && (featuredBook.cover_url ? (
-                  <img
+                  <StableImage
                     src={featuredBook.cover_url}
                     alt={featuredBook.title}
                     className="h-20 w-14 shrink-0 rounded-lg object-cover shadow-sm"
@@ -1459,12 +1467,12 @@ function CommunityContent({ discussionId, viewer }: { discussionId?: string; vie
               >
                 {book && !poll && (
                   <div className="border-b border-[#eee2de] bg-[#fdf9f5] px-4 py-3 sm:px-5">
-                    <a
+                    <Link prefetch={false}
                       href={makeBookUrl(book)}
                       className="flex min-w-0 items-center gap-3"
                     >
                       {book.cover_url ? (
-                        <img
+                        <StableImage
                           src={book.cover_url}
                           alt={book.title}
                           loading="lazy"
@@ -1490,7 +1498,7 @@ function CommunityContent({ discussionId, viewer }: { discussionId?: string; vie
                           {book.author}
                         </div>
                       </div>
-                    </a>
+                    </Link>
                   </div>
                 )}
 
@@ -1671,12 +1679,12 @@ function CommunityContent({ discussionId, viewer }: { discussionId?: string; vie
                     </Link>
 
                     {book && !poll && (
-                      <a
+                      <Link prefetch={false}
                         href={makeBookUrl(book)}
                         className="ml-auto text-xs font-bold text-[#76585a] sm:text-sm"
                       >
                         View book →
-                      </a>
+                      </Link>
                     )}
                   </div>
 
@@ -1778,7 +1786,7 @@ function CommunityContent({ discussionId, viewer }: { discussionId?: string; vie
         </div>
 
         <div className="mt-6 rounded-[20px] border border-[#e6d8d4] bg-[#fffdf9] px-4 py-3 text-center text-xs text-[#756866] sm:text-sm">
-          {guestUsername ? <>Posting as <a href="/profile" className="font-semibold text-[#8f2635]">{guestUsername}</a>.</> : <a href="/auth" onClick={() => sessionStorage.setItem("nextchapter_return_after_auth", window.location.href)} className="font-semibold text-[#8f2635]">Sign in to post</a>}
+          {guestUsername ? <>Posting as <Link href="/profile" className="font-semibold text-[#8f2635]">{guestUsername}</Link>.</> : <Link href="/auth" onClick={() => sessionStorage.setItem("nextchapter_return_after_auth", window.location.href)} className="font-semibold text-[#8f2635]">Sign in to post</Link>}
         </div>
           </div>
         </div>
@@ -1829,7 +1837,7 @@ function CommunityContent({ discussionId, viewer }: { discussionId?: string; vie
                 {selectedBook ? (
                   <div className="flex items-center gap-4 rounded-2xl border border-[#e2c8c8] bg-[#fbefee] p-4">
                     {selectedBook.cover_url ? (
-                      <img
+                      <StableImage
                         src={selectedBook.cover_url}
                         alt={selectedBook.title}
                         className="h-20 w-14 rounded-lg object-cover"
@@ -1895,7 +1903,7 @@ function CommunityContent({ discussionId, viewer }: { discussionId?: string; vie
                                 className="flex w-full items-center gap-3 border-b p-3 text-left hover:bg-[#faf6ef]"
                               >
                                 {book.cover_url && (
-                                  <img
+                                  <StableImage
                                     src={
                                       book.cover_url
                                     }
@@ -2043,13 +2051,13 @@ function CommunityContent({ discussionId, viewer }: { discussionId?: string; vie
 
                   {!searchingBooks &&
                     bookResults.slice(0, 6).map((book) => (
-                      <a
+                      <Link prefetch={false}
                         key={`${book.external_id}-${book.title}`}
                         href={makeRatingUrl(book)}
                         className="flex w-full items-center gap-3 border-b border-[#eee2de] p-3 text-left transition last:border-b-0 hover:bg-[#faf6ef]"
                       >
                         {book.cover_url ? (
-                          <img
+                          <StableImage
                             src={book.cover_url}
                             alt={book.title}
                             className="h-14 w-10 rounded object-cover"
@@ -2072,7 +2080,7 @@ function CommunityContent({ discussionId, viewer }: { discussionId?: string; vie
                         <span className="shrink-0 text-sm font-bold text-[#8f2635]">
                           Rate →
                         </span>
-                      </a>
+                      </Link>
                     ))}
                 </div>
               )}

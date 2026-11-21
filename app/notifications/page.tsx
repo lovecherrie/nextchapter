@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import SiteHeader from "../components/SiteHeader";
 import BackLink from "../components/BackLink";
 import { useNotifications } from "../components/Notifications";
 import { supabase } from "@/lib/supabase";
@@ -42,7 +41,7 @@ export default function NotificationsPage() {
     } catch { setError("Could not mark notifications as read. Please try again."); }
     finally { setSaving(false); }
   }
-  return <main className="min-h-screen bg-[var(--aepilog-cream)] text-[var(--aepilog-ink)]"><SiteHeader />
+  return <main className="min-h-screen bg-[var(--aepilog-cream)] text-[var(--aepilog-ink)]">
     <section className="mx-auto max-w-3xl px-4 py-7 sm:px-5 sm:py-10">
       <BackLink className="text-sm underline underline-offset-4" />
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3"><h1 className="aepilog-heading text-3xl">Notifications</h1>{viewer && <button type="button" disabled={saving || loading} onClick={() => void markRead()} className="rounded-full border border-[var(--aepilog-border)] px-4 py-2 text-sm disabled:opacity-50">Mark all as read</button>}</div>

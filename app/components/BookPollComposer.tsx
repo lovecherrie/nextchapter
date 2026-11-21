@@ -1,4 +1,6 @@
 "use client";
+
+import { invalidateAccountCache } from "@/lib/account-cache";
 import { useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { ensureCommunityBook, type BookChoice } from "@/lib/community-books";
@@ -21,6 +23,7 @@ export default function BookPollComposer({ onPosted, onBusy }: { onPosted: (id: 
       const result = await supabase.rpc("create_book_poll", { p_left_book: first.id, p_right_book: second.id, p_question: question.trim(), p_spoilers: spoilers, p_request_id: requestKey.current }).abortSignal(AbortSignal.timeout(15000));
       if (result.error) throw result.error;
       if (typeof result.data !== "string") throw new Error("Poll confirmation unavailable");
+      invalidateAccountCache("profile");
       onPosted(result.data);
     } catch { setError("Could not publish this poll. Your choices are still here. Please try again."); }
     finally { setSaving(false); onBusy(false); }

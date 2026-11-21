@@ -1,9 +1,10 @@
 "use client";
 
+import StableImage from "../components/StableImage";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import SiteHeader from "../components/SiteHeader";
 import BackLink from "../components/BackLink";
 import CommunityBookPicker from "../components/CommunityBookPicker";
 import { useReaderViewer } from "../components/ReaderSocial";
@@ -13,7 +14,7 @@ import { supabase } from "@/lib/supabase";
 
 export default function BuddyReadsPage() {
   const viewer = useReaderViewer();
-  return <main className="min-h-screen bg-[var(--aepilog-cream)] text-[var(--aepilog-ink)]"><SiteHeader active="community" />
+  return <main className="min-h-screen bg-[var(--aepilog-cream)] text-[var(--aepilog-ink)]">
     <section className="mx-auto max-w-3xl px-4 py-7 sm:px-5 sm:py-10"><BackLink className="text-sm underline underline-offset-4" /><h1 className="aepilog-heading mt-5 text-3xl">Reading circles</h1><p className="mt-2 text-sm text-[var(--aepilog-muted)]">Read a book together in a private group.</p>
       {viewer === undefined ? <p role="status" className="mt-6">Loading reading circles...</p> : viewer ? <BuddyList key={viewer} userId={viewer} /> : <p className="mt-6"><Link href="/auth" onClick={() => sessionStorage.setItem("nextchapter_return_after_auth", window.location.href)} className="underline">Sign in</Link> to start or join a reading circle.</p>}
     </section>
@@ -65,6 +66,6 @@ function BuddyList({ userId }: { userId: string }) {
     <h2 className="aepilog-heading mt-8 text-2xl">Your reading circles</h2>
     {error && <p role="alert" className="mt-4 text-sm text-[var(--aepilog-cherry)]">{error} <button type="button" onClick={() => setRetry((value) => value+1)} className="underline">Try again</button></p>}
     {loading ? <p role="status" className="mt-4 text-sm">Loading reading circles...</p> : !error && !groups.length ? <p className="mt-4 text-sm text-[var(--aepilog-muted)]">Start one above, or ask a friend for their invite link.</p> : null}
-    <div className="mt-5 space-y-3">{groups.map((group) => <Link key={group.id} href={buddyHref(group.id)} className="flex min-w-0 gap-4 rounded-2xl border border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] p-4">{group.books?.cover_url && <img src={group.books.cover_url} alt="" className="h-20 w-14 shrink-0 rounded-md object-cover" />}<div className="min-w-0"><h3 className="aepilog-heading break-words text-xl">{group.title}</h3><p className="mt-1 break-words text-sm text-[var(--aepilog-muted)]">{group.books?.title}</p><span className="mt-2 block text-xs text-[var(--aepilog-cherry)]">Private reading circle →</span></div></Link>)}</div>
+    <div className="mt-5 space-y-3">{groups.map((group) => <Link key={group.id} href={buddyHref(group.id)} className="flex min-w-0 gap-4 rounded-2xl border border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] p-4">{group.books?.cover_url && <StableImage src={group.books.cover_url} alt="" className="h-20 w-14 shrink-0 rounded-md object-cover" />}<div className="min-w-0"><h3 className="aepilog-heading break-words text-xl">{group.title}</h3><p className="mt-1 break-words text-sm text-[var(--aepilog-muted)]">{group.books?.title}</p><span className="mt-2 block text-xs text-[var(--aepilog-cherry)]">Private reading circle →</span></div></Link>)}</div>
   </>;
 }

@@ -1,6 +1,7 @@
 "use client";
+
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import SiteHeader from "../components/SiteHeader";
 import BackLink from "../components/BackLink";
 import { useReaderViewer } from "../components/ReaderSocial";
 import { supabase } from "@/lib/supabase";
@@ -43,7 +44,7 @@ export default function AdminPage() {
     catch { setError("Could not save that moderation decision. Please try again."); }
     finally { setBusy(null); }
   }
-  return <main className="min-h-screen bg-[var(--aepilog-cream)] text-[var(--aepilog-ink)]"><SiteHeader active="profile" /><div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+  return <main className="min-h-screen bg-[var(--aepilog-cream)] text-[var(--aepilog-ink)]"><div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
     <BackLink fallback="/settings" className="text-sm underline" /><h1 className="aepilog-heading mt-5 text-3xl">Reports and usage</h1>
     {error && <p role="alert" className="mt-4 text-sm text-[var(--aepilog-cherry)]">{error} <button type="button" onClick={() => { setError(""); setLoading(true); setRevision(v => v + 1); }} className="underline">Retry</button></p>}
     {allowed === false ? <p className="mt-5">This page is available to aepilog’s moderator.</p> : allowed && <>
@@ -56,7 +57,7 @@ export default function AdminPage() {
           {report.details && <p className="mt-3 whitespace-pre-wrap break-words text-sm">Report details: {report.details}</p>}
           <div className="mt-4 flex flex-wrap gap-2"><button type="button" disabled={!!busy} onClick={() => void review(report, "reviewed")} className="rounded-full border border-[var(--aepilog-border)] px-4 py-2 text-sm disabled:opacity-50">Mark reviewed</button>
             {report.target_kind !== "reader" && <button type="button" disabled={!!busy} onClick={() => void review(report, report.status === "hidden" ? "restore" : "hide")} className="rounded-full bg-[var(--aepilog-cherry)] px-4 py-2 text-sm disabled:opacity-50" style={{ color: "var(--aepilog-paper)" }}>{report.status === "hidden" ? "Restore content" : "Hide content"}</button>}
-            {report.snapshot.post_id && <a href={`/discussion/${encodeURIComponent(report.snapshot.post_id)}`} className="px-3 py-2 text-sm underline">Open discussion</a>}
+            {report.snapshot.post_id && <Link prefetch={false} href={`/discussion/${encodeURIComponent(report.snapshot.post_id)}`} className="px-3 py-2 text-sm underline">Open discussion</Link>}
           </div>
         </article>)}</div>
       </section>

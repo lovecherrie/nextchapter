@@ -44,6 +44,9 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+.aepilog-shell { display: flex; min-height: 100dvh; flex-direction: column; }
+.aepilog-shell > main { flex: 1; min-height: 0; }
+
 ::selection {
   background: var(--aepilog-blush);
   color: var(--aepilog-ink);

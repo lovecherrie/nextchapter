@@ -1,10 +1,11 @@
 "use client";
 
+import StableImage from "../components/StableImage";
+
 import { FormEvent, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { cachedBookSearch, rememberBookSearch, type CatalogueBook as BookResult } from "@/lib/book-search-cache";
-import SiteHeader from "../components/SiteHeader";
 import SearchTabs from "../components/SearchTabs";
 
 function SearchCover({ book }: { book: BookResult }) {
@@ -16,7 +17,7 @@ function SearchCover({ book }: { book: BookResult }) {
   ].filter((value): value is string => Boolean(value)))];
   const source = sources[failed];
   return source ? (
-    <img
+    <StableImage
       src={source}
       alt=""
       loading="lazy"
@@ -32,7 +33,7 @@ function SearchCover({ book }: { book: BookResult }) {
 }
 
 export default function SearchPage() {
-  return <Suspense fallback={<main className="min-h-screen bg-[var(--aepilog-cream)]"><SiteHeader active="search" /><p role="status" className="mx-auto max-w-3xl px-5 py-10 text-sm">Loading search...</p></main>}><BookSearch /></Suspense>;
+  return <Suspense fallback={<main className="min-h-screen bg-[var(--aepilog-cream)]"><p role="status" className="mx-auto max-w-3xl px-5 py-10 text-sm">Loading search...</p></main>}><BookSearch /></Suspense>;
 }
 
 function BookSearch() {
@@ -142,7 +143,7 @@ function BookSearch() {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[var(--aepilog-cream)] text-[var(--aepilog-ink)]">
-      <SiteHeader active="search" />
+
 
       <div className="mx-auto max-w-5xl px-4 py-5 sm:px-5 sm:py-10 md:py-14">
         <div className="mx-auto max-w-3xl">

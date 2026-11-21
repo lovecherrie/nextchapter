@@ -1,10 +1,14 @@
 "use client";
 
+import StableImage from "./StableImage";
+
+import Link from "next/link";
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { avatarUrl } from "@/lib/reader-photos";
-import { readerPortrait, rememberReaderPhoto } from "@/lib/reader-portraits";
+import { cachedReaderPortrait, readerPortrait, rememberReaderPhoto } from "@/lib/reader-portraits";
 import type { User } from "@supabase/supabase-js";
 import { readAccountCache } from "@/lib/account-cache";
 import { currentReaderId, getReader, readerHref, setReaderFollowing, updateReaderVisibility, validReaderId, type Reader } from "@/lib/readers";
@@ -15,7 +19,7 @@ export function ReaderDisplayName({ name }: { name: string }) {
 }
 
 export function ReaderName({ userId, name, className = "" }: { userId: string; name: string; className?: string }) {
-  const [path, setPath] = useState<string | null>(null);
+  const [path, setPath] = useState<string | null>(() => cachedReaderPortrait(userId) || null);
   useEffect(() => {
     if (!validReaderId(userId)) return;
     let current = true;
@@ -28,12 +32,12 @@ export function ReaderName({ userId, name, className = "" }: { userId: string; n
     return () => { current = false; window.removeEventListener("aepilog-photo-changed", changed); };
   }, [userId]);
   return validReaderId(userId)
-    ? <a href={readerHref(userId)} className={`inline-flex items-center gap-2 hover:underline ${className}`}><ReaderAvatar name={name} path={path} small /><span className="min-w-0 truncate"><ReaderDisplayName name={name} /></span></a>
+    ? <Link prefetch={false} href={readerHref(userId)} className={`inline-flex items-center gap-2 hover:underline ${className}`}><ReaderAvatar name={name} path={path} small /><span className="min-w-0 truncate"><ReaderDisplayName name={name} /></span></Link>
     : <span className={className}><ReaderDisplayName name={name} /></span>;
 }
 
 export function useReaderViewer() {
-  const [viewerId, setViewerId] = useState<string | null | undefined>(() => readAccountCache<User>("user")?.id);
+  const [viewerId, setViewerId] = useState<string | null | undefined>(() => readAccountCache<User>("user", true)?.id);
   useEffect(() => {
     let current = true;
     let authChanged = false;
@@ -51,7 +55,7 @@ export function ReaderAvatar({ name, path, large = false, small = false }: { nam
   const [failed, setFailed] = useState<string | null>(null);
   const url = avatarUrl(path);
   return <div aria-hidden="true" className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--aepilog-blush)] font-semibold text-[var(--aepilog-cherry)] ${large ? "h-20 w-20 text-3xl" : small ? "h-7 w-7 text-xs" : "h-12 w-12 text-lg"}`}>
-    {url && failed !== url ? <img src={url} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" onError={() => setFailed(url)} /> : Array.from(name.trim())[0]?.toUpperCase() || "R"}
+    {url && failed !== url ? <StableImage src={url} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" onError={() => setFailed(url)} /> : Array.from(name.trim())[0]?.toUpperCase() || "R"}
   </div>;
 }
 
@@ -61,7 +65,7 @@ export function FollowButton({ reader, viewerId, following, onChange }: {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
-  if (viewerId === reader.user_id) return <a href="/profile" className="rounded-full border border-[var(--aepilog-border)] px-4 py-2.5 text-sm font-semibold text-[var(--aepilog-cherry)]">Edit profile</a>;
+  if (viewerId === reader.user_id) return <Link href="/profile" className="rounded-full border border-[var(--aepilog-border)] px-4 py-2.5 text-sm font-semibold text-[var(--aepilog-cherry)]">Edit profile</Link>;
 
   async function toggle() {
     if (saving || viewerId === undefined) return;
@@ -91,7 +95,7 @@ export function FollowButton({ reader, viewerId, following, onChange }: {
       className={`rounded-full border px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 ${following ? "border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] text-[var(--aepilog-cherry)] hover:bg-[var(--aepilog-blush-light)]" : "border-[var(--aepilog-cherry)] bg-[var(--aepilog-cherry)] text-white hover:bg-[var(--aepilog-cherry-hover)]"}`}>
       {saving ? "Saving..." : viewerId === undefined ? "Loading..." : following ? "Following" : "Follow"}
     </button>
-    {error && <p role="alert" className="mt-2 max-w-56 text-xs leading-5 text-[var(--aepilog-cherry)]">{error} <a href="/profile" className="underline">Your profile</a></p>}
+    {error && <p role="alert" className="mt-2 max-w-56 text-xs leading-5 text-[var(--aepilog-cherry)]">{error} <Link href="/profile" className="underline">Your profile</Link></p>}
   </div>;
 }
 
@@ -100,13 +104,13 @@ export function ReaderTile({ reader, viewerId, following, onFollowChange }: {
 }) {
   return <article className="rounded-[22px] border border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] p-4 sm:p-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <a href={readerHref(reader.user_id)} className="flex min-w-0 flex-1 items-center gap-3">
+      <Link prefetch={false} href={readerHref(reader.user_id)} className="flex min-w-0 flex-1 items-center gap-3">
         <ReaderAvatar name={reader.display_name} path={reader.avatar_path} />
         <div className="min-w-0">
           <h2 className="aepilog-heading break-words text-xl font-medium text-[var(--aepilog-ink)]"><ReaderDisplayName name={reader.display_name} /></h2>
           <p className="mt-1 text-xs text-[var(--aepilog-muted)]">{reader.follower_count} {Number(reader.follower_count) === 1 ? "follower" : "followers"}</p>
         </div>
-      </a>
+      </Link>
       <FollowButton reader={reader} viewerId={viewerId} following={following} onChange={onFollowChange} />
     </div>
     {reader.bio && <p className="mt-3 break-words text-sm leading-6 text-[var(--aepilog-muted)]">{reader.bio}</p>}
@@ -114,7 +118,7 @@ export function ReaderTile({ reader, viewerId, following, onFollowChange }: {
 }
 
 export function ReaderProfileSettings({ userId }: { userId: string }) {
-  const cached = readAccountCache<Reader>("reader");
+  const cached = readAccountCache<Reader>("reader", true);
   const ownCached = cached?.user_id === userId ? cached : undefined;
   const [reader, setReader] = useState<Reader | null>(ownCached || null);
   const [isPublic, setIsPublic] = useState(ownCached?.is_public ?? true);

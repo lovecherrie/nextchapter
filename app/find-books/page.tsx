@@ -1,11 +1,16 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { invalidateAccountCache } from "@/lib/account-cache";
+
+import StableImage from "../components/StableImage";
+
 import {
   useEffect,
   useRef,
   useState,
 } from "react";
-import SiteHeader from "../components/SiteHeader";
 import { supabase } from "@/lib/supabase";
 import { fetchJsonWithTimeout } from "@/lib/fetch-json";
 import RecommendationProgress from "../components/RecommendationProgress";
@@ -37,6 +42,7 @@ type SelectedBook = {
 };
 
 export default function AepilogFindBooks() {
+  const router = useRouter();
   const recommendationRequest = useRef<AbortController | null>(null);
   useEffect(() => () => recommendationRequest.current?.abort(), []);
   const [
@@ -965,8 +971,7 @@ export default function AepilogFindBooks() {
 
       if (!authData.user || authData.user.is_anonymous) {
         sessionStorage.setItem("nextchapter_return_after_auth", window.location.href);
-        window.location.href =
-          "/auth";
+        router.push("/auth");
         return;
       }
       if (authError) throw authError;
@@ -995,6 +1000,7 @@ export default function AepilogFindBooks() {
         throw saveError;
       }
 
+      invalidateAccountCache("profile");
       setSavedBookKeys(
         (current) =>
           current.includes(key)
@@ -1198,7 +1204,7 @@ export default function AepilogFindBooks() {
   return (
     <main className="min-h-screen overflow-x-hidden bg-[var(--aepilog-cream)] text-[var(--aepilog-ink)]">
 
-      <SiteHeader active="find" />
+
 
       <div className="mx-auto max-w-5xl px-4 py-5 sm:px-5 sm:py-10 md:py-14">
 
@@ -1332,7 +1338,7 @@ export default function AepilogFindBooks() {
                               <div className="flex h-14 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-stone-100">
 
                                 {book.cover ? (
-                                  <img
+                                  <StableImage
                                     src={
                                       book.cover
                                     }
@@ -1406,7 +1412,7 @@ export default function AepilogFindBooks() {
                           <div className="h-12 w-9 shrink-0 overflow-hidden rounded-md bg-white">
 
                             {book.cover ? (
-                              <img
+                              <StableImage
                                 src={
                                   book.cover
                                 }
@@ -1530,7 +1536,7 @@ export default function AepilogFindBooks() {
                               <div className="flex h-14 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-stone-100">
 
                                 {book.cover ? (
-                                  <img
+                                  <StableImage
                                     src={
                                       book.cover
                                     }
@@ -1604,7 +1610,7 @@ export default function AepilogFindBooks() {
                           <div className="h-12 w-9 shrink-0 overflow-hidden rounded-md bg-white">
 
                             {book.cover ? (
-                              <img
+                              <StableImage
                                 src={
                                   book.cover
                                 }
@@ -1979,7 +1985,7 @@ export default function AepilogFindBooks() {
                       <div className="flex h-40 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#f0e1de] shadow-sm">
 
                         {book.cover ? (
-                          <img
+                          <StableImage
                             src={
                               book.cover
                             }
@@ -2098,7 +2104,7 @@ export default function AepilogFindBooks() {
                           : "Want to Read"}
                       </button>
 
-                      <a
+                      <Link prefetch={false}
                         href={getBookPageUrl(
                           book
                         )}
@@ -2106,7 +2112,7 @@ export default function AepilogFindBooks() {
                       >
                         View book
                         →
-                      </a>
+                      </Link>
 
                     </div>
 

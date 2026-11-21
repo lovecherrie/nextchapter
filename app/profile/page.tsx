@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import StableImage from "../components/StableImage";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useNotifications } from "../components/Notifications";
 import type { User } from "@supabase/supabase-js";
-import SiteHeader from "../components/SiteHeader";
 import { discussionHref } from "@/lib/discussion-links";
 import { accountUser, readerHref } from "@/lib/readers";
 import { readAccountCache, writeAccountCache } from "@/lib/account-cache";
@@ -93,11 +96,20 @@ function bookHref(book: Book) {
 }
 
 export default function ProfilePage() {
-  const cachedUser = readAccountCache<User>("user");
-  const cached = readAccountCache<{ userId: string; ratings: Rating[]; posts: DiscussionPost[]; topBooks: TopBook[]; wantToRead: WantToReadItem[] }>("profile");
-  const snapshot = cached?.userId === cachedUser?.id ? cached : undefined;
-  const [userId, setUserId] = useState(cachedUser?.id || "");
-  const [username, setUsername] = useState(typeof cachedUser?.user_metadata?.username === "string" ? cachedUser.user_metadata.username : "");
+  const { viewer } = useNotifications();
+  if (viewer === undefined) return <main className="px-5 py-10 text-center text-sm" role="status">Loading your profile...</main>;
+  return <ProfileContent key={viewer || "guest"} viewer={viewer} />;
+}
+
+function ProfileContent({ viewer }: { viewer: string | null }) {
+  const router = useRouter();
+  const savedUser = readAccountCache<User>("user", true);
+  const cachedUser = savedUser?.id === viewer ? savedUser : undefined;
+  const cached = readAccountCache<{ userId: string; username: string; bio: string; ratings: Rating[]; posts: DiscussionPost[]; topBooks: TopBook[]; wantToRead: WantToReadItem[] }>("profile", true);
+  const snapshot = cached?.userId === viewer ? cached : undefined;
+  const initialSnapshot = useRef(snapshot);
+  const [userId, setUserId] = useState(viewer || "");
+  const [username, setUsername] = useState(typeof cachedUser?.user_metadata?.username === "string" ? cachedUser.user_metadata.username : snapshot?.username || "");
   const [ratings, setRatings] = useState<Rating[]>(snapshot?.ratings || []);
   const [posts, setPosts] = useState<DiscussionPost[]>(snapshot?.posts || []);
   const [loading, setLoading] = useState(!snapshot);
@@ -119,34 +131,34 @@ export default function ProfilePage() {
   const [savingTopBooks, setSavingTopBooks] = useState(false);
   const [topBooksError, setTopBooksError] = useState("");
 
-  const [bio, setBio] = useState(typeof cachedUser?.user_metadata?.bio === "string" ? cachedUser.user_metadata.bio : "");
+  const [bio, setBio] = useState(typeof cachedUser?.user_metadata?.bio === "string" ? cachedUser.user_metadata.bio : snapshot?.bio || "");
   const [editOpen, setEditOpen] = useState(false);
   const [draftUsername, setDraftUsername] = useState("");
   const [draftBio, setDraftBio] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileError, setProfileError] = useState("");
 
-  useEffect(() => {
-    initializeProfile();
-  }, []);
 
   useEffect(() => {
-    if (userId && !loading && !error) writeAccountCache("profile", userId, { userId, ratings, posts, topBooks, wantToRead });
-  }, [userId, loading, error, ratings, posts, topBooks, wantToRead]);
+    if (userId && !loading && !error && (ratings !== snapshot?.ratings || posts !== snapshot?.posts || topBooks !== snapshot?.topBooks || wantToRead !== snapshot?.wantToRead || username !== snapshot?.username || bio !== snapshot?.bio)) {
+      writeAccountCache("profile", userId, { userId, username, bio, ratings, posts, topBooks, wantToRead });
+    }
+  }, [userId, username, bio, loading, error, ratings, posts, topBooks, wantToRead, snapshot]);
 
   useEffect(() => {
     if (!topBooksOpen || topBookQuery.trim().length < 2) {
-      setTopBookResults([]);
-      setSearchingTopBooks(false);
-      return;
+      const clear = window.setTimeout(() => { setTopBookResults([]); setSearchingTopBooks(false); }, 0);
+      return () => window.clearTimeout(clear);
     }
 
+    const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       setSearchingTopBooks(true);
 
       try {
         const response = await fetch(
-          `/api/books/search?q=${encodeURIComponent(topBookQuery.trim())}`
+          `/api/books/search?q=${encodeURIComponent(topBookQuery.trim())}`,
+          { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(12000)]) }
         );
         const data = await response.json();
 
@@ -154,24 +166,142 @@ export default function ProfilePage() {
           throw new Error(data.error || "Book search failed");
         }
 
-        setTopBookResults(data.books || []);
+        if (!controller.signal.aborted) setTopBookResults(data.books || []);
       } catch (searchError) {
+        if (controller.signal.aborted) return;
         console.error("Top 4 book search error:", searchError);
         setTopBookResults([]);
       } finally {
-        setSearchingTopBooks(false);
+        if (!controller.signal.aborted) setSearchingTopBooks(false);
       }
     }, 350);
 
-    return () => window.clearTimeout(timer);
+    return () => { window.clearTimeout(timer); controller.abort(); };
   }, [topBookQuery, topBooksOpen]);
 
-  async function initializeProfile() {
-    setLoading(!snapshot);
+  const loadProfile = useCallback(async (currentUserId: string, signal: AbortSignal, background = false) => {
+    if (!background) setLoading(true);
+    setError("");
+
+    try {
+      const [ratingsResult, postsResult, topBooksResult, wantToReadResult] = await Promise.all([
+        supabase
+          .from("ratings")
+          .select(`
+            id,
+            book_id,
+            user_id,
+            username,
+            overall_rating,
+            content,
+            contains_spoilers,
+            created_at,
+            books (
+              id,
+              external_id,
+              title,
+              author,
+              cover_url
+            )
+          `)
+          .eq("user_id", currentUserId)
+          .order("created_at", { ascending: false }).abortSignal(AbortSignal.any([signal, AbortSignal.timeout(10000)])),
+
+        supabase
+          .from("discussion_posts")
+          .select(`
+            id,
+            book_id,
+            user_id,
+            username,
+            content,
+            contains_spoilers,
+            created_at,
+            books (
+              id,
+              external_id,
+              title,
+              author,
+              cover_url
+            )
+          `)
+          .eq("user_id", currentUserId)
+          .order("created_at", { ascending: false }).abortSignal(AbortSignal.any([signal, AbortSignal.timeout(10000)])),
+
+        supabase
+          .from("profile_top_books")
+          .select(`
+            id,
+            user_id,
+            book_id,
+            position,
+            books (
+              id,
+              external_id,
+              title,
+              author,
+              cover_url
+            )
+          `)
+          .eq("user_id", currentUserId)
+          .order("position", { ascending: true }).abortSignal(AbortSignal.any([signal, AbortSignal.timeout(10000)])),
+
+        supabase
+          .from("want_to_read")
+          .select(`
+            id,
+            user_id,
+            book_id,
+            created_at,
+            books (
+              id,
+              external_id,
+              title,
+              author,
+              cover_url
+            )
+          `)
+          .eq("user_id", currentUserId)
+          .order("created_at", { ascending: false }).abortSignal(AbortSignal.any([signal, AbortSignal.timeout(10000)])),
+      ]);
+
+      if (signal.aborted) return;
+      if (ratingsResult.error) {
+        throw ratingsResult.error;
+      }
+
+      if (postsResult.error) {
+        throw postsResult.error;
+      }
+
+      if (topBooksResult.error) {
+        throw topBooksResult.error;
+      }
+
+      if (wantToReadResult.error) {
+        throw wantToReadResult.error;
+      }
+
+      setRatings((ratingsResult.data || []) as unknown as Rating[]);
+      setPosts((postsResult.data || []) as unknown as DiscussionPost[]);
+      setTopBooks((topBooksResult.data || []) as unknown as TopBook[]);
+      setWantToRead((wantToReadResult.data || []) as unknown as WantToReadItem[]);
+    } catch (profileError) {
+      if (signal.aborted) return;
+      console.error("Profile load error:", profileError);
+      setError(background ? "Could not refresh your profile. Your saved view is still here." : "Could not load your profile activity right now.");
+    } finally {
+      if (!signal.aborted) setLoading(false);
+    }
+  }, []);
+
+  const initializeProfile = useCallback(async (signal: AbortSignal) => {
+    setLoading(!initialSnapshot.current);
     setError("");
 
     try {
       const authUser = await accountUser();
+      if (signal.aborted) return;
 
       if (!authUser || authUser.is_anonymous) {
         if (authUser?.is_anonymous) {
@@ -180,10 +310,11 @@ export default function ProfilePage() {
 
         localStorage.removeItem("nextchapter_guest_id");
         localStorage.removeItem("nextchapter_guest_username");
-        window.location.href = "/auth";
+        router.replace("/auth");
         return;
       }
 
+      if (authUser.id !== viewer) return;
       const accountUsername =
         typeof authUser.user_metadata?.username === "string" &&
         authUser.user_metadata.username.trim()
@@ -216,8 +347,9 @@ export default function ProfilePage() {
       const recent = readAccountCache<typeof cached>("profile");
       if (recent?.userId === authUser.id) {
         setRatings(recent.ratings); setPosts(recent.posts); setTopBooks(recent.topBooks); setWantToRead(recent.wantToRead); setLoading(false);
-      } else await loadProfile(authUser.id);
+      } else await loadProfile(authUser.id, signal, !!initialSnapshot.current);
     } catch (initializeError) {
+      if (signal.aborted) return;
       console.error(
         "Profile initialization error:",
         initializeError
@@ -227,121 +359,14 @@ export default function ProfilePage() {
       );
       setLoading(false);
     }
-  }
+  }, [viewer, router, loadProfile]);
 
-  async function loadProfile(currentUserId: string) {
-    setLoading(true);
-    setError("");
 
-    try {
-      const [ratingsResult, postsResult, topBooksResult, wantToReadResult] = await Promise.all([
-        supabase
-          .from("ratings")
-          .select(`
-            id,
-            book_id,
-            user_id,
-            username,
-            overall_rating,
-            content,
-            contains_spoilers,
-            created_at,
-            books (
-              id,
-              external_id,
-              title,
-              author,
-              cover_url
-            )
-          `)
-          .eq("user_id", currentUserId)
-          .order("created_at", { ascending: false }),
-
-        supabase
-          .from("discussion_posts")
-          .select(`
-            id,
-            book_id,
-            user_id,
-            username,
-            content,
-            contains_spoilers,
-            created_at,
-            books (
-              id,
-              external_id,
-              title,
-              author,
-              cover_url
-            )
-          `)
-          .eq("user_id", currentUserId)
-          .order("created_at", { ascending: false }),
-
-        supabase
-          .from("profile_top_books")
-          .select(`
-            id,
-            user_id,
-            book_id,
-            position,
-            books (
-              id,
-              external_id,
-              title,
-              author,
-              cover_url
-            )
-          `)
-          .eq("user_id", currentUserId)
-          .order("position", { ascending: true }),
-
-        supabase
-          .from("want_to_read")
-          .select(`
-            id,
-            user_id,
-            book_id,
-            created_at,
-            books (
-              id,
-              external_id,
-              title,
-              author,
-              cover_url
-            )
-          `)
-          .eq("user_id", currentUserId)
-          .order("created_at", { ascending: false }),
-      ]);
-
-      if (ratingsResult.error) {
-        throw ratingsResult.error;
-      }
-
-      if (postsResult.error) {
-        throw postsResult.error;
-      }
-
-      if (topBooksResult.error) {
-        throw topBooksResult.error;
-      }
-
-      if (wantToReadResult.error) {
-        throw wantToReadResult.error;
-      }
-
-      setRatings((ratingsResult.data || []) as unknown as Rating[]);
-      setPosts((postsResult.data || []) as unknown as DiscussionPost[]);
-      setTopBooks((topBooksResult.data || []) as unknown as TopBook[]);
-      setWantToRead((wantToReadResult.data || []) as unknown as WantToReadItem[]);
-    } catch (profileError) {
-      console.error("Profile load error:", profileError);
-      setError("Could not load your profile activity right now.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  useEffect(() => {
+    const controller = new AbortController();
+    const start = window.setTimeout(() => void initializeProfile(controller.signal), 0);
+    return () => { window.clearTimeout(start); controller.abort(); };
+  }, [initializeProfile]);
 
   function openTopBooksEditor() {
     const nextDraft: (DraftTopBook | null)[] = [null, null, null, null];
@@ -676,12 +701,12 @@ export default function ProfilePage() {
     localStorage.removeItem("nextchapter_guest_id");
     localStorage.removeItem("nextchapter_guest_username");
     localStorage.removeItem(`nextchapter_profile_bio:${userId}`);
-    window.location.href = "/auth";
+    router.replace("/auth");
   }
 
   return (
     <main className="min-h-screen bg-[#f7f2e8] text-stone-900">
-      <SiteHeader active="profile" />
+
 
       <div className="mx-auto max-w-5xl px-5 py-8 md:py-12">
         <section className="rounded-[32px] border border-stone-200 bg-[#fffdf8] p-6 shadow-sm md:p-8">
@@ -778,14 +803,14 @@ export default function ProfilePage() {
                 }
 
                 return (
-                  <a
+                  <Link prefetch={false}
                     key={item.id}
                     href={bookHref(item.books)}
                     className="group min-w-0"
                   >
                     <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[#eee8dc] shadow-sm transition duration-200 group-hover:-translate-y-1 group-hover:shadow-md">
                       {item.books.cover_url ? (
-                        <img
+                        <StableImage
                           src={item.books.cover_url}
                           alt={item.books.title}
                           className="h-full w-full object-cover"
@@ -805,7 +830,7 @@ export default function ProfilePage() {
                     <div className="mt-0.5 truncate text-xs text-stone-500">
                       {item.books.author || "Unknown author"}
                     </div>
-                  </a>
+                  </Link>
                 );
               })}
             </div>
@@ -850,7 +875,7 @@ export default function ProfilePage() {
                   key={item.id}
                   className="relative flex min-w-0 max-w-full flex-col items-stretch gap-3 rounded-2xl border border-stone-200 bg-white p-4 sm:flex-row sm:items-center"
                 >
-                  <a
+                  <Link prefetch={false}
                     href={
                       item.books
                         ? bookHref(item.books)
@@ -860,7 +885,7 @@ export default function ProfilePage() {
                   >
                     <div className="h-24 w-16 shrink-0 overflow-hidden rounded-lg bg-[#eee8dc]">
                       {item.books?.cover_url ? (
-                        <img
+                        <StableImage
                           src={item.books.cover_url}
                           alt={item.books.title}
                           className="h-full w-full object-cover"
@@ -880,7 +905,7 @@ export default function ProfilePage() {
                         {item.books?.author || "Unknown author"}
                       </div>
                     </div>
-                  </a>
+                  </Link>
 
                   <button
                     type="button"
@@ -959,7 +984,7 @@ export default function ProfilePage() {
             <div className="mt-5 grid gap-3">
               {ratings.map((rating) => (
                 <article key={rating.id} className="rounded-2xl border border-stone-200 bg-white p-4 transition hover:border-[#E6D8D4] hover:bg-[#FFFDF9]">
-                <a
+                <Link prefetch={false}
                   href={
                     rating.books
                       ? bookHref(rating.books)
@@ -969,7 +994,7 @@ export default function ProfilePage() {
                 >
                   <div className="h-20 w-14 shrink-0 overflow-hidden rounded-lg bg-[#eee8dc]">
                     {rating.books?.cover_url ? (
-                      <img
+                      <StableImage
                         src={rating.books.cover_url}
                         alt=""
                         className="h-full w-full object-cover"
@@ -1001,7 +1026,7 @@ export default function ProfilePage() {
                   <div className="shrink-0 rounded-xl bg-[#F6E8E6] px-3 py-2 text-sm font-bold text-[#8F2635]">
                     {Number(rating.overall_rating).toFixed(1)}
                   </div>
-                </a>
+                </Link>
                 {rating.books && <div className="mt-3 flex justify-end"><BookShareButton book={{ title: rating.books.title, author: rating.books.author || "", cover: rating.books.cover_url, href: bookHref(rating.books) }} rating={Number(rating.overall_rating)} readerName={username} /></div>}
                 </article>
               ))}
@@ -1118,7 +1143,7 @@ export default function ProfilePage() {
                 >
                   <div className="aspect-[2/3] bg-[#eee8dc]">
                     {book?.cover_url ? (
-                      <img
+                      <StableImage
                         src={book.cover_url}
                         alt={book.title}
                         className="h-full w-full object-cover"
@@ -1194,7 +1219,7 @@ export default function ProfilePage() {
                       >
                         <div className="h-16 w-11 shrink-0 overflow-hidden rounded-md bg-[#eee8dc]">
                           {book.cover ? (
-                            <img
+                            <StableImage
                               src={book.cover}
                               alt={book.title}
                               className="h-full w-full object-cover"

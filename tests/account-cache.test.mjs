@@ -18,6 +18,16 @@ test('account presentation cache expires and invalidates on account edits',()=>{
 test('account presentation cache cannot retain private data in server module state',()=>{
  const {api}=fixture(false);api.syncAccountCache('alice');api.writeAccountCache('profile','alice',{private:true});assert.equal(api.readAccountCache('profile'),undefined);
 });
+test('expired presentation can stay visible during refresh without extending its lifetime',()=>{
+ const {api,tick}=fixture();api.syncAccountCache('alice');api.writeAccountCache('profile','alice',{private:'shelf'});
+ tick(30001);assert.equal(api.readAccountCache('profile'),undefined);assert.equal(api.readAccountCache('profile',true).private,'shelf');
+ tick(300000);assert.equal(api.readAccountCache('profile',true),undefined);
+});
+test('stale presentation still disappears on explicit invalidation and account changes',()=>{
+ const {api,tick}=fixture();api.syncAccountCache('alice');api.writeAccountCache('profile','alice',{private:'shelf'});tick(30001);
+ api.invalidateAccountCache('profile');assert.equal(api.readAccountCache('profile',true),undefined);
+ api.writeAccountCache('profile','alice',{private:'new shelf'});tick(30001);api.syncAccountCache('bob');assert.equal(api.readAccountCache('profile',true),undefined);
+});
 
 const readersCode=ts.transpileModule(fs.readFileSync(new URL('../lib/readers.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 function readerApi(cache,getUser) {

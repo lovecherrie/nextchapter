@@ -1,11 +1,12 @@
 "use client";
 
+import StableImage from "../../components/StableImage";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { discussionHref } from "@/lib/discussion-links";
 import { SafetyActions } from "../../components/Safety";
 import BackLink from "../../components/BackLink";
-import SiteHeader from "../../components/SiteHeader";
 import { FollowButton, ReaderAvatar, ReaderTile, ReaderDisplayName, useReaderViewer } from "../../components/ReaderSocial";
 import { followedReaders, getReader, readerActivity, readerConnections, readerTopBooks, READER_PAGE_SIZE, type Reader, type ReaderActivity, type ReaderBook, type ReaderTopBook } from "@/lib/readers";
 
@@ -20,7 +21,7 @@ function ActivityCard({ item }: { item: ReaderActivity }) {
       <span>{item.kind === "rating" ? `Rating · ${Number(item.overall_rating).toFixed(1)}/5` : "Discussion"}</span>
       <time dateTime={item.created_at}>{new Date(item.created_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</time>
     </div>
-    {item.books && <a href={bookHref(item.books)} className="aepilog-heading mt-3 inline-block text-xl font-medium text-[var(--aepilog-cherry)]">{item.books.title}</a>}
+    {item.books && <Link prefetch={false} href={bookHref(item.books)} className="aepilog-heading mt-3 inline-block text-xl font-medium text-[var(--aepilog-cherry)]">{item.books.title}</Link>}
     {item.books?.author && <p className="mt-1 text-xs text-[var(--aepilog-muted)]">by {item.books.author}</p>}
     {item.content && (item.contains_spoilers ? <>
       <button type="button" aria-expanded={revealed} onClick={() => setRevealed((value) => !value)} className="mt-4 rounded-full border border-[var(--aepilog-border)] px-3 py-2 text-xs font-semibold text-[var(--aepilog-cherry)]">{revealed ? "Hide spoiler" : "Show spoiler"}</button>
@@ -112,7 +113,7 @@ export default function PublicReaderPage({ userId }: { userId: string }) {
   }
 
   return <main className="min-h-screen overflow-x-hidden bg-[var(--aepilog-cream)] text-[var(--aepilog-ink)]">
-    <SiteHeader active="community" />
+
     <div className="mx-auto max-w-4xl px-4 py-7 sm:px-5 sm:py-12">
       <BackLink fallback="/readers" className="text-sm font-semibold text-[var(--aepilog-cherry)]" />
       {loading ? <p role="status" className="mt-8 text-sm text-[var(--aepilog-muted)]">Loading reader profile...</p> : error ? <div role="alert" className="mt-8 text-sm text-[var(--aepilog-cherry)]">{error} <button type="button" onClick={() => setRetry((value) => value + 1)} className="ml-2 underline">Try again</button></div> : !reader ? <section className="mt-7 rounded-[28px] border border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] p-6">
@@ -140,7 +141,7 @@ export default function PublicReaderPage({ userId }: { userId: string }) {
           {shelf.error ? <p className="mt-3 text-sm text-[var(--aepilog-muted)]">Could not load this shelf. <button type="button" className="underline" onClick={() => setRetry((value) => value + 1)}>Try again</button></p> : <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
             {shelf.books.map((item) => item.books && <Link key={item.id} href={bookHref(item.books)} className="min-w-0">
               <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-[var(--aepilog-blush-light)]">
-                {item.books.cover_url ? <img src={item.books.cover_url} alt={item.books.title} className="h-full w-full object-cover" loading="lazy" /> : <div className="flex h-full items-center justify-center p-3 text-center text-sm">{item.books.title}</div>}
+                {item.books.cover_url ? <StableImage src={item.books.cover_url} alt={item.books.title} className="h-full w-full object-cover" loading="lazy" /> : <div className="flex h-full items-center justify-center p-3 text-center text-sm">{item.books.title}</div>}
                 <span className="absolute left-2 top-2 rounded-full bg-[var(--aepilog-paper)] px-2 py-1 text-xs font-semibold">#{item.position}</span>
               </div>
               <p className="mt-2 truncate text-sm font-semibold">{item.books.title}</p>

@@ -2,13 +2,9 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect } from "react";
-import { invalidateAccountCache } from "@/lib/account-cache";
+import { usePathname } from "next/navigation";
+import cherry from "../icon.png";
 import NotificationBell from "./Notifications";
-
-type SiteHeaderProps = {
-  active?: "find" | "community" | "search" | "profile";
-};
 
 function ProfileIcon() {
   return (
@@ -60,14 +56,12 @@ function SearchIcon() {
   );
 }
 
-export default function SiteHeader({
-  active,
-}: SiteHeaderProps) {
-  useEffect(() => {
-    // Reuse shelf/list data only within Profile/Settings. Returning from books
-    // or Community refreshes activity that may have changed in those sections.
-    if (active !== "profile") invalidateAccountCache("profile");
-  }, [active]);
+export default function SiteHeader() {
+  const path = usePathname();
+  const active = path === "/profile" || path === "/settings" || path === "/admin" ? "profile"
+    : path === "/find-books" ? "find"
+    : path === "/search" || path === "/readers" ? "search"
+    : path === "/" || path === "/community" || path.startsWith("/discussion/") || path.startsWith("/readers/") || path.startsWith("/buddy-reads") ? "community" : undefined;
   const navClass =
     "relative px-1 pt-2 pb-5 text-center text-[13px] font-medium transition sm:flex sm:items-center sm:py-0 sm:text-left sm:text-[15px]";
 
@@ -80,7 +74,7 @@ export default function SiteHeader({
           aria-label="aepilog home"
           className="aepilog-wordmark inline-flex shrink-0 items-center gap-2 text-[29px] leading-none text-[var(--aepilog-ink)] transition hover:text-[var(--aepilog-cherry)] sm:gap-3 sm:py-6 sm:text-[42px]"
         >
-          <Image src="/icon.png" alt="" width={36} height={36} unoptimized className="h-7 w-7 shrink-0 sm:h-9 sm:w-9" />
+          <Image src={cherry} alt="" width={36} height={36} unoptimized loading="eager" fetchPriority="high" className="h-7 w-7 shrink-0 sm:h-9 sm:w-9" />
           <span>aepilog</span>
         </Link>
 

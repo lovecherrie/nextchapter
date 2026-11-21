@@ -2,7 +2,6 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import SiteHeader from "../components/SiteHeader";
 import { supabase } from "@/lib/supabase";
 import { safeAuthReturn } from "@/lib/auth-redirect";
 
@@ -138,7 +137,7 @@ export default function AuthPage() {
 
   return (
     <main className="min-h-screen bg-[var(--aepilog-cream)] text-stone-900">
-      <SiteHeader />
+
 
       <div className="mx-auto flex max-w-5xl justify-center px-5 py-10 md:py-16">
         <section className="w-full max-w-md rounded-[32px] border border-stone-200 bg-[var(--aepilog-paper)] p-6 shadow-sm sm:p-8">

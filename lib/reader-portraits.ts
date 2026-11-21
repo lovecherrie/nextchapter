@@ -6,6 +6,12 @@ const cache = new Map<string, Entry>();
 const pending = new Map<string, ((path: string | null) => void)[]>();
 let scheduled = false;
 
+export function cachedReaderPortrait(userId: string): string | null | undefined {
+  if (typeof window === "undefined") return;
+  const entry = cache.get(userId);
+  return entry && entry.until > Date.now() ? entry.path : undefined;
+}
+
 export function rememberReaderPhoto(userId: string, path: string | null) {
   if (cache.size >= 200) cache.delete(cache.keys().next().value!);
   cache.set(userId, { path, until: Date.now() + 60000 });

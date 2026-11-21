@@ -1,5 +1,7 @@
 "use client";
 
+import StableImage from "./StableImage";
+
 import { useEffect, useRef, useState } from "react";
 import { getReader, type Reader } from "@/lib/readers";
 import { readAccountCache } from "@/lib/account-cache";
@@ -8,7 +10,7 @@ import { rememberReaderPhoto } from "@/lib/reader-portraits";
 import { ReaderAvatar } from "./ReaderSocial";
 
 export default function ProfilePhotoEditor({ userId, name }: { userId: string; name: string }) {
-  const cached = readAccountCache<Reader>("reader");
+  const cached = readAccountCache<Reader>("reader", true);
   const own = cached?.user_id === userId ? cached : undefined;
   const [path, setPath] = useState<string | null>(own?.avatar_path || null);
   const [draft, setDraft] = useState<{ blob: Blob; url: string } | null>(null);
@@ -56,7 +58,7 @@ export default function ProfilePhotoEditor({ userId, name }: { userId: string; n
   }
   return <div ref={root} className="relative flex w-20 shrink-0 flex-col items-center gap-2">
     <button ref={trigger} type="button" aria-label="Edit profile photo" aria-expanded={open || !!draft} disabled={busy || !ready} onClick={() => setOpen((value) => !value)} className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#8f2635]">
-      {preview ? <img src={preview} alt="New profile photo preview" className="h-20 w-20 rounded-full object-cover" /> : <ReaderAvatar name={name} path={path} large />}
+      {preview ? <StableImage src={preview} alt="New profile photo preview" className="h-20 w-20 rounded-full object-cover" /> : <ReaderAvatar name={name} path={path} large />}
     </button>
     <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" aria-label="Choose profile photo" className="sr-only" onChange={(event) => void select(event.target.files?.[0])} disabled={busy || !ready} />
     {(open || draft) && <div role="group" aria-label="Photo options" className="aepilog-reveal absolute left-0 top-full z-30 mt-2 w-56 rounded-2xl border border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] p-4 shadow-lg">

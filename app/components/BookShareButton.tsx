@@ -1,5 +1,7 @@
 "use client";
 
+import StableImage from "./StableImage";
+
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createShareCard, shareFilename, type ShareCard } from "@/lib/share-card";
 
@@ -60,7 +62,7 @@ function ShareDialog({ book, rating, readerName, onClose }: ShareCard & { onClos
       <div className="flex items-center justify-between gap-4"><h2 id={heading} className="aepilog-heading text-2xl text-[var(--aepilog-ink)]">Share this chapter</h2><button type="button" onClick={onClose} aria-label="Close sharing" className="rounded-full px-3 py-2 text-lg text-[var(--aepilog-cherry)]">×</button></div>
       <p className="mt-2 text-sm leading-6 text-[var(--aepilog-muted)]">A card for your Instagram Story or wherever you share your reading.</p>
       <div className="mx-auto mt-4 flex aspect-[9/16] w-[180px] items-center justify-center overflow-hidden rounded-xl border border-[var(--aepilog-border)] bg-[var(--aepilog-cream)] sm:w-[210px]">
-        {url ? <img src={url} alt={`Sharing card for ${book.title}${includeRating ? `, rated ${rating} out of 5` : ""}`} className="h-full w-full" /> : <p role="status" className="px-4 text-center text-sm text-[var(--aepilog-muted)]">{error ? "Preview unavailable" : "Creating your card…"}</p>}
+        {url ? <StableImage src={url} alt={`Sharing card for ${book.title}${includeRating ? `, rated ${rating} out of 5` : ""}`} className="h-full w-full" /> : <p role="status" className="px-4 text-center text-sm text-[var(--aepilog-muted)]">{error ? "Preview unavailable" : "Creating your card…"}</p>}
       </div>
       {typeof rating === "number" && rating >= 1 && rating <= 5 && <label className="mt-4 flex items-center gap-2 text-sm text-[var(--aepilog-muted)]"><input type="checkbox" checked={includeRating} onChange={(event) => { setIncludeRating(event.target.checked); setError(""); setStatus(""); }} className="accent-[#8f2635]" />Include my rating{readerName ? " and display name" : ""}</label>}
       <div className="mt-4 flex flex-wrap gap-2">

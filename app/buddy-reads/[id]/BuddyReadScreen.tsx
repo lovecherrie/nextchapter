@@ -1,9 +1,10 @@
 "use client";
 
+import StableImage from "../../components/StableImage";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import SiteHeader from "../../components/SiteHeader";
 import BackLink from "../../components/BackLink";
 import { useReaderViewer, ReaderDisplayName } from "../../components/ReaderSocial";
 import { supabase } from "@/lib/supabase";
@@ -15,7 +16,7 @@ const buttonClass = "rounded-full border border-[var(--aepilog-border)] px-4 py-
 
 export default function BuddyReadScreen({ id }: { id: string }) {
   const viewer = useReaderViewer();
-  return <main className="min-h-screen bg-[var(--aepilog-cream)] text-[var(--aepilog-ink)]"><SiteHeader active="community" /><section className="mx-auto max-w-3xl px-4 py-7 sm:px-5 sm:py-10">
+  return <main className="min-h-screen bg-[var(--aepilog-cream)] text-[var(--aepilog-ink)]"><section className="mx-auto max-w-3xl px-4 py-7 sm:px-5 sm:py-10">
     <BackLink fallback="/buddy-reads" className="text-sm underline underline-offset-4" />
     {viewer === undefined ? <p role="status" className="mt-6">Loading reading circle...</p> : viewer ? <Room key={viewer} id={id} viewer={viewer} /> : <div className="mt-6"><h1 className="aepilog-heading text-3xl">Private reading circle</h1><p className="mt-3"><Link href="/auth" onClick={() => sessionStorage.setItem("nextchapter_return_after_auth", window.location.href)} className="underline">Sign in</Link> to open a group you’ve joined.</p></div>}
   </section></main>;
@@ -130,7 +131,7 @@ function Room({ id, viewer }: { id: string; viewer: string }) {
   if (!group) return <div className="mt-6"><h1 className="aepilog-heading text-3xl">Private reading circle</h1><p className="mt-3 text-sm text-[var(--aepilog-muted)]">{error || "This group is unavailable, or you haven’t joined it. Ask the host for an invite link."}</p><button type="button" onClick={() => void load()} className={`${buttonClass} mt-4`}>Try again</button></div>;
   return <>
     <header className="mt-5 rounded-3xl border border-[var(--aepilog-border)] bg-[var(--aepilog-paper)] p-5 sm:p-6"><span className="text-xs text-[var(--aepilog-cherry)]">Private reading circle</span><h1 className="aepilog-heading mt-2 break-words text-3xl">{group.title}</h1>
-      {group.books && <Link href={attachedBookHref(group.books)} className="mt-4 flex min-w-0 items-center gap-3">{group.books.cover_url && <img src={group.books.cover_url} alt="" className="h-16 w-11 shrink-0 rounded-md object-cover" />}<span className="min-w-0 break-words text-sm">{group.books.title}<span className="mt-1 block text-xs text-[var(--aepilog-muted)]">{group.books.author}</span></span></Link>}
+      {group.books && <Link href={attachedBookHref(group.books)} className="mt-4 flex min-w-0 items-center gap-3">{group.books.cover_url && <StableImage src={group.books.cover_url} alt="" className="h-16 w-11 shrink-0 rounded-md object-cover" />}<span className="min-w-0 break-words text-sm">{group.books.title}<span className="mt-1 block text-xs text-[var(--aepilog-muted)]">{group.books.author}</span></span></Link>}
       <details className="mt-5 text-sm"><summary className="cursor-pointer">{members.length} {members.length === 1 ? "reader" : "readers"}</summary><ul className="mt-3 space-y-2">{members.map((member) => <li key={member.user_id}><ReaderDisplayName name={member.display_name} />{member.user_id === group.owner_id ? " · host" : ""}</li>)}</ul></details>
       <div className="mt-5 flex flex-wrap gap-2">{owner && <button type="button" onClick={() => void showInvite()} disabled={busy} className={buttonClass}>Invite friends</button>}<button type="button" disabled={busy} onClick={() => void leaveOrDelete()} className={buttonClass}>{owner ? "Delete reading circle" : "Leave reading circle"}</button></div>
       {owner && invite && <div className="aepilog-reveal mt-4 rounded-2xl bg-[var(--aepilog-blush-light)] p-4"><p className="text-xs leading-5">Anyone with this invite can join. Share it privately.</p><label className="mt-3 block text-sm">Invite link<input readOnly value={invite} onFocus={(event) => event.target.select()} className={fieldClass} /></label><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => void copyInvite()} className={buttonClass}>Copy invite</button><button type="button" disabled={busy} onClick={() => void showInvite(true)} className={buttonClass}>Reset invite link</button></div>{copyState && <p role="status" className="mt-2 text-xs">{copyState}</p>}</div>}

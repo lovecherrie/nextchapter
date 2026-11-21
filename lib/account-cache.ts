@@ -13,10 +13,15 @@ export function syncAccountCache(userId: string | null, invalidate = false) {
 
 export function accountCacheRevision() { return revision; }
 
-export function readAccountCache<T>(key: string): T | undefined {
+export function readAccountCache<T>(key: string, allowStale = false): T | undefined {
   if (typeof window === "undefined" || !account) return;
   const entry = entries.get(key);
-  if (!entry || entry.until <= Date.now()) { entries.delete(key); return; }
+  if (!entry) return;
+  if (entry.until <= Date.now()) {
+    if (entry.until + 300000 <= Date.now()) entries.delete(key);
+    else if (allowStale) return entry.value as T;
+    return;
+  }
   return entry.value as T;
 }
 

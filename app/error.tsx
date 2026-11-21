@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import SiteHeader from "./components/SiteHeader";
 
 export default function PageError({ retry }: { error: unknown; retry: () => void }) {
   return <main className="min-h-screen bg-[var(--aepilog-cream)] text-[var(--aepilog-ink)]">
-    <SiteHeader />
+
     <section className="mx-auto max-w-lg px-5 py-16 text-center">
       <h1 className="aepilog-heading text-3xl">This page couldn’t load.</h1>
       <p className="mt-4 text-sm leading-6 text-[var(--aepilog-muted)]">Please try again, or head back to the community.</p>

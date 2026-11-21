@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import SiteHeader from "../components/SiteHeader";
 import SearchTabs from "../components/SearchTabs";
 import { ReaderTile, useReaderViewer } from "../components/ReaderSocial";
 import { followedReaders, getReader, READER_PAGE_SIZE, searchReaders, type Reader } from "@/lib/readers";
@@ -45,7 +44,7 @@ export default function ReadersPage() {
   }
 
   return <main className="min-h-screen overflow-x-hidden bg-[var(--aepilog-cream)] text-[var(--aepilog-ink)]">
-    <SiteHeader active="search" />
+
     <div className="mx-auto max-w-5xl px-4 py-5 sm:px-5 sm:py-10 md:py-14">
       <div className="mx-auto max-w-3xl">
       <div className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--aepilog-cherry-soft)]">Explore aepilog</div>

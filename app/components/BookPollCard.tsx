@@ -1,4 +1,6 @@
 "use client";
+
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -43,7 +45,7 @@ export default function BookPollCard({ poll, choice, onChoice, onUpdate }: { pol
         </div>;
       })}
     </div>
-    <div className="mt-2 grid grid-cols-2 gap-3 text-center text-xs font-semibold text-[#8f2635]">{[poll.left_book,poll.right_book].map((book,i)=>book?<a key={i} href={attachedBookHref(book)} className="py-2 hover:underline">View book</a>:<span key={i} />)}</div>
+    <div className="mt-2 grid grid-cols-2 gap-3 text-center text-xs font-semibold text-[#8f2635]">{[poll.left_book,poll.right_book].map((book,i)=>book?<Link prefetch={false} key={i} href={attachedBookHref(book)} className="py-2 hover:underline">View book</Link>:<span key={i} />)}</div>
     <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-[#756866]"><span>{pollTotal(poll)} {pollTotal(poll) === 1 ? "vote" : "votes"}{saving ? " · Saving…" : ""}</span>{!choice && <button type="button" onClick={() => setShowResults((value) => !value)} className="py-2 font-semibold text-[#8f2635]">{showResults ? "Hide results" : "View results"}</button>}</div>
     {error && <p role="alert" className="mt-2 text-xs leading-5 text-[#8f2635]">{error}</p>}
   </div>;
