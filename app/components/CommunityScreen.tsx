@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { accountUser } from "@/lib/readers";
+import { accountUser, followedReaders } from "@/lib/readers";
 import { discussionHref } from "@/lib/discussion-links";
 import SiteHeader from "./SiteHeader";
 import BackLink from "./BackLink";
@@ -24,6 +24,7 @@ import DiscussionSection from "./DiscussionSection";
 import { discussionSectionLabel } from "@/lib/discussion-sections";
 import ConversationBooks, { type ConversationBook } from "./ConversationBooks";
 import ReplyBookPicker from "./ReplyBookPicker";
+import { useNotifications } from "./Notifications";
 
 type Book = {
   id: string;
@@ -75,7 +76,7 @@ type DiscussionPost = {
   section_label?: string | null;
 };
 
-type Filter = "top" | "newest";
+type Filter = "top" | "newest" | "following";
 
 function timeAgo(dateString: string) {
   const date = new Date(dateString);
@@ -154,17 +155,23 @@ function makeRatingUrl(book: SearchBook) {
   return `/book?${params.toString()}#rate-book`;
 }
 
-function normalizeSearchResults(data: any): SearchBook[] {
-  const rawBooks = Array.isArray(data)
+type RawSearchBook = Partial<SearchBook> & {
+  externalId?: string; id?: string; googleBooksId?: string; authors?: string | string[];
+  cover?: string; thumbnail?: string; imageLinks?: { thumbnail?: string };
+  volumeInfo?: { title?: string; authors?: string[]; imageLinks?: { thumbnail?: string } };
+};
+function normalizeSearchResults(data: unknown): SearchBook[] {
+  const payload = data as { books?: RawSearchBook[]; results?: RawSearchBook[] } | null;
+  const rawBooks: RawSearchBook[] = Array.isArray(data)
     ? data
-    : Array.isArray(data?.books)
-    ? data.books
-    : Array.isArray(data?.results)
-    ? data.results
+    : Array.isArray(payload?.books)
+    ? payload.books!
+    : Array.isArray(payload?.results)
+    ? payload.results!
     : [];
 
   return rawBooks
-    .map((book: any) => {
+    .map((book) => {
       const title =
         book?.title ||
         book?.volumeInfo?.title ||
@@ -213,16 +220,29 @@ function normalizeSearchResults(data: any): SearchBook[] {
 }
 
 
-type FeedSnapshot = { posts: DiscussionPost[]; filter: Filter; genre: string; authorQuery: string; spoilerFree: boolean; browseOpen: boolean; path: string; scroll: number; restore: boolean; until: number };
-// Public feed data only, scoped to this browser tab; never persisted or shared by SSR.
+type FeedSnapshot = { viewer: string | null; posts: DiscussionPost[]; filter: Filter; genre: string; authorQuery: string; spoilerFree: boolean; browseOpen: boolean; path: string; scroll: number; restore: boolean; until: number };
+// Visibility depends on the current reader's blocks. Never reuse across accounts.
 let feedSnapshot: FeedSnapshot | null = null;
-function recentFeed() {
-  return typeof window !== "undefined" && feedSnapshot && feedSnapshot.until > Date.now() ? feedSnapshot : null;
+function recentFeed(viewer: string | null) {
+  return typeof window !== "undefined" && feedSnapshot?.viewer === viewer && feedSnapshot.until > Date.now() ? feedSnapshot : null;
+}
+
+function saveFeed(snapshot: FeedSnapshot) { feedSnapshot = snapshot; }
+function updateFeed(viewer: string | null, change: (snapshot: FeedSnapshot) => FeedSnapshot) {
+  const snapshot = recentFeed(viewer);
+  if (snapshot) saveFeed(change(snapshot));
 }
 
 export default function CommunityScreen({ discussionId }: { discussionId?: string }) {
+  const { viewer } = useNotifications();
+  if (viewer === undefined) return <main className="min-h-screen bg-[var(--aepilog-cream)]"><SiteHeader active="community" /><p role="status" className="mx-auto max-w-6xl px-4 py-10 text-sm text-[var(--aepilog-muted)]">Loading discussions...</p></main>;
+  return <CommunityContent key={`${viewer || "guest"}:${discussionId || "feed"}`} viewer={viewer} discussionId={discussionId} />;
+}
+
+function CommunityContent({ discussionId, viewer }: { discussionId?: string; viewer: string | null }) {
   const router = useRouter();
-  const [initialFeed] = useState(() => !discussionId ? recentFeed() : null);
+  const [initialFeed] = useState(() => !discussionId ? recentFeed(viewer) : null);
+  const loadController = useRef<AbortController | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "manual">("idle");
   const [refreshError, setRefreshError] = useState("");
@@ -259,8 +279,29 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
     if (post) { openedAnchor.current = id; requestAnimationFrame(() => post.scrollIntoView({ block: "start" })); }
   });
 
-  const [guestUserId, setGuestUserId] = useState("");
+  const guestUserId = viewer || "";
   const [guestUsername, setGuestUsername] = useState("");
+  const [followRevision, setFollowRevision] = useState(0);
+  const [following, setFollowing] = useState<{ authors: string; ids: Set<string>; error: boolean } | null>(null);
+  const feedAuthors = [...new Set(posts.map(post => post.user_id))].sort().join(",");
+  const followingReady = following?.authors === feedAuthors;
+  useEffect(() => {
+    if (filter !== "following" || !viewer) return;
+    const controller = new AbortController();
+    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(10000)]);
+    void (async () => {
+      try {
+        const authors = feedAuthors ? feedAuthors.split(",") : [];
+        const ids = new Set<string>();
+        for (let index = 0; index < authors.length; index += 100) {
+          const batch = await followedReaders(viewer, authors.slice(index, index + 100), signal);
+          for (const id of batch) ids.add(id);
+        }
+        if (!controller.signal.aborted) setFollowing({ authors: feedAuthors, ids, error: false });
+      } catch { if (!controller.signal.aborted) setFollowing({ authors: feedAuthors, ids: new Set(), error: true }); }
+    })();
+    return () => controller.abort();
+  }, [filter, viewer, feedAuthors, followRevision]);
   const pollIds = posts.flatMap((post) => pollFromPost(post.book_polls)?.post_id || []).sort().join(",");
   useEffect(() => {
     if (!guestUserId || !pollIds) return;
@@ -339,12 +380,12 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
   useEffect(() => {
     if (typeof window === "undefined" || loading || error) return;
     if (!discussionId) {
-      feedSnapshot = { posts, filter, genre, authorQuery, spoilerFree, browseOpen, path: window.location.pathname,
-        scroll: feedSnapshot?.scroll || 0, restore: false, until: Date.now() + 300000 };
-    } else if (feedSnapshot && posts.length === 1) {
-      feedSnapshot = { ...feedSnapshot, posts: feedSnapshot.posts.map((post) => post.id === posts[0].id ? posts[0] : post) };
+      saveFeed({ viewer, posts, filter, genre, authorQuery, spoilerFree, browseOpen, path: window.location.pathname,
+        scroll: recentFeed(viewer)?.scroll || 0, restore: false, until: Date.now() + 300000 });
+    } else if (posts.length === 1) {
+      updateFeed(viewer, snapshot => ({ ...snapshot, posts: snapshot.posts.map(post => post.id === posts[0].id ? posts[0] : post) }));
     }
-  }, [discussionId, posts, filter, genre, authorQuery, spoilerFree, browseOpen, loading, error]);
+  }, [viewer, discussionId, posts, filter, genre, authorQuery, spoilerFree, browseOpen, loading, error]);
 
   useEffect(() => {
     if (!initialFeed?.restore) return;
@@ -353,7 +394,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
   }, [initialFeed]);
 
   function rememberFeedPosition() {
-    if (feedSnapshot) feedSnapshot = { ...feedSnapshot, scroll: window.scrollY, path: window.location.pathname };
+    updateFeed(viewer, snapshot => ({ ...snapshot, scroll: window.scrollY, path: window.location.pathname }));
   }
 
   async function copyDiscussionLink() {
@@ -366,47 +407,6 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
   }
 
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const setupIdentity = async () => {
-      const authUser = await accountUser();
-
-      if (authUser && !authUser.is_anonymous) {
-        const username =
-          typeof authUser.user_metadata?.username === "string" &&
-          authUser.user_metadata.username.trim()
-            ? authUser.user_metadata.username.trim()
-            : "Reader";
-
-        localStorage.setItem("nextchapter_guest_id", authUser.id);
-        localStorage.setItem("nextchapter_guest_username", username);
-
-        if (!cancelled) {
-          setGuestUserId(authUser.id);
-          setGuestUsername(username);
-        }
-      } else {
-        localStorage.removeItem("nextchapter_guest_id");
-        localStorage.removeItem("nextchapter_guest_username");
-
-        if (!cancelled) {
-          setGuestUserId("");
-          setGuestUsername("");
-        }
-      }
-
-      if (!cancelled) {
-        await loadPosts(!!initialFeed);
-      }
-    };
-
-    setupIdentity();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [discussionId]);
 
   useEffect(() => {
     function closeMenusOnOutsideClick(event: MouseEvent) {
@@ -428,20 +428,16 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
     };
   }, []);
 
-  useEffect(() => {
-    const trimmed = bookQuery.trim();
-    if (selectedBook || (!createOpen && !rateOpen) || trimmed.length < 2) return;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => { void searchBooks(trimmed, controller.signal); }, 350);
-    return () => { clearTimeout(timeout); controller.abort(); };
-  }, [bookQuery, selectedBook, createOpen, rateOpen]);
 
   function changeBookQuery(value: string) {
     setBookQuery(value); setBookResults([]); setBookSearchError("");
     setSearchingBooks(value.trim().length >= 2);
   }
 
-  async function loadPosts(background = false) {
+  const loadPosts = useCallback(async (background = false) => {
+    loadController.current?.abort();
+    const controller = new AbortController();
+    loadController.current = controller;
     if (!background) setLoading(true);
     setError(""); setRefreshError("");
 
@@ -472,7 +468,8 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
         comments (${discussionId ? "id,post_id,user_id,username,content,contains_spoilers,parent_comment_id,created_at,updated_at,comment_likes(user_id),recommended_book:books!comments_recommended_book_id_fkey(id,external_id,title,author,cover_url)" : "id,created_at"})
       `);
     if (discussionId) request = request.eq("id", discussionId).limit(1);
-    const { data, error } = await request.order("created_at", { ascending: false }).abortSignal(AbortSignal.timeout(12000));
+    const { data, error } = await request.order("created_at", { ascending: false }).abortSignal(AbortSignal.any([controller.signal, AbortSignal.timeout(12000)]));
+    if (controller.signal.aborted) return;
 
     if (error) {
       console.error(error);
@@ -482,7 +479,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
       return;
     }
 
-    const cleaned = (data || []).map((post: any) => {
+    const cleaned = ((data || []) as unknown as DiscussionPost[]).map((post) => {
       const intent = postLikeIntents.current.get(post.id);
       let likes = post.discussion_likes || [];
       if (intent) {
@@ -501,7 +498,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
 
     setPosts(cleaned as DiscussionPost[]);
     setLoading(false);
-  }
+  }, [discussionId]);
 
   async function searchBooks(query: string, signal: AbortSignal) {
     try {
@@ -511,6 +508,26 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
       if (!signal.aborted) setBookSearchError("Book search is unavailable. Please try again.");
     } finally { if (!signal.aborted) setSearchingBooks(false); }
   }
+
+  useEffect(() => {
+    let cancelled = false;
+    // The provider has already resolved identity. Load without a second auth wait.
+    const start = window.setTimeout(() => void loadPosts(!!initialFeed), 0);
+    if (viewer) void accountUser().then((user) => {
+      if (cancelled || user?.id !== viewer) return;
+      const name = user.user_metadata?.username;
+      setGuestUsername(typeof name === "string" && name.trim() ? name : "Reader");
+    }).catch(() => { if (!cancelled) setGuestUsername("Reader"); });
+    return () => { cancelled = true; window.clearTimeout(start); loadController.current?.abort(); };
+  }, [initialFeed, loadPosts, viewer]);
+
+  useEffect(() => {
+    const trimmed = bookQuery.trim();
+    if (selectedBook || (!createOpen && !rateOpen) || trimmed.length < 2) return;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => { void searchBooks(trimmed, controller.signal); }, 350);
+    return () => { clearTimeout(timeout); controller.abort(); };
+  }, [bookQuery, selectedBook, createOpen, rateOpen]);
 
   async function findOrCreateBook(searchBook: SearchBook) {
     return ensureCommunityBook(searchBook);
@@ -525,7 +542,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
       "nextchapter_return_after_auth",
       window.location.href
     );
-    window.location.href = "/auth";
+    router.push("/auth");
     return false;
   }
 
@@ -597,7 +614,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
       setSelectedBook(null);
       setCreateOpen(false);
       setFilter("newest");
-      if (feedSnapshot) feedSnapshot = { ...feedSnapshot, posts: [completePost, ...feedSnapshot.posts.filter((item) => item.id !== completePost.id)], filter: "newest", scroll: 0 };
+      updateFeed(viewer, snapshot => ({ ...snapshot, posts: [completePost, ...snapshot.posts.filter(item => item.id !== completePost.id)], filter: "newest", scroll: 0 }));
       router.push(discussionHref(completePost.id));
     } catch (error) {
       console.error(error);
@@ -640,7 +657,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
     const update = (rows: DiscussionPost[]) => rows.map((post) => post.id === postId ? { ...post,
       discussion_likes: [...post.discussion_likes.filter((like) => like.user_id !== userId), ...(liked ? [{ id: `local:${postId}`, user_id: userId }] : [])] } : post);
     setPosts(update);
-    if (feedSnapshot) feedSnapshot = { ...feedSnapshot, posts: update(feedSnapshot.posts) };
+    updateFeed(viewer, snapshot => ({ ...snapshot, posts: update(snapshot.posts) }));
   }
 
   async function toggleLike(post: DiscussionPost) {
@@ -834,8 +851,8 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
         current.filter((item) => item.id !== post.id)
       );
 
-      if (feedSnapshot) feedSnapshot = { ...feedSnapshot, posts: feedSnapshot.posts.filter((item) => item.id !== post.id), restore: true };
-      if (discussionId) router.replace(recentFeed()?.path || "/");
+      updateFeed(viewer, snapshot => ({ ...snapshot, posts: snapshot.posts.filter(item => item.id !== post.id), restore: true }));
+      if (discussionId) router.replace(recentFeed(viewer)?.path || "/");
       setPostMenu(null);
       setEditingPostId(null);
     } else {
@@ -862,7 +879,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
 
   const filteredPosts = useMemo(() => {
     if (discussionId) return posts;
-    let result = [...posts];
+    let result = filter === "following" ? (followingReady && !following?.error ? posts.filter(post => following.ids.has(post.user_id)) : []) : [...posts];
 
     if (spoilerFree) {
       result = result.filter(
@@ -895,7 +912,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
       });
     }
 
-    if (filter === "newest") {
+    if (filter === "newest" || filter === "following") {
       result.sort(
         (a, b) =>
           new Date(b.created_at).getTime() -
@@ -904,7 +921,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
     }
 
     return result;
-  }, [discussionId, posts, filter, spoilerFree, authorQuery, genre, bookTopics.topics]);
+  }, [discussionId, posts, filter, spoilerFree, authorQuery, genre, bookTopics.topics, following, followingReady]);
 
   const featuredPost = useMemo(() => {
     if (filteredPosts.length === 0) return null;
@@ -1197,7 +1214,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
       <section className={`mx-auto px-4 py-5 sm:px-5 sm:py-7 ${discussionId ? "max-w-3xl" : "max-w-6xl"}`}>
         {discussionId && <div className="mb-5">
           <div className="flex items-center justify-between gap-3">
-            <BackLink fallback={recentFeed()?.path || "/"} onBack={() => { if (feedSnapshot) feedSnapshot = { ...feedSnapshot, restore: true }; }} className="py-2 text-sm font-medium underline underline-offset-4" />
+            <BackLink fallback={recentFeed(viewer)?.path || "/"} onBack={() => { updateFeed(viewer, snapshot => ({ ...snapshot, restore: true })); }} className="py-2 text-sm font-medium underline underline-offset-4" />
             <button type="button" onClick={() => void copyDiscussionLink()} className="rounded-full border border-[#e6d8d4] bg-[#fffdf9] px-4 py-2 text-sm">{copyState === "copied" ? "Link copied" : "Copy link"}</button>
           </div>
           <h1 className="aepilog-heading mt-3 text-3xl font-medium">Discussion</h1>
@@ -1333,11 +1350,11 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
           </div>
 
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
-            <div className="grid w-full grid-cols-3 rounded-full border border-[#e4d7d2] bg-[#fffdf9] p-1 shadow-sm sm:flex sm:w-auto sm:flex-none">
+            <div className={`grid w-full ${viewer ? "grid-cols-4" : "grid-cols-3"} rounded-full border border-[#e4d7d2] bg-[#fffdf9] p-1 shadow-sm sm:flex sm:w-auto sm:flex-none`}>
               <button
                 onClick={() => setFilter("top")}
                 aria-pressed={filter === "top"}
-                className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold sm:px-4 sm:py-2 sm:text-sm ${
+                className={`whitespace-nowrap rounded-full px-2 py-1.5 text-xs font-semibold sm:px-4 sm:py-2 sm:text-sm ${
                   filter === "top"
                     ? "bg-[#8f2635] text-white"
                     : "text-[#756866]"
@@ -1349,7 +1366,7 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
               <button
                 onClick={() => setFilter("newest")}
                 aria-pressed={filter === "newest"}
-                className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold sm:px-4 sm:py-2 sm:text-sm ${
+                className={`whitespace-nowrap rounded-full px-2 py-1.5 text-xs font-semibold sm:px-4 sm:py-2 sm:text-sm ${
                   filter === "newest"
                     ? "bg-[#8f2635] text-white"
                     : "text-[#756866]"
@@ -1358,7 +1375,9 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
                 Newest
               </button>
 
-              <button type="button" onClick={() => setBrowseOpen((value) => !value)} aria-expanded={browseOpen} aria-controls="community-filters" className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold sm:px-4 sm:py-2 sm:text-sm ${browseOpen || activeFilters ? "bg-[#f6e8e6] text-[#8f2635]" : "text-[#756866]"}`}>
+              {viewer && <button type="button" onClick={() => setFilter("following")} aria-pressed={filter === "following"} className={`whitespace-nowrap rounded-full px-2 py-1.5 text-xs font-semibold sm:px-4 sm:py-2 sm:text-sm ${filter === "following" ? "bg-[#8f2635] text-white" : "text-[#756866]"}`}>Following</button>}
+
+              <button type="button" onClick={() => setBrowseOpen((value) => !value)} aria-expanded={browseOpen} aria-controls="community-filters" className={`whitespace-nowrap rounded-full px-2 py-1.5 text-xs font-semibold sm:px-4 sm:py-2 sm:text-sm ${browseOpen || activeFilters ? "bg-[#f6e8e6] text-[#8f2635]" : "text-[#756866]"}`}>
                 Filters{activeFilters ? ` (${activeFilters})` : ""}
               </button>
             </div>
@@ -1400,14 +1419,17 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
         {!loading &&
           !error &&
           !(genre && bookTopics.loading) &&
+          (filter !== "following" || (followingReady && !following?.error)) &&
           filteredPosts.length === 0 && (
             <div className="rounded-[28px] border border-dashed border-[#dfcfca] bg-[#fffdf9] px-6 py-16 text-center">
               <div className="text-5xl"></div>
               <h3 className="font-aepilog-serif mt-5 text-xl font-medium sm:text-xl">
-                {discussionId ? "Discussion not found" : activeFilters ? "No discussions match these filters." : "No discussions yet."}
+                {discussionId ? "Discussion not found" : filter === "following" ? "No posts from people you follow yet." : activeFilters ? "No discussions match these filters." : "No discussions yet."}
               </h3>
+              {filter === "following" && <Link href="/readers" className="mt-4 inline-block text-sm text-[var(--aepilog-cherry)] underline">Find readers</Link>}
             </div>
           )}
+        {filter === "following" && !loading && !error && (!followingReady ? <p role="status" className="mb-4 text-sm text-[var(--aepilog-muted)]">Loading posts from people you follow...</p> : following?.error ? <p role="alert" className="mb-4 text-sm text-[var(--aepilog-cherry)]">Could not load following. <button type="button" onClick={() => setFollowRevision(value => value + 1)} className="underline">Try again</button></p> : null)}
 
         {refreshError && <p role="alert" className="mb-4 text-sm text-[#8f2635]">{refreshError} <button type="button" onClick={() => void loadPosts(true)} className="underline">Try again</button></p>}
         <div className="space-y-4">
@@ -1439,13 +1461,15 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
                   <div className="border-b border-[#eee2de] bg-[#fdf9f5] px-4 py-3 sm:px-5">
                     <a
                       href={makeBookUrl(book)}
-                      className="flex items-center gap-3"
+                      className="flex min-w-0 items-center gap-3"
                     >
                       {book.cover_url ? (
                         <img
                           src={book.cover_url}
                           alt={book.title}
-                          className="h-14 w-10 rounded-md object-cover"
+                          loading="lazy"
+                          decoding="async"
+                          className="h-14 w-10 shrink-0 rounded-md object-cover"
                         />
                       ) : (
                         <div className="flex h-14 w-10 items-center justify-center rounded-md bg-[#eee2de]">
@@ -1453,12 +1477,12 @@ export default function CommunityScreen({ discussionId }: { discussionId?: strin
                         </div>
                       )}
 
-                      <div>
+                      <div className="min-w-0">
                         <div className="text-xs font-bold uppercase tracking-[0.12em] text-[#a05a62]">
                           Discussing
                         </div>
 
-                        <div className="font-aepilog-serif font-semibold text-[#3a2b2b]">
+                        <div className="font-aepilog-serif break-words font-semibold text-[#3a2b2b]">
                           {book.title}
                         </div>
 
